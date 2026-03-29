@@ -210,4 +210,39 @@ The Alto `HttpClient` sends `Accept: */*`. Sending specific XML media types (`ap
 Per-page ALTO failures (network errors, parse errors, 404) are caught and accumulated as warnings in `job.Errors`; the job continues and reaches `Completed`. HTTP 404 on an ALTO URI is treated as a sparse page (same as `Text = null`) rather than an error. Only manifest-fetch or storage failures set `Status = Failed`.
 
 ---
+
+## 2026-03-29 — PR 7: Search API (IIIF Search v1 + Autocomplete v1)
+
+### IIIF Search v1 response design
+
+The `SearchHandler` returns a `sc:AnnotationList` with two parallel arrays:
+
+- **`resources`** — one `oa:Annotation` per matched word rectangle, with `on: "{canvasId}#xywh=X,Y,W,H"` and an `@id` that embeds the coordinates for stable reference.
+- **`hits`** — one `search:Hit` per logical match group (where a multi-word phrase produces multiple rects that are grouped by hit number). Each hit carries `match`, `before`, and `after` context strings (150 raw characters, skipped when ≥100 results — same threshold as the reference implementations). `annotations` is an array of the annotation `@id` values belonging to that hit.
+
+The `within` object carries `total` (total hit count) per the v1 spec.
+
+The `ignored` field is populated (and returned in the response) for any IIIF Search v1 parameters that are recognised but not processed: `motivation`, `date`, `user`, `box`. This is spec-compliant — the Search API must declare which params it silently ignores.
+
+Annotation `@id` format: `{selfUrl}/anno/h{hitNumber}i{imageIndex}-{X},{Y},{W},{H}` — stable, encodes coordinates and page, unique within a response.
+
+### Autocomplete response design
+
+`AutocompleteHandler` returns a `search:TermList`. Queries shorter than 3 characters return an empty `Terms` list (not `null` / 404) — the resource exists, it's just empty for short prefixes. This matches the spec's intent and avoids 404 ambiguity.
+
+Suggestions are returned ordered by length then alphabetically — consistent with the `AutoComplete.GetSuggestions` implementation in Core.
+
+### In-process memory cache + AsyncKeyedLock
+
+`TextCache` wraps `ITextStore` with `IMemoryCache` (sliding expiration, default 30 minutes). To prevent thundering-herd on cache misses under concurrent requests for the same key, `AsyncKeyedLocker<string>` (from `AsyncKeyedLock`) provides per-key async locking. The double-check pattern is used: check cache → acquire key lock → check cache again → load from storage. This ensures at most one storage load per key per expiry window regardless of concurrency.
+
+### BaseUrl fallback
+
+When `TextServices:BaseUrl` is empty in configuration, the self-URL falls back to `{ctx.Request.Scheme}://{ctx.Request.Host}`. This works correctly for direct access and for reverse proxies that set the `Host` header. Production deployments behind a proxy that changes the scheme (e.g., HTTP internally) should set `BaseUrl` explicitly.
+
+### MediatR request/response pattern
+
+Both Search and Autocomplete features use `IRequest<T?>` / `IRequestHandler<TRequest, TResponse>` via MediatR. The `ISender.Send` call in `Program.cs` returns `null` for a missing resource (404) or a populated response object. The HTTP layer is decoupled from the business logic, which is fully testable without a running HTTP server.
+
+---
 <!-- Add new sessions below this line -->
