@@ -27,7 +27,7 @@ builder.Services.AddSingleton<ITextStore>(_ =>
 
 // ---- Cache ------------------------------------------------------------------
 
-builder.Services.AddMemoryCache();
+builder.Services.AddMemoryCache(opts => opts.SizeLimit = options.CacheMaxWords);
 builder.Services.AddSingleton(new AsyncKeyedLocker<string>());
 builder.Services.AddSingleton<ITextCache, TextCache>();
 
