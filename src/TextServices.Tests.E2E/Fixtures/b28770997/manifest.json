@@ -1,0 +1,32 @@
+{
+  "@context": "http://iiif.io/api/presentation/3/context.json",
+  "id": "https://iiif.wellcomecollection.org/presentation/b28770997",
+  "type": "Manifest",
+  "label": { "en": ["Test manifest — no ALTO (synthetic fixture)"] },
+  "items": [
+    {
+      "id": "https://iiif.wellcomecollection.org/presentation/b28770997/canvases/b28770997_0001.jp2",
+      "type": "Canvas",
+      "width": 2000,
+      "height": 3000,
+      "label": { "en": ["Page 1"] },
+      "items": []
+    },
+    {
+      "id": "https://iiif.wellcomecollection.org/presentation/b28770997/canvases/b28770997_0002.jp2",
+      "type": "Canvas",
+      "width": 2000,
+      "height": 3000,
+      "label": { "en": ["Page 2"] },
+      "items": []
+    },
+    {
+      "id": "https://iiif.wellcomecollection.org/presentation/b28770997/canvases/b28770997_0003.jp2",
+      "type": "Canvas",
+      "width": 2000,
+      "height": 3000,
+      "label": { "en": ["Page 3"] },
+      "items": []
+    }
+  ]
+}

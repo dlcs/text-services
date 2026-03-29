@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alto xmlns="http://www.loc.gov/standards/alto/ns-v2#" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/standards/alto/ns-v2# http://www.loc.gov/standards/alto/alto.xsd">
+  <Description>
+    <MeasurementUnit>pixel</MeasurementUnit>
+    <sourceImageInformation><fileName>b2888193x_abbyy.xml</fileName></sourceImageInformation>
+    <OCRProcessing ID="OCR_1"><ocrProcessingStep><processingSoftware><softwareName>FineReader Engine</softwareName><softwareVersion>10</softwareVersion></processingSoftware></ocrProcessingStep></OCRProcessing>
+  </Description>
+  <Layout>
+    <Page PHYSICAL_IMG_NR="2" ID="PAGE_2" WIDTH="2495" HEIGHT="4067">
+      <TopMargin ID="TopMargin_1" HPOS="1256" VPOS="290" WIDTH="30" HEIGHT="50">
+        <TextBlock ID="TextBlock_189" HPOS="1256" VPOS="290" WIDTH="30" HEIGHT="50">
+          <TextLine ID="TextLine_48" HPOS="1256" VPOS="290" WIDTH="30" HEIGHT="50">
+            <String CONTENT="2" ID="Word_136" HPOS="1256" VPOS="290" WIDTH="30" HEIGHT="50" />
+          </TextLine>
+        </TextBlock>
+      </TopMargin>
+      <PrintSpace ID="PrintSpace_3" HPOS="350" VPOS="313" WIDTH="1873" HEIGHT="3322">
+        <TextBlock ID="TextBlock_42" HPOS="350" VPOS="313" WIDTH="1873" HEIGHT="1554">
+          <TextLine ID="TextLine_51" HPOS="417" VPOS="628" WIDTH="1775" HEIGHT="70">
+            <String CONTENT="Live" ID="Word_141" HPOS="417" VPOS="629" WIDTH="145" HEIGHT="52" />
+            <SP ID="SP_93" HPOS="563" VPOS="629" WIDTH="51" HEIGHT="0" />
+            <String CONTENT="Birth" ID="Word_142" HPOS="615" VPOS="629" WIDTH="173" HEIGHT="51" />
+            <SP ID="SP_94" HPOS="789" VPOS="628" WIDTH="52" HEIGHT="0" />
+            <String CONTENT="Rate" ID="Word_143" HPOS="842" VPOS="628" WIDTH="149" HEIGHT="52" />
+            <SP ID="SP_95" HPOS="992" VPOS="629" WIDTH="57" HEIGHT="0" />
+            <String CONTENT="(per" ID="Word_144" HPOS="1050" VPOS="629" WIDTH="132" HEIGHT="63" />
+            <SP ID="SP_96" HPOS="1183" VPOS="629" WIDTH="54" HEIGHT="0" />
+            <String CONTENT="1,000" ID="Word_145" HPOS="1238" VPOS="629" WIDTH="149" HEIGHT="63" />
+            <SP ID="SP_97" HPOS="1388" VPOS="630" WIDTH="52" HEIGHT="0" />
+            <String CONTENT="estimated" ID="Word_146" HPOS="1441" VPOS="631" WIDTH="320" HEIGHT="52" />
+            <SP ID="SP_98" HPOS="1762" VPOS="632" WIDTH="50" HEIGHT="0" />
+            <String CONTENT="population:" ID="Word_147" HPOS="1813" VPOS="636" WIDTH="379" HEIGHT="62" />
+          </TextLine>
+          <TextLine ID="TextLine_52" HPOS="352" VPOS="715" WIDTH="1715" HEIGHT="68">
+            <String CONTENT="18.0" ID="Word_148" HPOS="352" VPOS="717" WIDTH="114" HEIGHT="51" />
+            <SP ID="SP_99" HPOS="467" VPOS="717" WIDTH="42" HEIGHT="0" />
+            <String CONTENT="(compared" ID="Word_149" HPOS="510" VPOS="717" WIDTH="348" HEIGHT="61" />
+            <SP ID="SP_100" HPOS="859" VPOS="717" WIDTH="29" HEIGHT="0" />
+            <String CONTENT="with" ID="Word_150" HPOS="889" VPOS="720" WIDTH="148" HEIGHT="47" />
+            <SP ID="SP_101" HPOS="1038" VPOS="716" WIDTH="40" HEIGHT="0" />
+            <String CONTENT="15.8" ID="Word_151" HPOS="1079" VPOS="716" WIDTH="114" HEIGHT="51" />
+            <SP ID="SP_102" HPOS="1194" VPOS="715" WIDTH="37" HEIGHT="0" />
+            <String CONTENT="for" ID="Word_152" HPOS="1232" VPOS="715" WIDTH="93" HEIGHT="53" />
+            <SP ID="SP_103" HPOS="1326" VPOS="717" WIDTH="36" HEIGHT="0" />
+            <String CONTENT="England" ID="Word_153" HPOS="1363" VPOS="717" WIDTH="272" HEIGHT="64" />
+            <SP ID="SP_104" HPOS="1636" VPOS="720" WIDTH="37" HEIGHT="0" />
+            <String CONTENT="and" ID="Word_154" HPOS="1674" VPOS="719" WIDTH="117" HEIGHT="51" />
+            <SP ID="SP_105" HPOS="1792" VPOS="717" WIDTH="35" HEIGHT="0" />
+            <String CONTENT="Wales)." ID="Word_155" HPOS="1828" VPOS="717" WIDTH="239" HEIGHT="66" />
+          </TextLine>
+        </TextBlock>
+      </PrintSpace>
+    </Page>
+  </Layout>
+</alto>

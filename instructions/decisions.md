@@ -269,4 +269,48 @@ The Manifest JSON is loaded directly from `ITextStore` on each request — it is
 During PR 7/8 development, the initial cache sizing used word count as the `IMemoryCache` size unit. This was identified as flawed: a `Text` object whose word count exceeds `SizeLimit` can never be admitted to the cache, silently degrading to uncached storage reads on every request. The correct unit is **entry count** (`Size = 1` per object, `SizeLimit = CacheMaxEntries`). Every Text is cacheable regardless of size; memory headroom is controlled at the infrastructure level (ECS task memory limit). See `instructions/cache-usage.md` for full analysis including LOH, ECS, and horizontal scaling considerations. Tracking issue: tomcrane/TextServices#9.
 
 ---
+
+## 2026-03-29 — PR 9: Storage — S3 implementation
+
+### S3TextStore design
+
+`S3TextStore` implements `ITextStore` backed by AWS S3. It accepts an `IAmazonS3` instance directly (for testability), with a factory overload that builds the client from `S3TextStoreOptions` (bucket, key prefix, region). The same three fixed filenames per key (`text.bin`, `autocomplete.bin`, `manifest.json`) are used as in the filesystem implementation; the job key is the S3 key prefix, with an optional global prefix for namespace isolation. `Exists()` uses a lightweight `GetObjectMetadataAsync` check on `text.bin` — no data is transferred.
+
+### S3 testing with FakeS3
+
+`S3TextStore` is tested with a `FakeS3 : AmazonS3Client` stub that overrides only `PutObjectAsync`, `GetObjectAsync`, and `GetObjectMetadataAsync`. The in-memory dictionary keyed by bucket+key is sufficient to exercise the full contract. `AmazonS3Client` is subclassable because its request methods are virtual — no interface indirection is needed. `Moq` is deliberately not used.
+
+---
+
+## 2026-03-29 — PR 10: E2E tests
+
+### Test approach: WebApplicationFactory, not Playwright
+
+The E2E tests use `Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<T>` to host both the Builder API and Search API in-process, without browser automation. This was chosen over Playwright because: (a) the public-facing surface is JSON APIs, not HTML pages; (b) in-process testing is faster, more deterministic, and avoids external service dependencies; (c) the CLAUDE.md suggestion of Playwright was for a future phase.
+
+### Dual WebApplicationFactory setup
+
+Two factories run simultaneously in a single `E2ETestContext : IDisposable`:
+- `BuilderApiFactory : WebApplicationFactory<BuilderDbContext>` — uses `BuilderDbContext` as `TEntryPoint` to avoid ambiguity with the global `Program` class that also exists in the Search API project.
+- `SearchApiFactory : WebApplicationFactory<TextCache>` — uses `TextCache` as `TEntryPoint` for the same reason.
+
+Both factories share a single temp directory (`FileSystemTextStore`) created by `E2ETestContext`. Builder writes there; Search reads from the same path.
+
+### In-memory infrastructure replacements
+
+All external infrastructure is replaced in `ConfigureTestServices`:
+- **EF Core PostgreSQL → InMemory**: `RemoveAll<DbContextOptions<BuilderDbContext>>()` then `AddDbContext` with `UseInMemoryDatabase`. The fake connection string `"Host=test-placeholder;"` prevents `Program.cs` from throwing at startup before the override takes effect.
+- **Hangfire PostgreSQL → InMemory**: `AddHangfire(config => config.UseInMemoryStorage())` — `Hangfire.InMemory` replaces the existing PostgreSQL storage without needing to remove the prior registration.
+- **ITextStore**: replaced with `FileSystemTextStore` pointing at the shared temp dir.
+- **IAltoFetcher → FixtureAltoFetcher**: maps real Wellcome ALTO URLs to local XML files under `Fixtures/b2888193x/alto/`.
+- **IManifestFetcher → FixtureManifestFetcher**: maps real Wellcome manifest URLs to local JSON files under `Fixtures/{bnumber}/manifest.json`.
+
+### Fixture strategy
+
+Real Wellcome fixture files are checked into `src/TextServices.Tests.E2E/Fixtures/`. The main fixture is `b2888193x` (16 canvases, all with ALTO). A synthetic `b28770997` manifest (3 canvases, no `seeAlso` links) is used to test the zero-word path. The real b28770997 is a IIIF Collection (multi-volume), not a Manifest, and cannot be used directly.
+
+### Job polling helper
+
+`E2ETestContext.WaitForJobAsync` polls `GET /textbuilder/{id}` until the response body contains `"Completed"` or `"Failed"`, with configurable timeout (default 30 s) and incremental backoff (200 ms, growing to 2 s).
+
 <!-- Add new sessions below this line -->

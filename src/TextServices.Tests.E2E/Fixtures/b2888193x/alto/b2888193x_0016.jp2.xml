@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<alto xmlns="http://www.loc.gov/standards/alto/ns-v2#" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/standards/alto/ns-v2# http://www.loc.gov/standards/alto/alto.xsd">
+  <Description>
+    <MeasurementUnit>pixel</MeasurementUnit>
+    <sourceImageInformation>
+      <fileName>b2888193x_abbyy.xml</fileName>
+    </sourceImageInformation>
+    <OCRProcessing ID="OCR_1">
+      <preProcessingStep>
+        <processingDateTime>2017-08-14T03:35:09</processingDateTime>
+        <processingAgency>intranda GmbH, www.intranda.com</processingAgency>
+        <processingSoftware>
+          <softwareCreator>intranda GmbH, Germany</softwareCreator>
+          <softwareName>intranda OCR Module for TaskManager</softwareName>
+          <softwareVersion>1.0r42</softwareVersion>
+        </processingSoftware>
+      </preProcessingStep>
+      <ocrProcessingStep>
+        <processingSoftware>
+          <softwareCreator>ABBYY (BIT Software), Russia</softwareCreator>
+          <softwareName>FineReader Engine</softwareName>
+          <softwareVersion>10</softwareVersion>
+        </processingSoftware>
+      </ocrProcessingStep>
+    </OCRProcessing>
+  </Description>
+  <Layout>
+    <Page PHYSICAL_IMG_NR="16" ID="PAGE_16" WIDTH="2574" HEIGHT="4182">
+      <PrintSpace ID="PrintSpace_17" HPOS="1306" VPOS="1959" WIDTH="393" HEIGHT="174">
+        <TextBlock ID="TextBlock_187" HPOS="1306" VPOS="1959" WIDTH="393" HEIGHT="174">
+          <TextLine ID="TextLine_489" HPOS="1306" VPOS="1959" WIDTH="393" HEIGHT="44">
+            <String CONTENT="County" ID="Word_2400" HPOS="1306" VPOS="1959" WIDTH="178" HEIGHT="44" />
+            <SP ID="SP_1931" HPOS="1485" VPOS="1961" WIDTH="25" HEIGHT="0" />
+            <String CONTENT="Times.&quot;" ID="Word_2401" HPOS="1511" VPOS="1961" WIDTH="188" HEIGHT="41" />
+          </TextLine>
+          <TextLine ID="TextLine_490" HPOS="1373" VPOS="2024" WIDTH="215" HEIGHT="42">
+            <String CONTENT="Printers." ID="Word_2402" HPOS="1373" VPOS="2024" WIDTH="215" HEIGHT="42" />
+          </TextLine>
+          <TextLine ID="TextLine_491" HPOS="1346" VPOS="2089" WIDTH="264" HEIGHT="44">
+            <String CONTENT="Welshpool." ID="Word_2403" HPOS="1346" VPOS="2089" WIDTH="264" HEIGHT="44" />
+          </TextLine>
+        </TextBlock>
+      </PrintSpace>
+    </Page>
+  </Layout>
+</alto>
