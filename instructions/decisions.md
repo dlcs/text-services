@@ -64,6 +64,15 @@ Tom asked for this interaction log to be kept in the repo:
 
 Switched to **Shouldly 4.x** (MIT licence). Near-identical expressiveness; `.Should().Be(x)` becomes `.ShouldBe(x)` etc. One minor difference: nullable `string?` properties need a null-assertion step before calling string-specific methods like `ShouldContain`.
 
+### Text normalisation — drop vs replace
+
+**PR review question:** Is the normalisation correct re the reference implementations?
+
+Both Wellcome and St Louis Fed use `ToAlphanumericOrWhitespace` which **drops** non-alphanumeric characters (keeping existing whitespace), rather than replacing them with spaces. Corrected in response to review:
+- `"it's"` → `"its"` (not `"it s"`)
+- `"foo-bar"` → `"foobar"` (not `"foo bar"`)
+- `"hello, world"` → `"hello world"` (comma dropped; adjacent space preserved)
+
 ### .gitignore fix
 
 The standard Visual Studio `.gitignore` template includes `*.e2e` (for VS Trace files). This pattern also matched the `src/TextServices.Tests.E2E/` project directory, silently excluding it from git. Fixed with a `!*Tests.E2E/` negation rule.
