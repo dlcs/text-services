@@ -46,15 +46,16 @@ public class TextAugmentedHandler(ITextStore textStore)
             }
         };
 
-        // Append to the existing service array, or create one.
+        // Insert at position 0 so IIIF clients that take the first search service they find
+        // will use ours. Existing services are pushed down the array, not displaced.
         if (manifest["service"] is JsonArray existingArray)
         {
-            existingArray.Add(searchService);
+            existingArray.Insert(0, searchService);
         }
         else if (manifest["service"] is JsonObject existingObject)
         {
-            // Spec allows service to be a single object — promote to array and append.
-            manifest["service"] = new JsonArray(existingObject.DeepClone(), searchService);
+            // Spec allows service to be a single object — promote to array with ours first.
+            manifest["service"] = new JsonArray(searchService, existingObject.DeepClone());
         }
         else
         {

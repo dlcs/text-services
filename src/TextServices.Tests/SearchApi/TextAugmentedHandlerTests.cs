@@ -85,7 +85,7 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ExistingServiceObject_PromotesToArrayAndAppends()
+    public async Task Handle_ExistingServiceObject_PromotesToArrayWithSearchFirst()
     {
         var handler = MakeHandler(V3ManifestWithServiceObject());
 
@@ -93,7 +93,21 @@ public class TextAugmentedHandlerTests
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
         var service = result!["service"].ShouldBeOfType<JsonArray>();
-        service.Count.ShouldBe(2); // original object + search
+        service.Count.ShouldBe(2);
+        service[0]!["@id"]!.GetValue<string>().ShouldBe(ExpectedSearch); // search service is first
+    }
+
+    [Fact]
+    public async Task Handle_ExistingServiceArray_SearchServiceIsFirst()
+    {
+        var handler = MakeHandler(V3ManifestWithServiceArray());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service[0]!["@id"]!.GetValue<string>().ShouldBe(ExpectedSearch);
+        service[1]!["@id"]!.GetValue<string>().ShouldBe("https://example.org/other"); // original pushed down
     }
 
     [Fact]
