@@ -1,0 +1,44 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace TextServices.Builder.Api.Features.Jobs;
+
+/// <summary>
+/// POST body for <c>POST /textbuilder</c>. Exactly one of
+/// <see cref="SourceUri"/> or <see cref="SourceData"/> must be provided.
+/// </summary>
+public class JobInstruction : IValidatableObject
+{
+    /// <summary>
+    /// Job key (e.g. "2/books/my-book"). Used as storage key and API path segment.
+    /// May contain '/' characters.
+    /// </summary>
+    [Required]
+    public required string Id { get; set; }
+
+    /// <summary>
+    /// URI of a IIIF Presentation v3 Manifest. Mutually exclusive with
+    /// <see cref="SourceData"/>.
+    /// </summary>
+    public string? SourceUri { get; set; }
+
+    /// <summary>
+    /// Inline page sequence. Mutually exclusive with <see cref="SourceUri"/>.
+    /// </summary>
+    public List<PageInstruction>? SourceData { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var hasUri  = !string.IsNullOrWhiteSpace(SourceUri);
+        var hasData = SourceData is { Count: > 0 };
+
+        if (!hasUri && !hasData)
+            yield return new ValidationResult(
+                "Exactly one of sourceUri or sourceData must be provided.",
+                [nameof(SourceUri), nameof(SourceData)]);
+
+        if (hasUri && hasData)
+            yield return new ValidationResult(
+                "Provide sourceUri or sourceData, not both.",
+                [nameof(SourceUri), nameof(SourceData)]);
+    }
+}
