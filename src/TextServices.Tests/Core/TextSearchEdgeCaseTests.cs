@@ -260,8 +260,10 @@ public class TextSearchEdgeCaseTests
             ["jumps", "over", "the", "lazy", "dog"]
         );
 
-        // "fox jumps" spans two pages — the words are found but should NOT be
-        // coalesced (they're on different canvases with different Li values)
+        // "fox jumps" spans two pages. Li is a globally unique line counter across the
+        // whole document (never reset per page), so "fox" and "jumps" have different Li
+        // values and cannot be coalesced into a single rect — which is correct, because
+        // each rect must reference a single Canvas in the IIIF Search response.
         var results = text.Search("fox jumps");
         results.Count.ShouldBe(2); // two separate rects, same hit number
         results[0].Hit.ShouldBe(results[1].Hit); // same hit
@@ -279,9 +281,9 @@ public class TextSearchEdgeCaseTests
         // Some ALTO files contain String elements whose CONTENT is pure punctuation
         // (e.g. a standalone "—" or "..."). These should not create phantom words.
         var text = BuildFromTokens("hello", "---", "world"); // "---" normalises to empty → skipped
-        var results = text.Search("hello world");
-        // "hello" and "world" are NOT adjacent (the skipped token breaks the word chain)
-        // so they won't coalesce. But both should be found individually.
+        // "---" is never added to the accumulator, so "hello" and "world" are adjacent
+        // in both NormalisedFullText and Wd numbering. The key guarantee is that neither
+        // word silently disappears from the index.
         text.Search("hello").Count.ShouldBe(1);
         text.Search("world").Count.ShouldBe(1);
     }

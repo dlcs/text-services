@@ -34,7 +34,10 @@ public class TextAccumulator
             StartCharacter = _normText.Length,
             ImageIdentifier = imageIdentifier
         });
-        _lineCounter = 0;
+        // Do NOT reset _lineCounter here. Li must be a globally unique line number
+        // across the entire document (matching both reference implementations).
+        // Resetting per page would allow words on different pages to share the same
+        // Li value, breaking the coalescing adjacency check in Text.GetRectangles.
     }
 
     /// <summary>
