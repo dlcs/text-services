@@ -47,6 +47,7 @@ builder.Services.AddMediatR(cfg =>
 
 builder.Services.AddSingleton<IManifestReducer, ManifestReducer>();
 builder.Services.AddScoped<IManifestFetcher, ManifestFetcher>();
+builder.Services.AddScoped<IAltoFetcher, AltoFetcher>();
 
 builder.Services.AddHttpClient("Manifest", client =>
 {
@@ -54,6 +55,15 @@ builder.Services.AddHttpClient("Manifest", client =>
         new MediaTypeWithQualityHeaderValue("application/json"));
     client.DefaultRequestHeaders.Accept.Add(
         new MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddHttpClient("Alto", client =>
+{
+    client.DefaultRequestHeaders.Accept.Add(
+        new MediaTypeWithQualityHeaderValue("application/xml"));
+    client.DefaultRequestHeaders.Accept.Add(
+        new MediaTypeWithQualityHeaderValue("text/xml", 0.9));
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
