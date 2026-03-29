@@ -25,6 +25,7 @@
     <ProjectReference Include="..\TextServices.Core\TextServices.Core.csproj" />
     <ProjectReference Include="..\TextServices.Storage\TextServices.Storage.csproj" />
     <ProjectReference Include="..\TextServices.Builder.Api\TextServices.Builder.Api.csproj" />
+    <ProjectReference Include="..\TextServices.Search.Api\TextServices.Search.Api.csproj" />
   </ItemGroup>
 
 </Project>
