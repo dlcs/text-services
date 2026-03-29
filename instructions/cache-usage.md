@@ -34,15 +34,15 @@ Yes, memory dominates over CPU here. CPU load is light — search is essentially
 
 ## What I'd recommend changing
 
-1. **Set a cache size limit.** Use word count (or protobuf byte count from `ITextStore`) as the size unit:
+1. **Set a cache entry limit.** Use entry count (not word count) as the size unit. Sizing by word count looks proportional but has a fatal flaw: a text larger than `SizeLimit` words can never be admitted to the cache at all, silently degrading to uncached storage reads for every request. Entry count avoids this — every text is cacheable regardless of size, and memory headroom is managed at the infrastructure level (ECS task memory limit).
 
 ```csharp
-builder.Services.AddMemoryCache(opts => opts.SizeLimit = 5_000_000); // 5M words total
+builder.Services.AddMemoryCache(opts => opts.SizeLimit = options.CacheMaxEntries); // e.g. 20
 
-// When caching:
+// When caching — each entry costs 1 slot regardless of size:
 var entryOptions = new MemoryCacheEntryOptions()
     .SetSlidingExpiration(TimeSpan.FromMinutes(options.CacheSlidingExpirationMinutes))
-    .SetSize(text.Words.Count); // evict large texts first
+    .SetSize(1);
 ```
 
 2. **Add an absolute expiration floor.** Sliding expiration alone means a popular text stays cached forever. Adding an absolute cap (e.g. 4 hours) forces periodic refresh and bounds LOH lifetime.

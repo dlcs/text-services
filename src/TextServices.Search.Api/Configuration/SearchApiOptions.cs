@@ -20,19 +20,14 @@ public class SearchApiOptions
     public int CacheAbsoluteExpirationHours { get; set; } = 4;
 
     /// <summary>
-    /// Maximum total word count to hold in the memory cache across all cached Text objects.
-    /// Each Text entry is sized by its word count; AutoComplete entries count as
-    /// <see cref="AutoCompleteCacheSize"/> words each.
-    /// When the limit is reached, the least-recently-used entries are evicted first.
-    /// Default: 2,000,000 words (~50–80 MB depending on text density).
+    /// Maximum number of Text objects to hold in the memory cache simultaneously.
+    /// Each Text entry (regardless of size) counts as one slot. When full, the
+    /// least-recently-used entry is evicted. AutoComplete objects share the same
+    /// slot budget and are each counted as one slot.
+    /// Default: 20 (sufficient for a lightly-loaded service; raise for busier deployments,
+    /// but budget ~30–40 MB per large text when sizing ECS task memory).
     /// </summary>
-    public long CacheMaxWords { get; set; } = 2_000_000;
-
-    /// <summary>
-    /// Nominal word-count size charged to the cache for each AutoComplete object.
-    /// AutoComplete is far smaller than Text, but must participate in the same size budget.
-    /// </summary>
-    public int AutoCompleteCacheSize { get; set; } = 1_000;
+    public int CacheMaxEntries { get; set; } = 20;
 
     /// <summary>Root path of the filesystem text store (must match the Builder API's storage path).</summary>
     public string StorageRootPath { get; set; } = "textservices-data";

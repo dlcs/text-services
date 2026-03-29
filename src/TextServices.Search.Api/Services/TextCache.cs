@@ -21,20 +21,17 @@ public class TextCache(
         => await GetOrLoadAsync<Text>(
             cacheKey:  $"text:{key}",
             loadAsync: () => textStore.LoadText(key),
-            getSize:   t => t.Words.Count,
             ct);
 
     public async Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
         => await GetOrLoadAsync<AutoComplete>(
             cacheKey:  $"ac:{key}",
             loadAsync: () => textStore.LoadAutoComplete(key),
-            getSize:   _ => options.AutoCompleteCacheSize,
             ct);
 
     private async Task<T?> GetOrLoadAsync<T>(
         string cacheKey,
         Func<Task<T?>> loadAsync,
-        Func<T, long> getSize,
         CancellationToken ct) where T : class
     {
         // Fast path — already cached.
@@ -58,7 +55,7 @@ public class TextCache(
                         TimeSpan.FromMinutes(options.CacheSlidingExpirationMinutes))
                     .SetAbsoluteExpiration(
                         TimeSpan.FromHours(options.CacheAbsoluteExpirationHours))
-                    .SetSize(getSize(value));
+                    .SetSize(1);
 
                 memoryCache.Set(cacheKey, value, entryOptions);
             }
