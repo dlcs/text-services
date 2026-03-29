@@ -20,9 +20,17 @@ public class TextAccumulator
     private int _lineCounter;
     private int _composedBlockCounter;
     private bool _hasContent;
+    private int _lastWordNormPosition = -1;
 
     /// <summary>Zero-based index of the current image being accumulated.</summary>
     public int CurrentImageIndex => _images.Count - 1;
+
+    /// <summary>
+    /// The normalised-text position of the most recently added word,
+    /// or -1 if no words have been added yet. Used by format providers
+    /// to track composed-block boundaries.
+    /// </summary>
+    public int LastWordNormPosition => _lastWordNormPosition;
 
     /// <summary>
     /// Signals the start of a new page. Must be called before adding any words for that page.
@@ -86,21 +94,25 @@ public class TextAccumulator
         };
 
         _words[word.PosNorm] = word;
+        _lastWordNormPosition = word.PosNorm;
         _normText.Append(contentNorm);
         _rawText.Append(contentRaw);
         _hasContent = true;
     }
 
     /// <summary>
-    /// Adds a non-text composed block (table, illustration, figure).
+    /// Adds a non-text composed block (table, illustration, figure) with explicit
+    /// start and end character positions in the normalised full text. Both values
+    /// are the <see cref="Word.PosNorm"/> of the first and last word in the block.
     /// </summary>
-    public void AddComposedBlock(int x, int y, int w, int h, string? blockType)
+    public void AddComposedBlock(int x, int y, int w, int h, string? blockType,
+        int startCharacter, int endCharacter)
     {
         _composedBlocks.Add(new ComposedBlock
         {
             ImageIndex = _images.Count - 1,
-            StartCharacter = _normText.Length,
-            EndCharacter = _normText.Length,
+            StartCharacter = startCharacter,
+            EndCharacter = endCharacter,
             ComposedBlockIndex = _composedBlockCounter++,
             X = x,
             Y = y,
