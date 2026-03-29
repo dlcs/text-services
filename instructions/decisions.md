@@ -128,4 +128,40 @@ The adjacency check `current.Li == next.Li && current.Wds[^1] == next.Wd - 1` di
 All 138 tests pass.
 
 ---
+
+## 2026-03-29 — Second reference comparison pass (at Tom's request)
+
+Tom asked for a further line-by-line comparison of all Core classes against both references before going further.
+
+### Li is a global (not per-page) line counter — critical fix
+
+Both references keep `lineCounter` as a single counter across all pages, never reset between pages. `Word.Li` is documented in both references as *"The unique line number within the document"*. Our `TextAccumulator.BeginPage` was incorrectly resetting `_lineCounter = 0`, making Li per-page.
+
+Consequence: the last line of page N and first line of page N+1 both received Li=1. Combined with consecutive global `Wd` values, words on different pages could satisfy the coalescing check `current.Li == next.Li && current.Wds.Last() == next.Wd - 1`, causing them to be merged into a single `ResultRect` — which would produce wrong coordinates in a IIIF Search response.
+
+Fix: removed the `_lineCounter = 0` reset from `BeginPage`. The Idx guard added as a workaround in the previous commit was then removed as redundant; the references don't have it and with globally-unique Li it isn't needed.
+
+### `startPos + 1` is a bug in both references — our earlier fix retained
+
+Both references have `startPos = matchPos + matchLength + 1`. This over-advances by one: `matchLength` already includes the trailing space separator, so `+1` skips the first character of the next word. Example: searching `"pre"` in `"pre prefix"` returns only 1 hit in the references instead of 2. Our removal of the `+1` is demonstrably more correct and is retained as an intentional improvement. Documented here rather than silently matching the references.
+
+### Full comparison results — everything else matches
+
+After both passes, the following are confirmed correct against both references:
+
+- Protobuf field numbers (Word 1–12, Image 1–2, ComposedBlock 1–4)
+- All Word/ResultRect/Image properties and method contracts
+- Search algorithm: IndexOf → word-boundary walk-back → step-by-step word collection
+- Single-word path: element index as hit number (equivalent to two-arg Select)
+- Multi-word path: Li+Wd coalescing, Math.Min(Y)/Math.Max(H), ShallowCopy
+- AddContext: per-rect, 150 raw chars, skipped when ≥100 results
+- AutoComplete: 3-char prefix buckets, `length then alpha` ordering, >2 char threshold
+
+Intentional extensions beyond the references:
+- `ComposedBlock` has X, Y, W, H, BlockType (Wellcome has coordinates and type embedded differently; added here for completeness)
+- AutoComplete stored as a separate file (St Louis pattern), not inside Text (Wellcome pattern)
+- `StringComparison.Ordinal` in `IndexOf` rather than `InvariantCultureIgnoreCase` (equivalent for lowercase-only normalised text; Ordinal is marginally faster)
+- Empty-norm words are skipped entirely by TextAccumulator rather than being written to raw but not norm text (St Louis partial-skip behaviour); our approach is cleaner
+
+---
 <!-- Add new sessions below this line -->
