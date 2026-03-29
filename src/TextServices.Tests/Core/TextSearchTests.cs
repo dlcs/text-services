@@ -54,7 +54,7 @@ public class TextSearchTests
         var results = text.Search("quick");
         results.Count.ShouldBe(1);
         results[0].ContentRaw.ShouldBe("quick");
-        results[0].Hit.ShouldBe(1);
+        results[0].Hit.ShouldBe(0); // single-word: hit = element index (0-based)
     }
 
     [Fact]
@@ -72,8 +72,8 @@ public class TextSearchTests
         var text = BuildSimpleText("the", "cat", "sat", "on", "the", "mat");
         var results = text.Search("the");
         results.Count.ShouldBe(2);
-        results[0].Hit.ShouldBe(1);
-        results[1].Hit.ShouldBe(2);
+        results[0].Hit.ShouldBe(0); // single-word: hit = element index (0-based)
+        results[1].Hit.ShouldBe(1);
     }
 
     [Fact]

@@ -53,4 +53,10 @@ public class Word
 
     /// <summary>Length of this word in the raw full-text string.</summary>
     public int LenRaw => ContentRaw.Length;
+
+    /// <summary>Returns the normalised content of this word (used in string concatenation during coalescing).</summary>
+    public override string ToString() => ContentNorm;
+
+    /// <summary>Returns the raw content of this word.</summary>
+    public string ToRawString() => ContentRaw;
 }

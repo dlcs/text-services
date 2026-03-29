@@ -95,43 +95,50 @@ public class Text
     /// Searches for all occurrences of <paramref name="query"/> in this document.
     /// Returns a list of <see cref="ResultRect"/> instances, one per line-segment per hit.
     /// Multiple rects sharing the same <see cref="ResultRect.Hit"/> number belong to the same match.
+    /// Substring matches are supported and expand to include the whole containing word.
     /// </summary>
     public List<ResultRect> Search(string query)
     {
-        var normQuery = Normalise(query);
-        var results = new List<ResultRect>();
+        var s = Normalise(query);
+        if (s.Length == 0 || NormalisedFullText.Length == 0) return [];
 
-        if (normQuery.Length == 0 || NormalisedFullText.Length == 0)
-            return results;
+        var wordResults = new List<Word>();
+        var hitMap = new Dictionary<int, int>(); // Word.Wd → hit number
+        int hitCounter = 0;
+        int startPos = 0;
+        int matchPos;
 
-        // Sort words once by their normalised text position for efficient per-hit traversal.
-        var sortedWords = Words.Values.OrderBy(w => w.PosNorm).ToList();
-
-        int searchFrom = 0;
-        int hitNumber = 0;
-
-        while (searchFrom <= NormalisedFullText.Length - normQuery.Length)
+        while ((matchPos = NormalisedFullText.IndexOf(s, startPos, StringComparison.Ordinal)) != -1)
         {
-            int matchPos = NormalisedFullText.IndexOf(normQuery, searchFrom, StringComparison.Ordinal);
-            if (matchPos < 0) break;
+            // Walk back to the start of the containing word (find the preceding space or start of text).
+            // This ensures substring matches capture the whole word, e.g. "ick" → captures "quick".
+            int padding = 0;
+            while (matchPos > 0 && NormalisedFullText[matchPos - 1] != ' ')
+            {
+                matchPos--;
+                padding++;
+            }
 
-            searchFrom = matchPos + 1;
-            hitNumber++;
-            int matchEnd = matchPos + normQuery.Length;
+            // Step through word positions to collect all words spanning the match.
+            // NormalisedFullText has exactly one space between each word, so each step is LenNorm + 1.
+            int matchLength = 0;
+            int wordPos = matchPos;
+            while (matchLength < s.Length + padding)
+            {
+                var word = Words[wordPos];
+                wordResults.Add(word);
+                int lengthInText = word.LenNorm + 1; // word length + trailing space
+                matchLength += lengthInText;
+                wordPos += lengthInText;
+                hitMap[word.Wd] = hitCounter;
+            }
 
-            // Find all words whose normalised text overlaps the match range.
-            var hitWords = sortedWords
-                .Where(w => w.PosNorm < matchEnd && w.PosNorm + w.LenNorm > matchPos)
-                .ToList();
-
-            if (hitWords.Count == 0) continue;
-
-            var rects = CoalesceWords(hitWords, hitNumber);
-            results.AddRange(rects);
+            hitCounter++;
+            startPos = matchPos + matchLength + 1;
+            if (startPos >= NormalisedFullText.Length - 1) break;
         }
 
-        AddContext(results, sortedWords);
-        return results;
+        return GetRectangles(s, wordResults, hitMap);
     }
 
     // -------------------------------------------------------------------------
@@ -139,111 +146,76 @@ public class Text
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Coalesces adjacent words (same image, same line, consecutive word numbers)
-    /// into single ResultRects. Words that are not adjacent start a new rect.
+    /// Coalesces adjacent same-line words into single ResultRects, then adds context.
+    /// For single-word queries the coalescing step is skipped.
     /// </summary>
-    private static List<ResultRect> CoalesceWords(List<Word> words, int hitNumber)
+    private List<ResultRect> GetRectangles(string s, List<Word> words, Dictionary<int, int> hitMap)
     {
-        var rects = new List<ResultRect>();
-        var current = ResultRect.FromWord(words[0], hitNumber);
+        if (words.Count == 0) return [];
+
+        if (!s.Contains(' '))
+        {
+            // Single-word query: each result is its own hit; use element index as hit number
+            // (matches reference behaviour: results.Select(ResultRect.FromWord) with the
+            // two-argument Select overload passes (element, index) → FromWord(word, index)).
+            var rects = words.Select((w, i) => ResultRect.FromWord(w, i)).ToList();
+            AddContext(rects);
+            return rects;
+        }
+
+        var coalesced = new List<ResultRect>();
+        var current = ResultRect.FromWord(words[0], hitMap[words[0].Wd]);
 
         for (int i = 1; i < words.Count; i++)
         {
-            var word = words[i];
-
-            bool sameImage = word.Idx == current.Idx;
-            bool sameLine = word.Li == current.Li;
-            bool adjacent = word.Wd == current.Wds[current.Wds.Count - 1] + 1;
-
-            if (sameImage && sameLine && adjacent)
+            var next = words[i];
+            if (current.Li == next.Li && current.Wds[^1] == next.Wd - 1)
             {
-                // Expand bounding box to include this word.
-                int newRight = Math.Max(current.X + current.W, word.X + word.W);
-                int newBottom = Math.Max(current.Y + current.H, word.Y + word.H);
-                current.X = Math.Min(current.X, word.X);
-                current.Y = Math.Min(current.Y, word.Y);
-                current.W = newRight - current.X;
-                current.H = newBottom - current.Y;
-                current.Wds.Add(word.Wd);
-                current.PosNorms.Add(word.PosNorm);
-                current.ContentNorm += " " + word.ContentNorm;
-                current.ContentRaw += " " + word.ContentRaw;
+                // Adjacent words on the same line — expand the rect.
+                // Note: Y/H expansion matches the reference (Math.Min Y, Math.Max H independently).
+                current.Y = Math.Min(current.Y, next.Y);
+                current.H = Math.Max(current.H, next.H);
+                current.W = (next.X + next.W) - current.X;
+                current.Wds.Add(next.Wd);
+                current.PosNorms.Add(next.PosNorm);
+                current.Sp = next.Sp;
+                current.ContentNorm += " " + next; // next.ToString() = ContentNorm
+                current.ContentRaw += " " + next.ToRawString();
             }
             else
             {
-                rects.Add(current);
-                current = ResultRect.FromWord(word, hitNumber);
+                coalesced.Add(current.ShallowCopy());
+                current = ResultRect.FromWord(next, hitMap[next.Wd]);
             }
         }
-
-        rects.Add(current);
-        return rects;
+        coalesced.Add(current);
+        AddContext(coalesced);
+        return coalesced;
     }
 
     /// <summary>
-    /// Populates <see cref="ResultRect.Before"/> and <see cref="ResultRect.After"/> context
-    /// on the first and last rect of each hit respectively, using surrounding words from
-    /// <see cref="RawFullText"/>.
+    /// Adds Before/After context to each ResultRect using raw character offsets into
+    /// <see cref="RawFullText"/> (150 characters either side, matching the reference implementations).
+    /// Context is skipped entirely when there are 100 or more results.
     /// </summary>
-    private void AddContext(List<ResultRect> results, List<Word> sortedWords)
+    private void AddContext(List<ResultRect> results)
     {
-        const int contextWordCount = 6;
+        const int maxResultsWithContext = 100;
+        const int snippetSize = 150;
+        if (results.Count >= maxResultsWithContext) return;
 
-        // Group by hit number; within each hit find the first and last rect.
-        var hitGroups = results
-            .GroupBy(r => r.Hit)
-            .Select(g => g.OrderBy(r => r.Idx).ThenBy(r => r.PosNorm).ToList());
-
-        foreach (var rects in hitGroups)
+        foreach (var rect in results)
         {
-            var firstRect = rects[0];
-            var lastRect = rects[rects.Count - 1];
+            var words = rect.PosNorms.Select(p => Words[p]).ToList();
 
-            int firstPosNorm = firstRect.PosNorms[0];
-            int lastPosNorm = lastRect.PosNorms[lastRect.PosNorms.Count - 1];
+            var posRaw = words[0].PosRaw;
+            var preOffset = Math.Max(0, posRaw - snippetSize);
+            rect.Before = RawFullText.Substring(preOffset, posRaw - preOffset);
 
-            int firstIdx = sortedWords.FindIndex(w => w.PosNorm == firstPosNorm);
-            int lastIdx = sortedWords.FindIndex(w => w.PosNorm == lastPosNorm);
-
-            if (firstIdx < 0 || lastIdx < 0) continue;
-
-            // Before context: up to contextWordCount words before the hit on the same image.
-            if (firstIdx > 0)
-            {
-                int startIdx = Math.Max(0, firstIdx - contextWordCount);
-                // Don't cross image boundaries.
-                while (startIdx < firstIdx && sortedWords[startIdx].Idx < firstRect.Idx)
-                    startIdx++;
-
-                if (startIdx < firstIdx)
-                {
-                    var beforeStart = sortedWords[startIdx];
-                    var beforeEnd = sortedWords[firstIdx - 1];
-                    int rawStart = beforeStart.PosRaw;
-                    int rawEnd = beforeEnd.PosRaw + beforeEnd.LenRaw;
-                    if (rawEnd <= RawFullText.Length)
-                        firstRect.Before = RawFullText[rawStart..rawEnd];
-                }
-            }
-
-            // After context: up to contextWordCount words after the hit on the same image.
-            if (lastIdx < sortedWords.Count - 1)
-            {
-                int endIdx = Math.Min(sortedWords.Count - 1, lastIdx + contextWordCount);
-                // Don't cross image boundaries.
-                while (endIdx > lastIdx && sortedWords[endIdx].Idx > lastRect.Idx)
-                    endIdx--;
-
-                if (endIdx > lastIdx)
-                {
-                    var afterStart = sortedWords[lastIdx + 1];
-                    var afterEnd = sortedWords[endIdx];
-                    int rawStart = afterStart.PosRaw;
-                    int rawEnd = afterEnd.PosRaw + afterEnd.LenRaw;
-                    if (rawEnd <= RawFullText.Length)
-                        lastRect.After = RawFullText[rawStart..rawEnd];
-                }
-            }
+            var lastWord = words[^1];
+            var postOffset = lastWord.PosRaw + lastWord.LenRaw;
+            var postLen = Math.Min(snippetSize, RawFullText.Length - postOffset);
+            rect.After = postLen > 0 ? RawFullText.Substring(postOffset, postLen) : string.Empty;
         }
     }
 }

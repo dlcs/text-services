@@ -8,11 +8,17 @@ namespace TextServices.Core.Models;
 /// </summary>
 public class ResultRect
 {
-    /// <summary>Raw (original) text of the coalesced words in this rect.</summary>
-    public string ContentRaw { get; set; } = string.Empty;
+    public ResultRect(string contentNorm, string contentRaw)
+    {
+        ContentNorm = contentNorm;
+        ContentRaw = contentRaw;
+    }
 
     /// <summary>Normalised text of the coalesced words in this rect.</summary>
-    public string ContentNorm { get; set; } = string.Empty;
+    public string ContentNorm { get; set; }
+
+    /// <summary>Raw (original) text of the coalesced words in this rect.</summary>
+    public string ContentRaw { get; set; }
 
     /// <summary>Bounding box X coordinate in Canvas pixels.</summary>
     public int X { get; set; }
@@ -47,10 +53,10 @@ public class ResultRect
     /// </summary>
     public int Hit { get; set; }
 
-    /// <summary>Context text immediately preceding this hit (raw text, up to N words).</summary>
+    /// <summary>Context text immediately preceding this hit (raw characters).</summary>
     public string? Before { get; set; }
 
-    /// <summary>Context text immediately following this hit (raw text, up to N words).</summary>
+    /// <summary>Context text immediately following this hit (raw characters).</summary>
     public string? After { get; set; }
 
     /// <summary>Start position of this rect's first word in the normalised full-text.</summary>
@@ -65,11 +71,11 @@ public class ResultRect
     /// <summary>Length of ContentRaw.</summary>
     public int LenRaw => ContentRaw.Length;
 
+    public override string ToString() => ContentNorm;
+
     /// <summary>Creates a ResultRect from a single Word.</summary>
-    public static ResultRect FromWord(Word word, int hitNumber) => new()
+    public static ResultRect FromWord(Word word, int hit) => new(word.ToString(), word.ToRawString())
     {
-        ContentRaw = word.ContentRaw,
-        ContentNorm = word.ContentNorm,
         X = word.X,
         Y = word.Y,
         W = word.W,
@@ -77,9 +83,12 @@ public class ResultRect
         Li = word.Li,
         Sp = word.Sp,
         Idx = word.Idx,
-        Hit = hitNumber,
+        Hit = hit,
         Wds = [word.Wd],
         PosNorms = [word.PosNorm],
         PosRaw = word.PosRaw,
     };
+
+    /// <summary>Creates a shallow copy of this ResultRect (used during coalescing).</summary>
+    public ResultRect ShallowCopy() => (ResultRect)MemberwiseClone();
 }
