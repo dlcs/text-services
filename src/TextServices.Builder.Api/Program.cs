@@ -47,6 +47,7 @@ builder.Services.AddMediatR(cfg =>
 
 builder.Services.AddSingleton<IManifestReducer, ManifestReducer>();
 builder.Services.AddScoped<IManifestFetcher, ManifestFetcher>();
+builder.Services.AddScoped<IAltoFetcher, AltoFetcher>();
 
 builder.Services.AddHttpClient("Manifest", client =>
 {
@@ -54,6 +55,16 @@ builder.Services.AddHttpClient("Manifest", client =>
         new MediaTypeWithQualityHeaderValue("application/json"));
     client.DefaultRequestHeaders.Accept.Add(
         new MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddHttpClient("Alto", client =>
+{
+    // Accept anything — IIIF implementations vary widely in the Content-Type
+    // they set on ALTO files (application/xml, text/xml, text/plain,
+    // application/octet-stream, or nothing). We parse whatever comes back as XML.
+    client.DefaultRequestHeaders.Accept.Add(
+        new MediaTypeWithQualityHeaderValue("*/*"));
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 

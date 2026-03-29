@@ -188,4 +188,26 @@ Neither reference implementation handles IIIF Manifests (both use METS). This is
 **Future:** VTT and other time-based text formats will be supported later via the `ITextFormatProvider` extensibility point, at which point time-only canvases will be revisited.
 
 ---
+
+## 2026-03-29 — PR 6: Full job processing pipeline
+
+### Concurrent ALTO fetching
+
+ALTO files are fetched concurrently using `Task.WhenAll` bounded by a `SemaphoreSlim`. Results are held in an ordered array and fed to `TextBuilder` sequentially — the global line counter requires canvases in original order.
+
+`IHttpClientFactory` is the correct tool: it pools the underlying `HttpMessageHandler` so TCP connections and HTTP/2 streams are reused even when multiple `HttpClient` instances are created. The apparent "create per call" pattern is intentional and idiomatic.
+
+Default concurrency is 8, configurable via `TextServicesOptions.MaxConcurrentAltoFetches`.
+
+**Future work (noted in code TODOs):** The right limit depends on where the ALTO files live — third-party HTTP needs to be low (4–8) for politeness; S3 same-region can be much higher (64–128). When the S3 storage implementation is added, consider auto-deriving the limit from the URI scheme/host, or adding a per-host override table to `TextServicesOptions`.
+
+### Accept header for ALTO fetches
+
+The Alto `HttpClient` sends `Accept: */*`. Sending specific XML media types (`application/xml`, `text/xml`) caused problems because many IIIF implementations return ALTO with `Content-Type: text/plain`, `application/octet-stream`, or nothing at all. We parse whatever comes back as XML regardless, so a permissive Accept header is the correct choice.
+
+### Per-page vs whole-job error handling
+
+Per-page ALTO failures (network errors, parse errors, 404) are caught and accumulated as warnings in `job.Errors`; the job continues and reaches `Completed`. HTTP 404 on an ALTO URI is treated as a sparse page (same as `Text = null`) rather than an error. Only manifest-fetch or storage failures set `Status = Failed`.
+
+---
 <!-- Add new sessions below this line -->
