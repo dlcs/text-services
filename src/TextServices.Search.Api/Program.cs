@@ -1,23 +1,107 @@
+using AsyncKeyedLock;
+using MediatR;
+using Microsoft.Extensions.Caching.Memory;
+using TextServices.Search.Api.Configuration;
+using TextServices.Search.Api.Features.Autocomplete;
+using TextServices.Search.Api.Features.Search;
+using TextServices.Search.Api.Services;
+using TextServices.Storage;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// ---- Configuration ----------------------------------------------------------
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+var options = builder.Configuration
+    .GetSection("TextServices")
+    .Get<SearchApiOptions>() ?? new SearchApiOptions();
+
+builder.Services.AddSingleton(options);
+
+// ---- Storage ----------------------------------------------------------------
+
+builder.Services.AddSingleton<ITextStore>(_ =>
+    new FileSystemTextStore(new FileSystemTextStoreOptions
+    {
+        RootPath = options.StorageRootPath
+    }));
+
+// ---- Cache ------------------------------------------------------------------
+
+builder.Services.AddMemoryCache(opts => opts.SizeLimit = options.CacheMaxEntries);
+builder.Services.AddSingleton(new AsyncKeyedLocker<string>());
+builder.Services.AddSingleton<ITextCache, TextCache>();
+
+// ---- MediatR ----------------------------------------------------------------
+
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+// ---- HTTP -------------------------------------------------------------------
+
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
-{
     app.MapOpenApi();
-}
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+// ---- Endpoints --------------------------------------------------------------
 
-app.MapControllers();
+// GET /search/v1/{**id}?q={term}
+app.MapGet("/search/v1/{**id}", async (
+    string id, string? q,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl = BuildSelfUrl(options, ctx, $"search/v1/{id}", q);
+
+    var result = await sender.Send(new SearchRequest(id, q ?? string.Empty, selfUrl));
+    if (result == null) return Results.NotFound();
+
+    result.Ignored = GetIgnoredParams(ctx);
+    return Results.Json(result);
+});
+
+// GET /autocomplete/v1/{**id}?q={term}
+app.MapGet("/autocomplete/v1/{**id}", async (
+    string id, string? q,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl = BuildSelfUrl(options, ctx, $"autocomplete/v1/{id}", q);
+
+    var result = await sender.Send(new AutocompleteRequest(id, q ?? string.Empty, selfUrl));
+    if (result == null) return Results.NotFound();
+
+    return Results.Json(result);
+});
 
 app.Run();
+
+// ---- Helpers ----------------------------------------------------------------
+
+static string BuildSelfUrl(SearchApiOptions opts, HttpContext ctx, string path, string? q)
+{
+    var baseUrl = string.IsNullOrEmpty(opts.BaseUrl)
+        ? $"{ctx.Request.Scheme}://{ctx.Request.Host}"
+        : opts.BaseUrl.TrimEnd('/');
+
+    var url = $"{baseUrl}/{path}";
+    return string.IsNullOrWhiteSpace(q) ? url : $"{url}?q={Uri.EscapeDataString(q)}";
+}
+
+static string[]? GetIgnoredParams(HttpContext ctx)
+{
+    // Parameters defined by the IIIF Search v1 spec that we recognise but don't process.
+    string[] knownIgnored = ["motivation", "date", "user", "box"];
+    var ignored = ctx.Request.Query.Keys
+        .Where(k => knownIgnored.Contains(k, StringComparer.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(ctx.Request.Query[k]))
+        .ToArray();
+    return ignored.Length > 0 ? ignored : null;
+}
+
+// Make Program visible to integration test projects
+public partial class Program { }
