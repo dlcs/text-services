@@ -3,6 +3,17 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Local appsettings (may contain DB connection strings / secrets)
+appsettings.Local.json
+appsettings.local.json
+appsettings.Development.json
+appsettings.*.Local.json
+
+# Playwright test output and browser cache
+playwright-report/
+test-results/
+.playwright/
+
 # User-specific files
 *.rsuser
 *.suo
@@ -146,6 +157,10 @@ $tf/
 _ReSharper*/
 *.[Rr]e[Ss]harper
 *.DotSettings.user
+
+# JetBrains Rider
+.idea/
+*.sln.iml
 
 # TeamCity is a build add-in
 _TeamCity*

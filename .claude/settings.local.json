@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/git/digirati-co-uk/st-louis-fed/src/IIIFBuilder/IIIFBuilder.Processor/Alto/**)",
+      "Read(//c/git/digirati-co-uk/st-louis-fed/src/IIIFBuilder/IIIFBuilder.API/Features/Search/**)",
+      "Bash(grep -r \"NuGet\\\\|\\\\.csproj\" C:/git/wellcomecollection/iiif-builder/src/Wellcome.Dds/Wellcome.Dds/ --include=*.csproj)"
+    ]
+  }
+}
