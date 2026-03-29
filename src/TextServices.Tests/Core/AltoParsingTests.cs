@@ -288,7 +288,12 @@ public class AltoParsingTests
 
         var text = ParseAlto(alto, 1000, 2000);
 
-        // Should produce one word "parliament", not two fragments
+        // The two ALTO fragments are merged into a single Word at the HypPart1 position.
+        // Known limitation (shared with both reference implementations): only the first
+        // fragment's bounding box is stored. A search hit on "parliament" will highlight
+        // the "par-" line only, not the "liament" continuation. Wellcome's comment:
+        // "we'll have to keep it simple and just regard the first part as the full word.
+        //  Otherwise a word would have to have two rectangles."
         text.Words.Count.ShouldBe(1);
         text.Words.Values.First().ContentRaw.ShouldBe("parliament");
         text.Words.Values.First().ContentNorm.ShouldBe("parliament");
