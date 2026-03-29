@@ -64,6 +64,31 @@ Tom asked for this interaction log to be kept in the repo:
 
 Switched to **Shouldly 4.x** (MIT licence). Near-identical expressiveness; `.Should().Be(x)` becomes `.ShouldBe(x)` etc. One minor difference: nullable `string?` properties need a null-assertion step before calling string-specific methods like `ShouldContain`.
 
+### Thorough comparison with reference implementations (prompted by PR review)
+
+Tom asked for a direct line-by-line comparison of the `Text` implementation against both references.
+Several differences were found and corrected:
+
+**Search algorithm**: original used LINQ filtering over all words; reference walks *back* from the
+IndexOf hit to the word boundary, then steps forward via `word.LenNorm + 1`. Substring matches
+(e.g. "ick") correctly expand to the whole containing word ("quick"). `startPos` advances past
+all matched words, not just `+1`.
+
+**AddContext**: original used 6-word context on first/last rect of each hit group; reference uses
+150 raw characters before/after, applied to **every** ResultRect individually, and skipped entirely
+when there are ≥100 results.
+
+**Coalescing bounding box**: reference uses `Math.Min(Y)` / `Math.Max(H)` independently (not
+geometrically perfect but consistent with production behaviour — matching for now).
+
+**Coalescing adjacency check**: reference checks only `Li` + `Wd` (not `Idx`). Extra `Idx` check removed.
+
+**ResultRect / Word methods**: added `ToString()`, `ToRawString()`, `ShallowCopy()` to match the
+reference's method contracts used during coalescing.
+
+**Hit numbering**: single-word queries use element index (0-based) as hit number, matching the
+reference's use of the two-argument `Select` overload.
+
 ### Text normalisation — drop vs replace
 
 **PR review question:** Is the normalisation correct re the reference implementations?
