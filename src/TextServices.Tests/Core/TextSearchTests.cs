@@ -126,7 +126,7 @@ public class TextSearchTests
     public void Search_FindsWordByNormalisedForm()
     {
         var text = BuildSimpleText("it's", "complicated");
-        // "it's" normalises to "it s", so searching "it" should find it
+        // "it's" normalises to "its" (apostrophe dropped, not replaced with space)
         text.Search("it").ShouldNotBeEmpty();
     }
 }

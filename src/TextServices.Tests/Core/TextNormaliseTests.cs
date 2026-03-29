@@ -14,8 +14,8 @@ public class TextNormaliseTests
 
     [Theory]
     [InlineData("hello, world!", "hello world")]
-    [InlineData("it's a test.", "it s a test")]
-    [InlineData("foo-bar", "foo bar")]
+    [InlineData("it's a test.", "its a test")]
+    [InlineData("foo-bar", "foobar")]
     [InlineData("£100", "100")]
     public void Normalise_StripsPunctuation(string input, string expected)
         => Text.Normalise(input).ShouldBe(expected);

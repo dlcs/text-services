@@ -58,8 +58,13 @@ public class Text
     {
         if (string.IsNullOrEmpty(input)) return string.Empty;
 
+        // Matches the behaviour of both reference implementations:
+        //   - Letters and digits are lowercased and kept.
+        //   - Whitespace is preserved (collapsed to a single space).
+        //   - All other characters (punctuation, symbols) are DROPPED, not replaced with spaces.
+        //     e.g. "it's" → "its",  "foo-bar" → "foobar",  "hello, world" → "hello world"
         var sb = new StringBuilder(input.Length);
-        bool lastWasSpace = true; // treats leading non-alphanumeric as whitespace
+        bool lastWasSpace = false;
 
         foreach (char c in input)
         {
@@ -68,7 +73,7 @@ public class Text
                 sb.Append(char.ToLowerInvariant(c));
                 lastWasSpace = false;
             }
-            else if (!lastWasSpace)
+            else if (char.IsWhiteSpace(c) && !lastWasSpace && sb.Length > 0)
             {
                 sb.Append(' ');
                 lastWasSpace = true;
