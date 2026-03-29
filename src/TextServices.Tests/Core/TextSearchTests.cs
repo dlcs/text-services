@@ -1,4 +1,4 @@
-using FluentAssertions;
+using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Core.Providers;
 
@@ -36,15 +36,15 @@ public class TextSearchTests
     public void Search_ReturnsEmpty_WhenQueryIsEmpty()
     {
         var text = BuildSimpleText("hello", "world");
-        text.Search("").Should().BeEmpty();
-        text.Search("   ").Should().BeEmpty();
+        text.Search("").ShouldBeEmpty();
+        text.Search("   ").ShouldBeEmpty();
     }
 
     [Fact]
     public void Search_ReturnsEmpty_WhenNoMatch()
     {
         var text = BuildSimpleText("hello", "world");
-        text.Search("foo").Should().BeEmpty();
+        text.Search("foo").ShouldBeEmpty();
     }
 
     [Fact]
@@ -52,18 +52,18 @@ public class TextSearchTests
     {
         var text = BuildSimpleText("the", "quick", "brown", "fox");
         var results = text.Search("quick");
-        results.Should().HaveCount(1);
-        results[0].ContentRaw.Should().Be("quick");
-        results[0].Hit.Should().Be(1);
+        results.Count.ShouldBe(1);
+        results[0].ContentRaw.ShouldBe("quick");
+        results[0].Hit.ShouldBe(1);
     }
 
     [Fact]
     public void Search_IsCaseInsensitive()
     {
         var text = BuildSimpleText("The", "Quick", "Brown", "Fox");
-        text.Search("QUICK").Should().HaveCount(1);
-        text.Search("quick").Should().HaveCount(1);
-        text.Search("Quick").Should().HaveCount(1);
+        text.Search("QUICK").Count.ShouldBe(1);
+        text.Search("quick").Count.ShouldBe(1);
+        text.Search("Quick").Count.ShouldBe(1);
     }
 
     [Fact]
@@ -71,9 +71,9 @@ public class TextSearchTests
     {
         var text = BuildSimpleText("the", "cat", "sat", "on", "the", "mat");
         var results = text.Search("the");
-        results.Should().HaveCount(2);
-        results[0].Hit.Should().Be(1);
-        results[1].Hit.Should().Be(2);
+        results.Count.ShouldBe(2);
+        results[0].Hit.ShouldBe(1);
+        results[1].Hit.ShouldBe(2);
     }
 
     [Fact]
@@ -81,9 +81,9 @@ public class TextSearchTests
     {
         var text = BuildSimpleText("the", "quick", "brown", "fox");
         var results = text.Search("quick brown");
-        results.Should().HaveCount(1);
-        results[0].ContentRaw.Should().Be("quick brown");
-        results[0].Wds.Should().HaveCount(2);
+        results.Count.ShouldBe(1);
+        results[0].ContentRaw.ShouldBe("quick brown");
+        results[0].Wds.Count.ShouldBe(2);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class TextSearchTests
     {
         var text = BuildSimpleText("hello", "world");
         var results = text.Search("hello");
-        results[0].Idx.Should().Be(0);
+        results[0].Idx.ShouldBe(0);
     }
 
     [Fact]
@@ -99,9 +99,10 @@ public class TextSearchTests
     {
         var text = BuildSimpleText("the", "quick", "brown", "fox", "jumps");
         var results = text.Search("fox");
-        results.Should().HaveCount(1);
-        results[0].Before.Should().NotBeNullOrEmpty();
-        results[0].Before.Should().Contain("brown");
+        results.Count.ShouldBe(1);
+        var before = results[0].Before;
+        before.ShouldNotBeNullOrEmpty();
+        before!.ShouldContain("brown");
     }
 
     [Fact]
@@ -109,15 +110,16 @@ public class TextSearchTests
     {
         var text = BuildSimpleText("the", "quick", "brown", "fox", "jumps");
         var results = text.Search("fox");
-        results[0].After.Should().NotBeNullOrEmpty();
-        results[0].After.Should().Contain("jumps");
+        var after = results[0].After;
+        after.ShouldNotBeNullOrEmpty();
+        after!.ShouldContain("jumps");
     }
 
     [Fact]
     public void Search_EmptyText_ReturnsEmpty()
     {
         var text = new Text();
-        text.Search("anything").Should().BeEmpty();
+        text.Search("anything").ShouldBeEmpty();
     }
 
     [Fact]
@@ -125,7 +127,6 @@ public class TextSearchTests
     {
         var text = BuildSimpleText("it's", "complicated");
         // "it's" normalises to "it s", so searching "it" should find it
-        var results = text.Search("it");
-        results.Should().NotBeEmpty();
+        text.Search("it").ShouldNotBeEmpty();
     }
 }

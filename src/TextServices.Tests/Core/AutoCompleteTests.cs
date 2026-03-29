@@ -1,4 +1,4 @@
-using FluentAssertions;
+using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Core.Providers;
 
@@ -28,9 +28,9 @@ public class AutoCompleteTests
     public void GetSuggestions_ReturnsEmpty_WhenTermTooShort()
     {
         var ac = BuildAutoComplete("hello", "world");
-        ac.GetSuggestions("he").Should().BeEmpty();
-        ac.GetSuggestions("h").Should().BeEmpty();
-        ac.GetSuggestions("").Should().BeEmpty();
+        ac.GetSuggestions("he").ShouldBeEmpty();
+        ac.GetSuggestions("h").ShouldBeEmpty();
+        ac.GetSuggestions("").ShouldBeEmpty();
     }
 
     [Fact]
@@ -38,10 +38,10 @@ public class AutoCompleteTests
     {
         var ac = BuildAutoComplete("hello", "help", "helmet", "world");
         var suggestions = ac.GetSuggestions("hel");
-        suggestions.Should().Contain("hello");
-        suggestions.Should().Contain("help");
-        suggestions.Should().Contain("helmet");
-        suggestions.Should().NotContain("world");
+        suggestions.ShouldContain("hello");
+        suggestions.ShouldContain("help");
+        suggestions.ShouldContain("helmet");
+        suggestions.ShouldNotContain("world");
     }
 
     [Fact]
@@ -49,16 +49,16 @@ public class AutoCompleteTests
     {
         var ac = BuildAutoComplete("hello", "help", "helicopter", "world");
         var suggestions = ac.GetSuggestions("help");
-        suggestions.Should().Contain("help");
-        suggestions.Should().NotContain("hello");
+        suggestions.ShouldContain("help");
+        suggestions.ShouldNotContain("hello");
     }
 
     [Fact]
     public void GetSuggestions_IsCaseInsensitive()
     {
         var ac = BuildAutoComplete("Hello", "HELP", "world");
-        ac.GetSuggestions("HEL").Should().Contain("hello");
-        ac.GetSuggestions("hel").Should().Contain("help");
+        ac.GetSuggestions("HEL").ShouldContain("hello");
+        ac.GetSuggestions("hel").ShouldContain("help");
     }
 
     [Fact]
@@ -66,21 +66,21 @@ public class AutoCompleteTests
     {
         var ac = BuildAutoComplete("helicopter", "help", "hello");
         var suggestions = ac.GetSuggestions("hel");
-        suggestions.Should().ContainInOrder("help", "hello", "helicopter");
+        suggestions.ShouldBe(["help", "hello", "helicopter"]);
     }
 
     [Fact]
     public void GetSuggestions_ReturnsEmpty_ForNoMatch()
     {
         var ac = BuildAutoComplete("hello", "world");
-        ac.GetSuggestions("xyz").Should().BeEmpty();
+        ac.GetSuggestions("xyz").ShouldBeEmpty();
     }
 
     [Fact]
     public void IsEmpty_TrueForEmptyAccumulator()
     {
         var ac = new AutoComplete();
-        ac.IsEmpty.Should().BeTrue();
+        ac.IsEmpty.ShouldBeTrue();
     }
 
     [Fact]
@@ -88,9 +88,8 @@ public class AutoCompleteTests
     {
         // Words shorter than 3 chars should not appear in autocomplete buckets.
         var ac = BuildAutoComplete("a", "to", "the", "quick");
-        ac.GetSuggestions("the").Should().Contain("the");
-        // "a" and "to" are too short to be indexed
-        ac.Buckets.Should().NotContainKey("a");
-        ac.Buckets.Should().NotContainKey("to");
+        ac.GetSuggestions("the").ShouldContain("the");
+        ac.Buckets.ShouldNotContainKey("a");
+        ac.Buckets.ShouldNotContainKey("to");
     }
 }

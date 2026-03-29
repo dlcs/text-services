@@ -1,5 +1,5 @@
-using FluentAssertions;
 using ProtoBuf;
+using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Core.Providers;
 
@@ -37,10 +37,10 @@ public class ProtobufSerializationTests
         ms.Position = 0;
         var roundTripped = Serializer.Deserialize<Text>(ms);
 
-        roundTripped.NormalisedFullText.Should().Be(original.NormalisedFullText);
-        roundTripped.RawFullText.Should().Be(original.RawFullText);
-        roundTripped.Words.Should().HaveCount(original.Words.Count);
-        roundTripped.Images.Should().HaveCount(original.Images.Length);
+        roundTripped.NormalisedFullText.ShouldBe(original.NormalisedFullText);
+        roundTripped.RawFullText.ShouldBe(original.RawFullText);
+        roundTripped.Words.Count.ShouldBe(original.Words.Count);
+        roundTripped.Images.Length.ShouldBe(original.Images.Length);
     }
 
     [Fact]
@@ -53,12 +53,11 @@ public class ProtobufSerializationTests
         ms.Position = 0;
         var roundTripped = Serializer.Deserialize<AutoComplete>(ms);
 
-        roundTripped.Buckets.Should().HaveCount(original.Buckets.Count);
-
+        roundTripped.Buckets.Count.ShouldBe(original.Buckets.Count);
         foreach (var kvp in original.Buckets)
         {
-            roundTripped.Buckets.Should().ContainKey(kvp.Key);
-            roundTripped.Buckets[kvp.Key].Should().BeEquivalentTo(kvp.Value);
+            roundTripped.Buckets.ShouldContainKey(kvp.Key);
+            roundTripped.Buckets[kvp.Key].ShouldBe(kvp.Value, ignoreOrder: true);
         }
     }
 
@@ -73,7 +72,7 @@ public class ProtobufSerializationTests
         var roundTripped = Serializer.Deserialize<Text>(ms);
 
         var results = roundTripped.Search("quick brown");
-        results.Should().HaveCount(1);
-        results[0].ContentRaw.Should().Be("quick brown");
+        results.Count.ShouldBe(1);
+        results[0].ContentRaw.ShouldBe("quick brown");
     }
 }
