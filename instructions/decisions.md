@@ -245,4 +245,28 @@ When `TextServices:BaseUrl` is empty in configuration, the self-URL falls back t
 Both Search and Autocomplete features use `IRequest<T?>` / `IRequestHandler<TRequest, TResponse>` via MediatR. The `ISender.Send` call in `Program.cs` returns `null` for a missing resource (404) or a populated response object. The HTTP layer is decoupled from the business logic, which is fully testable without a running HTTP server.
 
 ---
+
+## 2026-03-29 — PR 8: Search API — text-augmented Manifest endpoint
+
+### text-augmented design
+
+`GET /text-augmented/v3/{**id}` loads the stored Manifest JSON from `ITextStore`, patches it in-place as a `JsonNode`, and returns the result. No IIIF object model is used — `System.Text.Json.Nodes.JsonNode` / `JsonObject` is sufficient for the two mutations required.
+
+Two mutations are applied:
+1. **`id` / `@id` replacement** — the manifest's own identifier is replaced with the text-augmented self URL, so IIIF clients that resolve the returned manifest get a stable, routable document. v3 manifests use `id`; v2 manifests use `@id`; both are handled.
+2. **Search service injection** — an IIIF Search v1 service descriptor is inserted into the `service` array (with a nested autocomplete service descriptor inside it). The `service` field can be absent, a single object, or an array; all three cases are handled. The search service is inserted at **position 0** (not appended) so that IIIF clients that take the first search service they find will use ours, pushing any pre-existing services down.
+
+### Manifest as plain JSON
+
+The Search API does not parse the Manifest into an IIIF object model. The stored JSON is parsed directly into `JsonNode`. This is consistent with the Builder API's `ManifestReducer` approach and avoids an `iiif-net` dependency. The Manifest is treated as a passthrough document with two targeted patches.
+
+### Manifest caching
+
+The Manifest JSON is loaded directly from `ITextStore` on each request — it is not routed through `TextCache`. Manifests are much smaller than `Text` objects, are not queried at high frequency (typically fetched once per viewer session), and change rarely. Caching them would add complexity for marginal benefit; this can be revisited if load patterns change.
+
+### Cache sizing — entry count not word count
+
+During PR 7/8 development, the initial cache sizing used word count as the `IMemoryCache` size unit. This was identified as flawed: a `Text` object whose word count exceeds `SizeLimit` can never be admitted to the cache, silently degrading to uncached storage reads on every request. The correct unit is **entry count** (`Size = 1` per object, `SizeLimit = CacheMaxEntries`). Every Text is cacheable regardless of size; memory headroom is controlled at the infrastructure level (ECS task memory limit). See `instructions/cache-usage.md` for full analysis including LOH, ECS, and horizontal scaling considerations. Tracking issue: tomcrane/TextServices#9.
+
+---
 <!-- Add new sessions below this line -->
