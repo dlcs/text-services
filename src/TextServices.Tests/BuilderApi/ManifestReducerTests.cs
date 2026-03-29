@@ -248,6 +248,72 @@ public class ManifestReducerTests
     }
 
     // -------------------------------------------------------------------------
+    // Canvas dimension handling
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Reduce_DurationOnlyCanvas_SkippedSilently()
+    {
+        // Audio canvas: has duration but no width/height.
+        var json = Manifest(canvases: [
+            """
+            {
+              "id": "https://example.org/c/audio",
+              "type": "Canvas",
+              "duration": 180.0
+            }
+            """
+        ]);
+
+        var pages = _reducer.Reduce(json);
+        pages.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Reduce_CanvasWithWidthHeightAndDuration_Included()
+    {
+        // Video canvas with spatial dimensions — valid for ALTO text (unusual but not an error).
+        var json = Manifest(canvases: [
+            """
+            {
+              "id": "https://example.org/c/video",
+              "type": "Canvas",
+              "width": 1920,
+              "height": 1080,
+              "duration": 60.0
+            }
+            """
+        ]);
+
+        var pages = _reducer.Reduce(json);
+        pages.Count.ShouldBe(1);
+        pages[0].Id.ShouldBe("https://example.org/c/video");
+        pages[0].Width.ShouldBe(1920);
+        pages[0].Height.ShouldBe(1080);
+    }
+
+    [Fact]
+    public void Reduce_MixedSpatialAndTemporalCanvases_OnlySpatialReturned()
+    {
+        var json = Manifest(canvases: [
+            Canvas("https://example.org/c/1", 4000, 6000),
+            """
+            {
+              "id": "https://example.org/c/audio",
+              "type": "Canvas",
+              "duration": 90.0
+            }
+            """,
+            Canvas("https://example.org/c/2", 4000, 6000),
+        ]);
+
+        var pages = _reducer.Reduce(json);
+        pages.Count.ShouldBe(2);
+        pages[0].Id.ShouldBe("https://example.org/c/1");
+        pages[1].Id.ShouldBe("https://example.org/c/2");
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 

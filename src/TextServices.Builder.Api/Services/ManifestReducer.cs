@@ -29,12 +29,17 @@ public class ManifestReducer : IManifestReducer
         {
             if (!canvas.TryGetProperty("id", out var idEl)) continue;
 
-            var id     = idEl.GetString() ?? string.Empty;
-            var width  = canvas.TryGetProperty("width",  out var w) ? w.GetInt32() : 0;
-            var height = canvas.TryGetProperty("height", out var h) ? h.GetInt32() : 0;
-            var alto   = FindAltoUri(canvas);
+            // Skip canvases that have no spatial dimensions (e.g., audio-only canvases
+            // that carry only a duration). Canvases with width, height AND duration
+            // (e.g., video) are included — they can still carry ALTO text.
+            if (!canvas.TryGetProperty("width",  out var w) ||
+                !canvas.TryGetProperty("height", out var h))
+                continue;
 
-            pages.Add(new PageInstruction { Id = id, Width = width, Height = height, Text = alto });
+            var id    = idEl.GetString() ?? string.Empty;
+            var alto  = FindAltoUri(canvas);
+
+            pages.Add(new PageInstruction { Id = id, Width = w.GetInt32(), Height = h.GetInt32(), Text = alto });
         }
 
         return pages;
