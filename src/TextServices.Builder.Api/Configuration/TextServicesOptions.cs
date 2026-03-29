@@ -9,6 +9,12 @@ public class TextServicesOptions
     /// </summary>
     public string SearchApiBaseUrl { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Maximum number of ALTO files fetched concurrently within a single job.
+    /// Higher values speed up large manifests but increase load on the source server.
+    /// </summary>
+    public int MaxConcurrentAltoFetches { get; set; } = 8;
+
     /// <summary>Options for the filesystem text store.</summary>
     public StorageOptions Storage { get; set; } = new();
 }

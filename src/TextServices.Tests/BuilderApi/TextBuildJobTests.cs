@@ -4,6 +4,7 @@ using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
+using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
 using TextServices.Builder.Api.Jobs;
@@ -277,6 +278,7 @@ public sealed class TextBuildJobTests : IDisposable
             manifestFetcher ?? new FakeManifestFetcher(_ => throw new InvalidOperationException("Unexpected manifest fetch")),
             altoFetcher     ?? new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null)),
             _textStore,
+            new TextServicesOptions(),
             NullLogger<TextBuildJob>.Instance);
     }
 

@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Xml.Linq;
 using Hangfire;
+using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
 using TextServices.Builder.Api.Services;
@@ -12,7 +14,8 @@ namespace TextServices.Builder.Api.Jobs;
 /// Hangfire background job that executes the full text-build pipeline for a single job:
 /// <list type="number">
 ///   <item>Fetch and reduce the IIIF Manifest (when <c>sourceUri</c> was supplied).</item>
-///   <item>For each canvas with an ALTO link: fetch the XML and build text artefacts.</item>
+///   <item>Fetch all ALTO files concurrently (bounded by <see cref="TextServicesOptions.MaxConcurrentAltoFetches"/>).</item>
+///   <item>Feed pages to <see cref="TextBuilder"/> in original canvas order.</item>
 ///   <item>Persist <c>Text</c> and <c>AutoComplete</c> via <see cref="ITextStore"/>.</item>
 /// </list>
 /// Per-page ALTO failures are accumulated as warnings and do not abort the job.
@@ -23,9 +26,9 @@ public class TextBuildJob(
     IManifestFetcher manifestFetcher,
     IAltoFetcher altoFetcher,
     ITextStore textStore,
+    TextServicesOptions options,
     ILogger<TextBuildJob> logger)
 {
-    // Number of pages between DB progress saves.
     private const int ProgressBatchSize = 10;
 
     [JobDisplayName("TextBuild: {0}")]
@@ -45,7 +48,6 @@ public class TextBuildJob(
         try
         {
             var pages = await GetPages(job, cancellationToken.ShutdownToken);
-
             job.TotalPages = pages.Count;
             await db.SaveChangesAsync();
 
@@ -104,18 +106,28 @@ public class TextBuildJob(
         IReadOnlyList<PageInstruction> pages,
         IJobCancellationToken cancellationToken)
     {
+        // Fetch all ALTO files concurrently, bounded by the semaphore.
+        // Results are returned as an ordered array matching the pages list,
+        // so TextBuilder receives canvases in the correct sequence.
+        var semaphore = new SemaphoreSlim(options.MaxConcurrentAltoFetches);
+
+        var fetchTasks = pages
+            .Select(page => FetchWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken))
+            .ToList();
+
+        var fetched = await Task.WhenAll(fetchTasks);
+
+        // Build text in original canvas order (TextBuilder requires sequential input).
         var textBuilder = new TextBuilder();
-        var errors      = new List<string>();
+        var errors      = fetched.Where(r => r.Error != null).Select(r => r.Error!).ToList();
         int completed   = 0;
 
-        foreach (var page in pages)
+        foreach (var (page, xml, _) in fetched)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (page.Text != null)
-            {
-                await FetchAndAddPage(textBuilder, page, errors, cancellationToken.ShutdownToken);
-            }
+            if (xml != null)
+                textBuilder.AddPage(page.Id, page.Width, page.Height, xml, profile: "alto");
 
             completed++;
             job.PagesCompleted = completed;
@@ -135,35 +147,36 @@ public class TextBuildJob(
         return (result.Text.Words.Count, result.Text.Images.Length, errors);
     }
 
-    private async Task FetchAndAddPage(
-        TextBuilder textBuilder,
+    private async Task<(PageInstruction Page, XElement? Xml, string? Error)> FetchWithSemaphoreAsync(
         PageInstruction page,
-        List<string> errors,
+        SemaphoreSlim semaphore,
         CancellationToken ct)
     {
+        if (page.Text == null)
+            return (page, null, null);
+
+        await semaphore.WaitAsync(ct);
         try
         {
-            var xml = await altoFetcher.FetchAsync(page.Text!, ct);
+            var xml = await altoFetcher.FetchAsync(page.Text, ct);
 
             if (xml == null)
-            {
-                // 404 or empty — treat as sparse page, not an error.
                 logger.LogDebug(
                     "No ALTO content at {AltoUri} for canvas {CanvasId} — skipping",
                     page.Text, page.Id);
-                return;
-            }
 
-            // We know Text came from an ALTO seeAlso link, so profile="alto" is correct.
-            textBuilder.AddPage(page.Id, page.Width, page.Height, xml, profile: "alto");
+            return (page, xml, null);
         }
         catch (Exception ex)
         {
-            // Per-page failures are warnings, not job failures.
             logger.LogWarning(ex,
                 "Failed to fetch or parse ALTO for canvas {CanvasId} ({AltoUri})",
                 page.Id, page.Text);
-            errors.Add($"{page.Id}: {ex.Message}");
+            return (page, null, $"{page.Id}: {ex.Message}");
+        }
+        finally
+        {
+            semaphore.Release();
         }
     }
 }

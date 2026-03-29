@@ -60,10 +60,11 @@ builder.Services.AddHttpClient("Manifest", client =>
 
 builder.Services.AddHttpClient("Alto", client =>
 {
+    // Accept anything — IIIF implementations vary widely in the Content-Type
+    // they set on ALTO files (application/xml, text/xml, text/plain,
+    // application/octet-stream, or nothing). We parse whatever comes back as XML.
     client.DefaultRequestHeaders.Accept.Add(
-        new MediaTypeWithQualityHeaderValue("application/xml"));
-    client.DefaultRequestHeaders.Accept.Add(
-        new MediaTypeWithQualityHeaderValue("text/xml", 0.9));
+        new MediaTypeWithQualityHeaderValue("*/*"));
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
