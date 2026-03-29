@@ -1,0 +1,248 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json.Nodes;
+using Shouldly;
+using TextServices.Tests.E2E.Infrastructure;
+
+namespace TextServices.Tests.E2E;
+
+/// <summary>
+/// End-to-end tests for the full pipeline: Builder API → stored artefacts → Search API.
+///
+/// Uses <see cref="E2ETestContext"/> which boots both APIs in-process with:
+/// - EF Core InMemory (no PostgreSQL required)
+/// - Hangfire InMemory (jobs processed by a real background server in the test process)
+/// - <see cref="FixtureAltoFetcher"/> + <see cref="FixtureManifestFetcher"/> (local fixture files)
+/// - Shared temp <see cref="FileSystemTextStore"/> (Builder writes, Search reads)
+/// </summary>
+[Collection("E2E")]
+public class BuildAndSearchTests(E2ETestContext ctx) : IClassFixture<E2ETestContext>
+{
+    // -------------------------------------------------------------------------
+    // Builder API — job lifecycle
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task PostJob_Returns202WithLocation()
+    {
+        var response = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id        = "e2e/lifecycle-test",
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        response.Headers.Location.ShouldNotBeNull();
+        response.Headers.Location!.ToString().ShouldContain("e2e/lifecycle-test");
+    }
+
+    [Fact]
+    public async Task PostJob_DuplicateId_Returns409()
+    {
+        var id = "e2e/duplicate-test";
+        await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+
+        var second = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+
+        second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task GetJob_Unknown_Returns404()
+    {
+        var response = await ctx.BuilderClient.GetAsync("/textbuilder/no/such/job");
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    // -------------------------------------------------------------------------
+    // Builder API — full pipeline (with ALTO)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task BuildJob_WithAltoManifest_CompletesSuccessfully()
+    {
+        var id = "e2e/b2888193x-full";
+
+        var post = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+        post.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+
+        var body = await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
+
+        body.ShouldContain("\"Completed\"");
+        body.ShouldNotContain("\"Failed\"");
+    }
+
+    [Fact]
+    public async Task BuildJob_CompletedJob_HasWordAndPageCounts()
+    {
+        var id = "e2e/b2888193x-counts";
+
+        await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+
+        var body = await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
+        var json = JsonNode.Parse(body)!;
+
+        json["totalPages"]!.GetValue<int>().ShouldBe(16);
+        json["totalWordCount"]!.GetValue<int>().ShouldBeGreaterThan(0);
+        json["totalImageCount"]!.GetValue<int>().ShouldBe(16);
+    }
+
+    // -------------------------------------------------------------------------
+    // Builder API — manifest with no ALTO (all sparse pages)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task BuildJob_NoAltoManifest_CompletesWithZeroWords()
+    {
+        var id = "e2e/b28770997-noalto";
+
+        await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b28770997"
+        });
+
+        var body = await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(30));
+        var json = JsonNode.Parse(body)!;
+
+        body.ShouldContain("\"Completed\"");
+        json["totalWordCount"]!.GetValue<int>().ShouldBe(0);
+    }
+
+    // -------------------------------------------------------------------------
+    // Search API — querying completed jobs
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Search_KnownWord_ReturnsHits()
+    {
+        var id = await BuildFixtureAsync("e2e/search-hits");
+
+        var response = await ctx.SearchClient.GetAsync($"/search/v1/{id}?q=health");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+        body["@type"]!.GetValue<string>().ShouldBe("sc:AnnotationList");
+        body["resources"]!.AsArray().Count.ShouldBeGreaterThan(0);
+        body["hits"]!.AsArray().Count.ShouldBeGreaterThan(0);
+    }
+
+    [Fact]
+    public async Task Search_EmptyQuery_ReturnsEmptyNotError()
+    {
+        var id = await BuildFixtureAsync("e2e/search-empty");
+
+        var response = await ctx.SearchClient.GetAsync($"/search/v1/{id}?q=");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+        body["resources"]!.AsArray().Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Search_UnknownId_Returns404()
+    {
+        var response = await ctx.SearchClient.GetAsync("/search/v1/no/such/id?q=test");
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    // -------------------------------------------------------------------------
+    // Autocomplete API
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Autocomplete_ShortQuery_ReturnsEmptyTermList()
+    {
+        var id = await BuildFixtureAsync("e2e/ac-short");
+
+        var response = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=he");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+        body["@type"]!.GetValue<string>().ShouldBe("search:TermList");
+        body["terms"]!.AsArray().Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Autocomplete_MatchingPrefix_ReturnsSuggestions()
+    {
+        var id = await BuildFixtureAsync("e2e/ac-match");
+
+        var response = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=hea");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+        body["terms"]!.AsArray().Count.ShouldBeGreaterThan(0);
+    }
+
+    // -------------------------------------------------------------------------
+    // Text-augmented endpoint
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task TextAugmented_CompletedJob_ReturnsManifestWithSearchService()
+    {
+        var id = await BuildFixtureAsync("e2e/text-augmented");
+
+        var response = await ctx.SearchClient.GetAsync($"/text-augmented/v3/{id}");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+
+        // id should be replaced with the text-augmented URL
+        body["id"]!.GetValue<string>().ShouldContain("text-augmented");
+
+        // Search service should be first in the service array
+        var service = body["service"]!.AsArray();
+        service.Count.ShouldBeGreaterThan(0);
+        service[0]!["profile"]!.GetValue<string>()
+            .ShouldBe("http://iiif.io/api/search/1/search");
+    }
+
+    [Fact]
+    public async Task TextAugmented_UnknownId_Returns404()
+    {
+        var response = await ctx.SearchClient.GetAsync("/text-augmented/v3/no/such/id");
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Submits a job for b2888193x under <paramref name="id"/> and waits for completion.
+    /// Returns the job ID. Results are shared via the same temp storage, so tests that
+    /// don't care about which job was built can reuse this helper.
+    /// </summary>
+    private async Task<string> BuildFixtureAsync(string id)
+    {
+        var post = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+
+        // 409 Conflict is fine — the job already exists (test reuse).
+        post.StatusCode.ShouldBeOneOf(HttpStatusCode.Accepted, HttpStatusCode.Conflict);
+
+        await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
+        return id;
+    }
+}
