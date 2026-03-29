@@ -134,7 +134,7 @@ public class Text
             }
 
             hitCounter++;
-            startPos = matchPos + matchLength + 1;
+            startPos = matchPos + matchLength;
             if (startPos >= NormalisedFullText.Length - 1) break;
         }
 
@@ -169,7 +169,7 @@ public class Text
         for (int i = 1; i < words.Count; i++)
         {
             var next = words[i];
-            if (current.Li == next.Li && current.Wds[^1] == next.Wd - 1)
+            if (current.Li == next.Li && current.Wds[^1] == next.Wd - 1 && current.Idx == next.Idx)
             {
                 // Adjacent words on the same line — expand the rect.
                 // Note: Y/H expansion matches the reference (Math.Min Y, Math.Max H independently).
