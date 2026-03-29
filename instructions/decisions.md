@@ -54,4 +54,114 @@ Tom asked for this interaction log to be kept in the repo:
 - Builder API and Search API are separate ASP.NET applications
 
 ---
+
+## 2026-03-29 — PR 1 decisions
+
+### FluentAssertions → Shouldly
+
+**Q: FluentAssertions 8.x showed a commercial licence warning in test output. What alternative do you recommend?**
+> "yes please and update the PR"
+
+Switched to **Shouldly 4.x** (MIT licence). Near-identical expressiveness; `.Should().Be(x)` becomes `.ShouldBe(x)` etc. One minor difference: nullable `string?` properties need a null-assertion step before calling string-specific methods like `ShouldContain`.
+
+### Thorough comparison with reference implementations (prompted by PR review)
+
+Tom asked for a direct line-by-line comparison of the `Text` implementation against both references.
+Several differences were found and corrected:
+
+**Search algorithm**: original used LINQ filtering over all words; reference walks *back* from the
+IndexOf hit to the word boundary, then steps forward via `word.LenNorm + 1`. Substring matches
+(e.g. "ick") correctly expand to the whole containing word ("quick"). `startPos` advances past
+all matched words, not just `+1`.
+
+**AddContext**: original used 6-word context on first/last rect of each hit group; reference uses
+150 raw characters before/after, applied to **every** ResultRect individually, and skipped entirely
+when there are ≥100 results.
+
+**Coalescing bounding box**: reference uses `Math.Min(Y)` / `Math.Max(H)` independently (not
+geometrically perfect but consistent with production behaviour — matching for now).
+
+**Coalescing adjacency check**: reference checks only `Li` + `Wd` (not `Idx`). Extra `Idx` check removed.
+
+**ResultRect / Word methods**: added `ToString()`, `ToRawString()`, `ShallowCopy()` to match the
+reference's method contracts used during coalescing.
+
+**Hit numbering**: single-word queries use element index (0-based) as hit number, matching the
+reference's use of the two-argument `Select` overload.
+
+### Text normalisation — drop vs replace
+
+**PR review question:** Is the normalisation correct re the reference implementations?
+
+Both Wellcome and St Louis Fed use `ToAlphanumericOrWhitespace` which **drops** non-alphanumeric characters (keeping existing whitespace), rather than replacing them with spaces. Corrected in response to review:
+- `"it's"` → `"its"` (not `"it s"`)
+- `"foo-bar"` → `"foobar"` (not `"foo bar"`)
+- `"hello, world"` → `"hello world"` (comma dropped; adjacent space preserved)
+
+### .gitignore fix
+
+The standard Visual Studio `.gitignore` template includes `*.e2e` (for VS Trace files). This pattern also matched the `src/TextServices.Tests.E2E/` project directory, silently excluding it from git. Fixed with a `!*Tests.E2E/` negation rule.
+
+---
+
+## 2026-03-29 — PR 1 additional tests and bug fixes
+
+### Motivation
+
+Tom asked for more comprehensive unit tests covering longer text, spaces, punctuation, and other problematic characters, to give confidence that normalisation maximises search hit chances.
+
+### Two bugs found by the new tests
+
+**Bug 1 — `startPos` over-advance in `Text.Search`**
+
+`startPos = matchPos + matchLength + 1` was advancing one position too many. `matchLength` already includes the trailing space for each word (`LenNorm + 1`), so the extra `+1` caused the next search to start *past* the first character of the following word. Concretely, searching `"pre"` in `"pre prefix word"` returned 1 hit instead of 2 because `"prefix"` starts at position 4 but `startPos` advanced to 5. Fixed: `startPos = matchPos + matchLength`.
+
+**Bug 2 — Cross-page coalescing in `GetRectangles`**
+
+The adjacency check `current.Li == next.Li && current.Wds[^1] == next.Wd - 1` did not include `Idx` (image index). Because `_lineCounter` resets to 0 on `BeginPage`, the last line of page N and the first line of page N+1 both get `Li = 1`. Combined with consecutive global `Wd` values, two words on different canvases were incorrectly merged into a single `ResultRect` — which would produce wrong coordinates in a IIIF Search response. Fixed by adding `&& current.Idx == next.Idx`. (Earlier analysis of the reference implementations noted that they check only `Li + Wd`; that observation was correct for single-page documents but the per-page reset of `Li` in our `TextAccumulator` means `Idx` is also required.)
+
+### New test files added
+
+- `TextNormalisationEdgeCaseTests.cs` — 40+ theory/fact tests covering contractions, curly apostrophes, hyphens, en/em dashes, abbreviations, numbers with formatting, brackets, ellipsis, whitespace variants (including U+00A0 non-breaking space), accented character preservation (documented known limitation), and the symmetry property over realistic sentences.
+- `TextSearchEdgeCaseTests.cs` — integration tests over multi-word passages: query/text punctuation symmetry, substring matching capturing whole words, multi-word phrases in long passages, repeated word counting, document boundary behaviour, two-page non-coalescing, punctuation-only tokens skipped, context at document edges, empty/degenerate inputs.
+
+All 138 tests pass.
+
+---
+
+## 2026-03-29 — Second reference comparison pass (at Tom's request)
+
+Tom asked for a further line-by-line comparison of all Core classes against both references before going further.
+
+### Li is a global (not per-page) line counter — critical fix
+
+Both references keep `lineCounter` as a single counter across all pages, never reset between pages. `Word.Li` is documented in both references as *"The unique line number within the document"*. Our `TextAccumulator.BeginPage` was incorrectly resetting `_lineCounter = 0`, making Li per-page.
+
+Consequence: the last line of page N and first line of page N+1 both received Li=1. Combined with consecutive global `Wd` values, words on different pages could satisfy the coalescing check `current.Li == next.Li && current.Wds.Last() == next.Wd - 1`, causing them to be merged into a single `ResultRect` — which would produce wrong coordinates in a IIIF Search response.
+
+Fix: removed the `_lineCounter = 0` reset from `BeginPage`. The Idx guard added as a workaround in the previous commit was then removed as redundant; the references don't have it and with globally-unique Li it isn't needed.
+
+### `startPos + 1` is a bug in both references — our earlier fix retained
+
+Both references have `startPos = matchPos + matchLength + 1`. This over-advances by one: `matchLength` already includes the trailing space separator, so `+1` skips the first character of the next word. Example: searching `"pre"` in `"pre prefix"` returns only 1 hit in the references instead of 2. Our removal of the `+1` is demonstrably more correct and is retained as an intentional improvement. Documented here rather than silently matching the references.
+
+### Full comparison results — everything else matches
+
+After both passes, the following are confirmed correct against both references:
+
+- Protobuf field numbers (Word 1–12, Image 1–2, ComposedBlock 1–4)
+- All Word/ResultRect/Image properties and method contracts
+- Search algorithm: IndexOf → word-boundary walk-back → step-by-step word collection
+- Single-word path: element index as hit number (equivalent to two-arg Select)
+- Multi-word path: Li+Wd coalescing, Math.Min(Y)/Math.Max(H), ShallowCopy
+- AddContext: per-rect, 150 raw chars, skipped when ≥100 results
+- AutoComplete: 3-char prefix buckets, `length then alpha` ordering, >2 char threshold
+
+Intentional extensions beyond the references:
+- `ComposedBlock` has X, Y, W, H, BlockType (Wellcome has coordinates and type embedded differently; added here for completeness)
+- AutoComplete stored as a separate file (St Louis pattern), not inside Text (Wellcome pattern)
+- `StringComparison.Ordinal` in `IndexOf` rather than `InvariantCultureIgnoreCase` (equivalent for lowercase-only normalised text; Ordinal is marginally faster)
+- Empty-norm words are skipped entirely by TextAccumulator rather than being written to raw but not norm text (St Louis partial-skip behaviour); our approach is cleaner
+
+---
 <!-- Add new sessions below this line -->
