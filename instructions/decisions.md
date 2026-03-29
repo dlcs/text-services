@@ -103,4 +103,29 @@ Both Wellcome and St Louis Fed use `ToAlphanumericOrWhitespace` which **drops** 
 The standard Visual Studio `.gitignore` template includes `*.e2e` (for VS Trace files). This pattern also matched the `src/TextServices.Tests.E2E/` project directory, silently excluding it from git. Fixed with a `!*Tests.E2E/` negation rule.
 
 ---
+
+## 2026-03-29 — PR 1 additional tests and bug fixes
+
+### Motivation
+
+Tom asked for more comprehensive unit tests covering longer text, spaces, punctuation, and other problematic characters, to give confidence that normalisation maximises search hit chances.
+
+### Two bugs found by the new tests
+
+**Bug 1 — `startPos` over-advance in `Text.Search`**
+
+`startPos = matchPos + matchLength + 1` was advancing one position too many. `matchLength` already includes the trailing space for each word (`LenNorm + 1`), so the extra `+1` caused the next search to start *past* the first character of the following word. Concretely, searching `"pre"` in `"pre prefix word"` returned 1 hit instead of 2 because `"prefix"` starts at position 4 but `startPos` advanced to 5. Fixed: `startPos = matchPos + matchLength`.
+
+**Bug 2 — Cross-page coalescing in `GetRectangles`**
+
+The adjacency check `current.Li == next.Li && current.Wds[^1] == next.Wd - 1` did not include `Idx` (image index). Because `_lineCounter` resets to 0 on `BeginPage`, the last line of page N and the first line of page N+1 both get `Li = 1`. Combined with consecutive global `Wd` values, two words on different canvases were incorrectly merged into a single `ResultRect` — which would produce wrong coordinates in a IIIF Search response. Fixed by adding `&& current.Idx == next.Idx`. (Earlier analysis of the reference implementations noted that they check only `Li + Wd`; that observation was correct for single-page documents but the per-page reset of `Li` in our `TextAccumulator` means `Idx` is also required.)
+
+### New test files added
+
+- `TextNormalisationEdgeCaseTests.cs` — 40+ theory/fact tests covering contractions, curly apostrophes, hyphens, en/em dashes, abbreviations, numbers with formatting, brackets, ellipsis, whitespace variants (including U+00A0 non-breaking space), accented character preservation (documented known limitation), and the symmetry property over realistic sentences.
+- `TextSearchEdgeCaseTests.cs` — integration tests over multi-word passages: query/text punctuation symmetry, substring matching capturing whole words, multi-word phrases in long passages, repeated word counting, document boundary behaviour, two-page non-coalescing, punctuation-only tokens skipped, context at document edges, empty/degenerate inputs.
+
+All 138 tests pass.
+
+---
 <!-- Add new sessions below this line -->
