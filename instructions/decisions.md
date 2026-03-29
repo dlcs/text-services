@@ -54,4 +54,19 @@ Tom asked for this interaction log to be kept in the repo:
 - Builder API and Search API are separate ASP.NET applications
 
 ---
+
+## 2026-03-29 — PR 1 decisions
+
+### FluentAssertions → Shouldly
+
+**Q: FluentAssertions 8.x showed a commercial licence warning in test output. What alternative do you recommend?**
+> "yes please and update the PR"
+
+Switched to **Shouldly 4.x** (MIT licence). Near-identical expressiveness; `.Should().Be(x)` becomes `.ShouldBe(x)` etc. One minor difference: nullable `string?` properties need a null-assertion step before calling string-specific methods like `ShouldContain`.
+
+### .gitignore fix
+
+The standard Visual Studio `.gitignore` template includes `*.e2e` (for VS Trace files). This pattern also matched the `src/TextServices.Tests.E2E/` project directory, silently excluding it from git. Fixed with a `!*Tests.E2E/` negation rule.
+
+---
 <!-- Add new sessions below this line -->
