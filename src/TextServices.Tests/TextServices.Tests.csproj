@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\TextServices.Core\TextServices.Core.csproj" />
     <ProjectReference Include="..\TextServices.Storage\TextServices.Storage.csproj" />
+    <ProjectReference Include="..\TextServices.Builder.Api\TextServices.Builder.Api.csproj" />
   </ItemGroup>
 
 </Project>
