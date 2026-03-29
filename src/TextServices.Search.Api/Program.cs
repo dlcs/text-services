@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using TextServices.Search.Api.Configuration;
 using TextServices.Search.Api.Features.Autocomplete;
 using TextServices.Search.Api.Features.Search;
+using TextServices.Search.Api.Features.TextAugmented;
 using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
@@ -24,6 +25,9 @@ builder.Services.AddSingleton<ITextStore>(_ =>
     {
         RootPath = options.StorageRootPath
     }));
+
+// ITextStore is also injected directly into TextAugmentedHandler (manifest is plain JSON,
+// not routed through the Text/AutoComplete cache).
 
 // ---- Cache ------------------------------------------------------------------
 
@@ -73,6 +77,23 @@ app.MapGet("/autocomplete/v1/{**id}", async (
     var selfUrl = BuildSelfUrl(options, ctx, $"autocomplete/v1/{id}", q);
 
     var result = await sender.Send(new AutocompleteRequest(id, q ?? string.Empty, selfUrl));
+    if (result == null) return Results.NotFound();
+
+    return Results.Json(result);
+});
+
+// GET /text-augmented/v3/{**id}
+app.MapGet("/text-augmented/v3/{**id}", async (
+    string id,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl    = BuildSelfUrl(options, ctx, $"text-augmented/v3/{id}", null);
+    var searchBase = string.IsNullOrEmpty(options.BaseUrl)
+        ? $"{ctx.Request.Scheme}://{ctx.Request.Host}"
+        : options.BaseUrl.TrimEnd('/');
+
+    var result = await sender.Send(new TextAugmentedRequest(id, selfUrl, searchBase));
     if (result == null) return Results.NotFound();
 
     return Results.Json(result);
