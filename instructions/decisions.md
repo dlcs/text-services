@@ -164,4 +164,28 @@ Intentional extensions beyond the references:
 - Empty-norm words are skipped entirely by TextAccumulator rather than being written to raw but not norm text (St Louis partial-skip behaviour); our approach is cleaner
 
 ---
+
+## 2026-03-29 — PRs 3–5 (Storage, Builder API scaffold, Manifest fetching)
+
+### PR 3 — Storage abstraction
+
+`ITextStore` interface and `FileSystemTextStore` introduced. Keys containing `/` are treated as path segments so `"2/books/my-book"` maps to `{RootPath}/2/books/my-book/`. Three fixed filenames per key: `text.bin`, `autocomplete.bin`, `manifest.json`. `Exists()` checks for `text.bin` only (AutoComplete or Manifest alone does not constitute a complete artefact).
+
+### PR 4 — Builder API scaffold
+
+PostgreSQL credentials go in `appsettings.Development.json`, which is already gitignored (the `.gitignore` rule `appsettings.Development.json` was already present). `appsettings.json` carries an empty `ConnectionStrings:BuilderDb` placeholder. `JobStatus` enum uses `Waiting` (not `Pending`) for the initial state.
+
+### PR 5 — IIIF Manifest fetching
+
+Neither reference implementation handles IIIF Manifests (both use METS). This is a new capability, so the design follows CLAUDE.md directly with no reference precedent.
+
+`ManifestReducer` treats the manifest as plain JSON (`System.Text.Json`); no IIIF object model needed. v3 detection checks `@context` for `"presentation/3"` (string or array); falls back to `type = "Manifest" + items` when context is absent. v2 manifests throw with a clear message. ALTO detection checks `profile` or `label` for the string "alto" (case-insensitive); `label` may be a IIIF lang map (`{"none": ["METS-ALTO"]}`) or a plain string.
+
+### Canvas dimension handling — time-based canvases
+
+**Decision:** Canvases without both `width` and `height` (e.g., audio-only canvases that carry only `duration`) are silently skipped — they cannot carry spatial text artefacts and are not an error. Canvases with `width`, `height` **and** `duration` (e.g., video content) are included normally: ALTO text processing is technically valid for them (unusual but not impossible — e.g., a film of a static wall of text).
+
+**Future:** VTT and other time-based text formats will be supported later via the `ITextFormatProvider` extensibility point, at which point time-only canvases will be revisited.
+
+---
 <!-- Add new sessions below this line -->

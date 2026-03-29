@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Net.Http.Headers;
 using Hangfire;
 using Hangfire.PostgreSql;
 using MediatR;
@@ -6,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
+using TextServices.Builder.Api.Services;
 using TextServices.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -40,6 +42,20 @@ builder.Services.AddHangfireServer();
 
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+
+// ---- Manifest services ------------------------------------------------------
+
+builder.Services.AddSingleton<IManifestReducer, ManifestReducer>();
+builder.Services.AddScoped<IManifestFetcher, ManifestFetcher>();
+
+builder.Services.AddHttpClient("Manifest", client =>
+{
+    client.DefaultRequestHeaders.Accept.Add(
+        new MediaTypeWithQualityHeaderValue("application/json"));
+    client.DefaultRequestHeaders.Accept.Add(
+        new MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 // ---- Storage ----------------------------------------------------------------
 
