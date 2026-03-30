@@ -12,6 +12,15 @@ using TextServices.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---- CORS -------------------------------------------------------------------
+
+var corsOrigins = builder.Configuration.GetSection("CorsAllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
+{
+    if (corsOrigins.Length > 0)
+        p.WithOrigins(corsOrigins).AllowAnyMethod().AllowAnyHeader();
+}));
+
 // ---- Configuration ----------------------------------------------------------
 
 var tsOptions = builder.Configuration
@@ -51,6 +60,7 @@ builder.Services.AddScoped<IAltoFetcher, AltoFetcher>();
 
 builder.Services.AddHttpClient("Manifest", client =>
 {
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0");
     client.DefaultRequestHeaders.Accept.Add(
         new MediaTypeWithQualityHeaderValue("application/json"));
     client.DefaultRequestHeaders.Accept.Add(
@@ -60,6 +70,7 @@ builder.Services.AddHttpClient("Manifest", client =>
 
 builder.Services.AddHttpClient("Alto", client =>
 {
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0");
     // Accept anything — IIIF implementations vary widely in the Content-Type
     // they set on ALTO files (application/xml, text/xml, text/plain,
     // application/octet-stream, or nothing). We parse whatever comes back as XML.
@@ -89,6 +100,7 @@ if (app.Environment.IsDevelopment())
     app.UseHangfireDashboard("/hangfire");
 }
 
+app.UseCors();
 app.UseHttpsRedirection();
 
 // ---- Endpoints --------------------------------------------------------------

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Builder Dashboard — TextServices Demo</title>
+  <link rel="stylesheet" href="/demo.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="/builder.html">TextServices Demo</a>
+  <a href="/builder.html">Builder</a>
+  <a href="/viewer.html">Viewer</a>
+  <a href="/compare.html">Compare</a>
+</nav>
+<main>
+  <h1>Builder Dashboard</h1>
+
+  <div id="error-area"></div>
+  <div id="config-info" class="info-box" style="display:none"></div>
+
+  <h2>Submit manifest for processing</h2>
+  <form id="submit-form" style="display:grid;gap:0.5rem;max-width:600px;margin-bottom:1.2rem">
+    <label>
+      Job ID <small style="color:#666">(slash-delimited key, e.g. wellcome/b12345678)</small>
+      <input type="text" id="job-id" required placeholder="wellcome/b12345678" />
+    </label>
+    <label>
+      Manifest URL
+      <input type="url" id="manifest-url" required placeholder="https://iiif.wellcomecollection.org/presentation/b12345678" />
+    </label>
+    <div>
+      <button type="submit">Submit</button>
+    </div>
+    <div id="submit-result" style="font-size:0.85rem"></div>
+  </form>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem">
+    <h2 style="margin:0">Jobs</h2>
+    <span>
+      <button class="secondary" id="refresh-btn" style="font-size:0.8rem;padding:0.25rem 0.6rem">Refresh</button>
+      &nbsp;
+      <a id="hangfire-link" href="#" target="_blank" style="font-size:0.82rem">Hangfire dashboard ↗</a>
+    </span>
+  </div>
+
+  <p id="jobs-note" style="font-size:0.8rem;color:#666;margin:0 0 0.5rem">
+    Jobs submitted from this browser are tracked in local storage.
+    Use the Refresh button to reload status from the API.
+  </p>
+
+  <div id="jobs-area">
+    <table id="jobs-table" style="display:none">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Source</th>
+          <th>Status</th>
+          <th>Progress</th>
+          <th>Words</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="jobs-body"></tbody>
+    </table>
+    <p id="no-jobs-msg" style="color:#888;font-size:0.9rem">No jobs yet. Submit a manifest above.</p>
+  </div>
+</main>
+<script type="module" src="/js/builder.js"></script>
+</body>
+</html>

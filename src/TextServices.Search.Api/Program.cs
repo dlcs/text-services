@@ -10,6 +10,15 @@ using TextServices.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---- CORS -------------------------------------------------------------------
+
+var corsOrigins = builder.Configuration.GetSection("CorsAllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
+{
+    if (corsOrigins.Length > 0)
+        p.WithOrigins(corsOrigins).AllowAnyMethod().AllowAnyHeader();
+}));
+
 // ---- Configuration ----------------------------------------------------------
 
 var options = builder.Configuration
@@ -49,6 +58,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+app.UseCors();
 app.UseHttpsRedirection();
 
 // ---- Endpoints --------------------------------------------------------------
