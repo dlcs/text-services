@@ -116,6 +116,13 @@ app.MapPost("/textbuilder", async (JobInstruction instruction, ISender sender) =
     return Results.Accepted($"/textbuilder/{instruction.Id}", result.Response);
 });
 
+// GET /textbuilder  — paged list of all jobs, newest first
+app.MapGet("/textbuilder", async (ISender sender, int page = 1, int pageSize = 20, string? status = null) =>
+{
+    var result = await sender.Send(new ListJobsRequest(page, pageSize, status));
+    return Results.Ok(result);
+});
+
 // GET /textbuilder/{**id}
 app.MapGet("/textbuilder/{**id}", async (string id, ISender sender) =>
 {
