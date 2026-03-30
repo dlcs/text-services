@@ -1,0 +1,279 @@
+import { fetchManifest, extractCanvases, extractSearchServices, buildImageUrl, parseXYWH } from './iiif-helpers.js';
+
+// ---- State -------------------------------------------------------------------
+let canvases = [];
+let currentIndex = 0;
+let searchService = null;   // { searchUrl, autocompleteUrl }
+let currentHits = [];       // flat array of { canvasId, x, y, w, h, before, match, after }
+let acTimer = null;
+
+// ---- DOM refs ----------------------------------------------------------------
+const manifestInput = document.getElementById('manifest-url');
+const loadBtn       = document.getElementById('load-btn');
+const errorArea     = document.getElementById('error-area');
+const servicesInfo  = document.getElementById('services-info');
+const viewerWrap    = document.getElementById('viewer-wrap');
+const canvasImg     = document.getElementById('canvas-img');
+const canvasArea    = document.getElementById('canvas-area');
+const prevBtn       = document.getElementById('prev-btn');
+const nextBtn       = document.getElementById('next-btn');
+const pageLabel     = document.getElementById('page-label');
+const searchPanel   = document.getElementById('search-panel');
+const searchForm    = document.getElementById('search-form');
+const searchInput   = document.getElementById('search-input');
+const acSuggestions = document.getElementById('ac-suggestions');
+const resultsList   = document.getElementById('results-list');
+const resultsCount  = document.getElementById('results-count');
+
+// ---- Init --------------------------------------------------------------------
+
+(async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const url = params.get('iiif-content');
+    if (url) {
+        manifestInput.value = url;
+        await loadManifest(url);
+    }
+})();
+
+loadBtn.addEventListener('click', async () => {
+    const url = manifestInput.value.trim();
+    if (!url) return;
+    history.pushState({}, '', `?iiif-content=${encodeURIComponent(url)}`);
+    await loadManifest(url);
+});
+
+manifestInput.addEventListener('keydown', async e => {
+    if (e.key === 'Enter') loadBtn.click();
+});
+
+// ---- Manifest loading --------------------------------------------------------
+
+async function loadManifest(url) {
+    clearError();
+    viewerWrap.style.display = 'none';
+    servicesInfo.style.display = 'none';
+    resultsList.innerHTML = '';
+    resultsCount.textContent = '';
+
+    try {
+        const manifest = await fetchManifest(url);
+        canvases = extractCanvases(manifest);
+        if (canvases.length === 0) throw new Error('Manifest contains no canvases.');
+
+        const services = extractSearchServices(manifest);
+        searchService = services.length > 0 ? services[0] : null;
+
+        updateServicesInfo(url, searchService);
+        searchPanel.style.display = searchService ? 'block' : 'none';
+
+        currentIndex = 0;
+        currentHits = [];
+        renderCanvas(0);
+        viewerWrap.style.display = 'flex';
+    } catch (err) {
+        showError(err.message);
+    }
+}
+
+function updateServicesInfo(manifestUrl, svc) {
+    const lines = [`<span class="label">Manifest:</span>${esc(manifestUrl)}`];
+    if (svc) {
+        lines.push(`<span class="label">Search service:</span>${esc(svc.searchUrl)}`);
+        lines.push(`<span class="label">Autocomplete:</span>${svc.autocompleteUrl ? esc(svc.autocompleteUrl) : '(none)'}`);
+    } else {
+        lines.push('<span class="label">Search service:</span>none detected');
+    }
+    servicesInfo.innerHTML = lines.join('<br>');
+    servicesInfo.style.display = 'block';
+}
+
+// ---- Canvas rendering --------------------------------------------------------
+
+function renderCanvas(index) {
+    const canvas = canvases[index];
+    currentIndex = index;
+
+    pageLabel.textContent = `${canvas.label || ''}  (${index + 1} / ${canvases.length})`;
+    prevBtn.disabled = index === 0;
+    nextBtn.disabled = index === canvases.length - 1;
+
+    // Remove existing overlays
+    canvasArea.querySelectorAll('.hit-overlay').forEach(el => el.remove());
+
+    // Choose best image URL
+    let src = null;
+    if (canvas.imageServiceId) {
+        src = buildImageUrl(canvas.imageServiceId, 'full', '!1200,900');
+    } else if (canvas.imageUrl) {
+        src = canvas.imageUrl;
+    }
+
+    if (src) {
+        canvasImg.src = src;
+        canvasImg.onload = () => renderHitsForCanvas(canvas.id);
+    } else {
+        canvasImg.src = '';
+        canvasImg.alt = 'No image available';
+    }
+}
+
+prevBtn.addEventListener('click', () => renderCanvas(currentIndex - 1));
+nextBtn.addEventListener('click', () => renderCanvas(currentIndex + 1));
+
+// ---- Hit overlays ------------------------------------------------------------
+
+function renderHitsForCanvas(canvasId) {
+    canvasArea.querySelectorAll('.hit-overlay').forEach(el => el.remove());
+
+    const hits = currentHits.filter(h => h.canvasId === canvasId);
+    const canvas = canvases.find(c => c.id === canvasId);
+    if (!canvas || hits.length === 0) return;
+
+    hits.forEach(hit => {
+        const overlay = document.createElement('div');
+        overlay.className = 'hit-overlay';
+
+        // Position as percentages relative to canvas coordinate space,
+        // so they survive image resizes.
+        overlay.style.left   = `${(hit.x / canvas.width) * 100}%`;
+        overlay.style.top    = `${(hit.y / canvas.height) * 100}%`;
+        overlay.style.width  = `${(hit.w / canvas.width) * 100}%`;
+        overlay.style.height = `${(hit.h / canvas.height) * 100}%`;
+
+        canvasArea.appendChild(overlay);
+    });
+}
+
+// Reposition overlays on resize via ResizeObserver.
+new ResizeObserver(() => {
+    if (canvases.length > 0) renderHitsForCanvas(canvases[currentIndex].id);
+}).observe(canvasArea);
+
+// ---- Search ------------------------------------------------------------------
+
+searchForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const q = searchInput.value.trim();
+    if (!q || !searchService) return;
+    await doSearch(q);
+});
+
+async function doSearch(q) {
+    resultsList.innerHTML = '<li style="color:#888">Searching…</li>';
+    resultsCount.textContent = '';
+    currentHits = [];
+    canvasArea.querySelectorAll('.hit-overlay').forEach(el => el.remove());
+
+    try {
+        const url = `${searchService.searchUrl}?q=${encodeURIComponent(q)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Search returned HTTP ${res.status}`);
+        const data = await res.json();
+
+        // Index resources by @id for lookup from hits
+        const resourceById = {};
+        for (const r of data.resources ?? []) {
+            resourceById[r['@id']] = r;
+        }
+
+        // Build flat hit list: one entry per SearchHit (may span multiple annotations/words)
+        const hitList = [];
+        for (const hit of data.hits ?? []) {
+            // Use the first annotation to determine canvas + coordinates
+            const firstAnnoId = hit.annotations?.[0];
+            const firstAnno   = resourceById[firstAnnoId];
+            if (!firstAnno) continue;
+
+            const parsed = parseXYWH(firstAnno.on);
+            if (!parsed) continue;
+
+            // Accumulate all word rectangles for this hit for overlay purposes
+            for (const annoId of hit.annotations) {
+                const anno = resourceById[annoId];
+                if (!anno) continue;
+                const p = parseXYWH(anno.on);
+                if (p) currentHits.push(p);
+            }
+
+            hitList.push({
+                canvasId: parsed.canvasId,
+                x: parsed.x, y: parsed.y, w: parsed.w, h: parsed.h,
+                before: hit.before ?? '',
+                match:  hit.match  ?? '',
+                after:  hit.after  ?? '',
+            });
+        }
+
+        resultsCount.textContent = `${hitList.length} hit${hitList.length === 1 ? '' : 's'}`;
+        resultsList.innerHTML = '';
+
+        if (hitList.length === 0) {
+            resultsList.innerHTML = '<li style="color:#888">No results.</li>';
+            return;
+        }
+
+        hitList.forEach((hit, i) => {
+            const li = document.createElement('li');
+            li.innerHTML =
+                `<span class="hit-before">${esc(hit.before)} </span>` +
+                `<span class="hit-match">${esc(hit.match)}</span>` +
+                `<span class="hit-after"> ${esc(hit.after)}</span>`;
+            li.addEventListener('click', () => navigateToHit(hit));
+            resultsList.appendChild(li);
+        });
+
+        // Show overlays on the current canvas immediately if it has hits
+        if (canvases.length > 0) renderHitsForCanvas(canvases[currentIndex].id);
+
+    } catch (err) {
+        resultsList.innerHTML = `<li style="color:#900">${esc(err.message)}</li>`;
+    }
+}
+
+function navigateToHit(hit) {
+    const idx = canvases.findIndex(c => c.id === hit.canvasId);
+    if (idx === -1) return;
+    if (idx !== currentIndex) {
+        renderCanvas(idx);
+        // Overlays rendered after image load via onload callback
+    } else {
+        renderHitsForCanvas(hit.canvasId);
+    }
+}
+
+// ---- Autocomplete ------------------------------------------------------------
+
+searchInput.addEventListener('input', () => {
+    clearTimeout(acTimer);
+    acTimer = setTimeout(fetchAutocomplete, 300);
+});
+
+async function fetchAutocomplete() {
+    const q = searchInput.value.trim();
+    acSuggestions.innerHTML = '';
+    if (!searchService?.autocompleteUrl || q.length < 3) return;
+
+    try {
+        const url = `${searchService.autocompleteUrl}?q=${encodeURIComponent(q)}`;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        (data.terms ?? []).slice(0, 20).forEach(term => {
+            const opt = document.createElement('option');
+            opt.value = term.match;
+            acSuggestions.appendChild(opt);
+        });
+    } catch { /* ignore autocomplete errors */ }
+}
+
+// ---- Helpers -----------------------------------------------------------------
+
+function showError(msg) {
+    errorArea.innerHTML = `<div class="error-box">${esc(msg)}</div>`;
+}
+function clearError() { errorArea.innerHTML = ''; }
+function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}

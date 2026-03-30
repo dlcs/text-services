@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IIIF Viewer — TextServices Demo</title>
+  <link rel="stylesheet" href="/demo.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="/builder.html">TextServices Demo</a>
+  <a href="/builder.html">Builder</a>
+  <a href="/viewer.html">Viewer</a>
+  <a href="/compare.html">Compare</a>
+</nav>
+<main>
+  <h1>IIIF Viewer</h1>
+
+  <div class="row" style="margin-bottom:0.8rem">
+    <input type="url" id="manifest-url" placeholder="IIIF Manifest URL (v3)" />
+    <button id="load-btn">Load</button>
+  </div>
+
+  <div id="error-area"></div>
+  <div id="services-info" class="info-box" style="display:none"></div>
+
+  <div id="viewer-wrap" style="display:none">
+    <div id="canvas-area">
+      <img id="canvas-img" alt="Canvas image" />
+    </div>
+    <div id="sidebar">
+      <div id="nav-bar">
+        <button id="prev-btn" disabled>&#8592;</button>
+        <span id="page-label"></span>
+        <button id="next-btn" disabled>&#8594;</button>
+      </div>
+
+      <div id="search-panel" style="display:none">
+        <form id="search-form" style="display:flex;gap:0.4rem;margin-bottom:0.4rem">
+          <input type="text" id="search-input" placeholder="Search…" autocomplete="off" list="ac-suggestions" />
+          <datalist id="ac-suggestions"></datalist>
+          <button type="submit">Go</button>
+        </form>
+        <div id="results-count" style="font-size:0.8rem;color:#555;margin-bottom:0.3rem"></div>
+        <ul id="results-list"></ul>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module" src="/js/viewer.js"></script>
+</body>
+</html>
