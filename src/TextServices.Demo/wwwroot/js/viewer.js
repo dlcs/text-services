@@ -15,6 +15,7 @@ const servicesInfo  = document.getElementById('services-info');
 const viewerWrap    = document.getElementById('viewer-wrap');
 const canvasImg     = document.getElementById('canvas-img');
 const canvasArea    = document.getElementById('canvas-area');
+const imgWrap       = document.getElementById('img-wrap');
 const prevBtn       = document.getElementById('prev-btn');
 const nextBtn       = document.getElementById('next-btn');
 const pageLabel     = document.getElementById('page-label');
@@ -99,7 +100,7 @@ function renderCanvas(index) {
     nextBtn.disabled = index === canvases.length - 1;
 
     // Remove existing overlays
-    canvasArea.querySelectorAll('.hit-overlay').forEach(el => el.remove());
+    imgWrap.querySelectorAll('.hit-overlay').forEach(el => el.remove());
 
     // Choose best image URL
     let src = null;
@@ -124,7 +125,7 @@ nextBtn.addEventListener('click', () => renderCanvas(currentIndex + 1));
 // ---- Hit overlays ------------------------------------------------------------
 
 function renderHitsForCanvas(canvasId) {
-    canvasArea.querySelectorAll('.hit-overlay').forEach(el => el.remove());
+    imgWrap.querySelectorAll('.hit-overlay').forEach(el => el.remove());
 
     const hits = currentHits.filter(h => h.canvasId === canvasId);
     const canvas = canvases.find(c => c.id === canvasId);
@@ -141,14 +142,14 @@ function renderHitsForCanvas(canvasId) {
         overlay.style.width  = `${(hit.w / canvas.width) * 100}%`;
         overlay.style.height = `${(hit.h / canvas.height) * 100}%`;
 
-        canvasArea.appendChild(overlay);
+        imgWrap.appendChild(overlay);
     });
 }
 
 // Reposition overlays on resize via ResizeObserver.
 new ResizeObserver(() => {
     if (canvases.length > 0) renderHitsForCanvas(canvases[currentIndex].id);
-}).observe(canvasArea);
+}).observe(imgWrap);
 
 // ---- Search ------------------------------------------------------------------
 
@@ -163,7 +164,7 @@ async function doSearch(q) {
     resultsList.innerHTML = '<li style="color:#888">Searching…</li>';
     resultsCount.textContent = '';
     currentHits = [];
-    canvasArea.querySelectorAll('.hit-overlay').forEach(el => el.remove());
+    imgWrap.querySelectorAll('.hit-overlay').forEach(el => el.remove());
 
     try {
         const url = `${searchService.searchUrl}?q=${encodeURIComponent(q)}`;

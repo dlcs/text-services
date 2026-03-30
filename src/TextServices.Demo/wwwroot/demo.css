@@ -99,12 +99,17 @@ progress { width: 80px; height: 10px; }
 }
 #canvas-area {
   flex: 1 1 auto;
-  position: relative;
   background: #333;
   min-height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+/* img-wrap sizes exactly to the rendered image so overlays land on the image */
+#img-wrap {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
 }
 #canvas-img {
   display: block;
