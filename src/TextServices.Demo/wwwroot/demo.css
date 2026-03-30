@@ -120,10 +120,8 @@ progress { width: 80px; height: 10px; }
 }
 .hit-overlay {
   position: absolute;
-  border: 2px solid #ff0;
-  background: rgba(255,255,0,0.15);
+  background: rgba(255,200,0,0.45);
   pointer-events: none;
-  box-sizing: border-box;
 }
 #sidebar {
   flex: 0 0 280px;
