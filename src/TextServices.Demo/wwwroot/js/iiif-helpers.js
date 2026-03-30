@@ -115,7 +115,10 @@ export function extractSearchServices(manifest) {
         const nested = normaliseServices(svc.service);
         for (const n of nested) {
             const np = n.profile ?? '';
-            if (typeof np === 'string' && np.includes('autocomplete/1')) {
+            const nt = n['@type'] ?? n.type ?? '';
+            const isAc = (typeof np === 'string' && np.includes('autocomplete'))
+                      || (typeof nt === 'string' && nt.toLowerCase().includes('autocomplete'));
+            if (isAc) {
                 autocompleteUrl = n.id ?? n['@id'] ?? null;
                 break;
             }
