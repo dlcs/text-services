@@ -120,6 +120,7 @@ public class TextAccumulator
             H = h,
             BlockType = blockType,
         });
+        _hasContent = true;
     }
 
     /// <summary>

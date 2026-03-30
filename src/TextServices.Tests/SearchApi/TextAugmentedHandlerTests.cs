@@ -10,8 +10,10 @@ public class TextAugmentedHandlerTests
 {
     private const string SelfUrl       = "https://search.example.org/text-augmented/v3/test/book";
     private const string SearchBase    = "https://search.example.org";
-    private const string ExpectedSearch       = "https://search.example.org/search/v1/test/book";
-    private const string ExpectedAutocomplete = "https://search.example.org/autocomplete/v1/test/book";
+    private const string ExpectedSearchV2       = "https://search.example.org/search/v2/test/book";
+    private const string ExpectedAutocompleteV2 = "https://search.example.org/autocomplete/v2/test/book";
+    private const string ExpectedSearchV1       = "https://search.example.org/search/v1/test/book";
+    private const string ExpectedAutocompleteV1 = "https://search.example.org/autocomplete/v1/test/book";
 
     // -------------------------------------------------------------------------
     // Not found
@@ -61,7 +63,7 @@ public class TextAugmentedHandlerTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task Handle_NoExistingService_CreatesServiceArray()
+    public async Task Handle_NoExistingService_CreatesTwoServiceEntries()
     {
         var handler = MakeHandler(V3Manifest());
 
@@ -69,11 +71,11 @@ public class TextAugmentedHandlerTests
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
         var service = result!["service"].ShouldBeOfType<JsonArray>();
-        service.Count.ShouldBe(1);
+        service.Count.ShouldBe(2); // v2 + v1
     }
 
     [Fact]
-    public async Task Handle_ExistingServiceArray_AppendsSearchService()
+    public async Task Handle_ExistingServiceArray_PrependsSearchServices()
     {
         var handler = MakeHandler(V3ManifestWithServiceArray());
 
@@ -81,7 +83,7 @@ public class TextAugmentedHandlerTests
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
         var service = result!["service"].ShouldBeOfType<JsonArray>();
-        service.Count.ShouldBe(2); // original + search
+        service.Count.ShouldBe(3); // v2 + v1 + original
     }
 
     [Fact]
@@ -93,12 +95,12 @@ public class TextAugmentedHandlerTests
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
         var service = result!["service"].ShouldBeOfType<JsonArray>();
-        service.Count.ShouldBe(2);
-        service[0]!["@id"]!.GetValue<string>().ShouldBe(ExpectedSearch); // search service is first
+        service.Count.ShouldBe(3); // v2 + v1 + original
+        service[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV2); // v2 is first
     }
 
     [Fact]
-    public async Task Handle_ExistingServiceArray_SearchServiceIsFirst()
+    public async Task Handle_ExistingServiceArray_SearchServicesAreFirst()
     {
         var handler = MakeHandler(V3ManifestWithServiceArray());
 
@@ -106,46 +108,61 @@ public class TextAugmentedHandlerTests
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
         var service = result!["service"].ShouldBeOfType<JsonArray>();
-        service[0]!["@id"]!.GetValue<string>().ShouldBe(ExpectedSearch);
-        service[1]!["@id"]!.GetValue<string>().ShouldBe("https://example.org/other"); // original pushed down
+        service[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV2);
+        service[1]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV1);
+        service[2]!["@id"]!.GetValue<string>().ShouldBe("https://example.org/other"); // original pushed down
     }
 
     [Fact]
-    public async Task Handle_SearchService_HasCorrectProfileAndId()
+    public async Task Handle_SearchServiceV2_HasCorrectTypeAndId()
     {
         var handler = MakeHandler(V3Manifest());
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
-        var searchService = result!["service"]![0]!;
-        searchService["@id"]!.GetValue<string>().ShouldBe(ExpectedSearch);
-        searchService["profile"]!.GetValue<string>().ShouldBe("http://iiif.io/api/search/1/search");
+        var searchServiceV2 = result!["service"]![0]!;
+        searchServiceV2["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV2);
+        searchServiceV2["type"]!.GetValue<string>().ShouldBe("SearchService2");
     }
 
     [Fact]
-    public async Task Handle_AutocompleteService_NestedInsideSearchService()
+    public async Task Handle_SearchServiceV1_HasCorrectTypeAndId()
     {
         var handler = MakeHandler(V3Manifest());
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
-        var autocomplete = result!["service"]![0]!["service"]!;
-        autocomplete["@id"]!.GetValue<string>().ShouldBe(ExpectedAutocomplete);
-        autocomplete["profile"]!.GetValue<string>().ShouldBe("http://iiif.io/api/search/1/autocomplete");
+        var searchServiceV1 = result!["service"]![1]!;
+        searchServiceV1["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV1);
+        searchServiceV1["type"]!.GetValue<string>().ShouldBe("SearchService1");
     }
 
     [Fact]
-    public async Task Handle_SearchService_HasCorrectContext()
+    public async Task Handle_AutocompleteServiceV2_NestedInsideSearchServiceV2()
     {
         var handler = MakeHandler(V3Manifest());
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
-        var searchService = result!["service"]![0]!;
-        searchService["@context"]!.GetValue<string>().ShouldBe("http://iiif.io/api/search/1/context.json");
+        var autocomplete = result!["service"]![0]!["service"]![0]!;
+        autocomplete["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV2);
+        autocomplete["type"]!.GetValue<string>().ShouldBe("AutoCompleteService2");
+    }
+
+    [Fact]
+    public async Task Handle_AutocompleteServiceV1_NestedInsideSearchServiceV1()
+    {
+        var handler = MakeHandler(V3Manifest());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var autocomplete = result!["service"]![1]!["service"]![0]!;
+        autocomplete["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV1);
+        autocomplete["type"]!.GetValue<string>().ShouldBe("AutoCompleteService1");
     }
 
     // -------------------------------------------------------------------------

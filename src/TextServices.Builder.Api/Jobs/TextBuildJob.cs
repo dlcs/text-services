@@ -141,7 +141,7 @@ public class TextBuildJob(
             cancellationToken.ThrowIfCancellationRequested();
 
             if (xml != null)
-                textBuilder.AddPage(page.Id, page.Width, page.Height, xml, profile: "alto");
+                textBuilder.AddPage(page.Id, page.Width, page.Height, xml, page.Profile, page.Label);
 
             completed++;
             job.PagesCompleted = completed;

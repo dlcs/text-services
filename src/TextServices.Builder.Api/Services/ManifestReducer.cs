@@ -36,10 +36,18 @@ public class ManifestReducer : IManifestReducer
                 !canvas.TryGetProperty("height", out var h))
                 continue;
 
-            var id    = idEl.GetString() ?? string.Empty;
-            var alto  = FindAltoUri(canvas);
+            var id     = idEl.GetString() ?? string.Empty;
+            var source = FindTextSource(canvas);
 
-            pages.Add(new PageInstruction { Id = id, Width = w.GetInt32(), Height = h.GetInt32(), Text = alto });
+            pages.Add(new PageInstruction
+            {
+                Id      = id,
+                Width   = w.GetInt32(),
+                Height  = h.GetInt32(),
+                Text    = source?.Uri,
+                Profile = source?.Profile,
+                Label   = source?.Label,
+            });
         }
 
         return pages;
@@ -77,49 +85,55 @@ public class ManifestReducer : IManifestReducer
         ctx != null && ctx.Contains("presentation/3", StringComparison.OrdinalIgnoreCase);
 
     // -------------------------------------------------------------------------
-    // ALTO seeAlso detection
+    // Text-source seeAlso detection (ALTO, hOCR, …)
     // -------------------------------------------------------------------------
 
-    private static string? FindAltoUri(JsonElement canvas)
+    private record TextSource(string Uri, string? Profile, string? Label);
+
+    private static TextSource? FindTextSource(JsonElement canvas)
     {
         if (!canvas.TryGetProperty("seeAlso", out var seeAlso))
             return null;
 
         return seeAlso.ValueKind switch
         {
-            JsonValueKind.Array  => FindAltoInArray(seeAlso),
-            JsonValueKind.Object => TryGetAltoUri(seeAlso),
+            JsonValueKind.Array  => FindTextSourceInArray(seeAlso),
+            JsonValueKind.Object => TryGetTextSource(seeAlso),
             _                    => null,
         };
     }
 
-    private static string? FindAltoInArray(JsonElement array)
+    private static TextSource? FindTextSourceInArray(JsonElement array)
     {
         foreach (var item in array.EnumerateArray())
         {
-            var uri = TryGetAltoUri(item);
-            if (uri != null) return uri;
+            var source = TryGetTextSource(item);
+            if (source != null) return source;
         }
         return null;
     }
 
-    private static string? TryGetAltoUri(JsonElement item)
+    private static TextSource? TryGetTextSource(JsonElement item)
     {
         var profile = item.TryGetProperty("profile", out var p) ? p.GetString() : null;
         var label   = item.TryGetProperty("label",   out var l) ? ExtractLabelText(l) : null;
 
-        if (!IsAlto(profile, label)) return null;
+        if (!IsRecognisedTextFormat(profile, label)) return null;
 
-        return item.TryGetProperty("id", out var id) ? id.GetString() : null;
+        var uri = item.TryGetProperty("id", out var id) ? id.GetString() : null;
+        return uri != null ? new TextSource(uri, profile, label) : null;
     }
 
     /// <summary>
-    /// Returns <see langword="true"/> if the profile URI or label text indicates an ALTO resource.
-    /// Detection is intentionally broad: profile contains "alto" OR label contains "alto".
+    /// Returns <see langword="true"/> if the profile URI or label indicates a recognised
+    /// text format (ALTO or hOCR).  Detection is intentionally broad.
     /// </summary>
-    private static bool IsAlto(string? profile, string? label) =>
-        (profile != null && profile.Contains("alto", StringComparison.OrdinalIgnoreCase)) ||
-        (label   != null && label  .Contains("alto", StringComparison.OrdinalIgnoreCase));
+    private static bool IsRecognisedTextFormat(string? profile, string? label) =>
+        ContainsIgnoreCase(profile, "alto")  || ContainsIgnoreCase(label, "alto") ||
+        ContainsIgnoreCase(profile, "hocr")  || ContainsIgnoreCase(label, "hocr");
+
+    private static bool ContainsIgnoreCase(string? value, string term) =>
+        value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Extracts a plain string from a IIIF language map
