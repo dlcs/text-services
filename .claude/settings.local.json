@@ -9,7 +9,23 @@
       "Bash(dotnet sln:*)",
       "Bash(dotnet add:*)",
       "Bash(dotnet build:*)",
-      "Bash(dotnet test:*)"
+      "Bash(dotnet test:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -v \"//\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh pr:*)",
+      "Bash(git -C C:/git/tomcrane/TextServices add instructions/cache-usage.md)",
+      "Bash(git -C:*)",
+      "Bash(git -C C:/git/tomcrane/TextServices push)",
+      "Bash(dotnet clean:*)",
+      "Bash(node:*)",
+      "Bash(curl -s \"https://api.wellcomecollection.org/text/alto/b21538608/b21538608_0050.jp2\")",
+      "WebFetch(domain:iiif.wellcomecollection.org)",
+      "WebFetch(domain:api.wellcomecollection.org)"
     ]
   }
 }
