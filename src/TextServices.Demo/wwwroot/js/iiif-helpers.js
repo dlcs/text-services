@@ -94,6 +94,10 @@ export function extractCanvases(manifest) {
  *
  * Each descriptor: { searchUrl, autocompleteUrl }
  * autocompleteUrl may be null if no autocomplete service is nested.
+ *
+ * Detects both:
+ *   - IIIF Presentation 3 style: type "SearchService2" / "SearchService1"
+ *   - Legacy style: profile containing "search/1" or "search/2"
  */
 export function extractSearchServices(manifest) {
     const services = normaliseServices(manifest.service);
@@ -101,9 +105,15 @@ export function extractSearchServices(manifest) {
 
     for (const svc of services) {
         const profile = svc.profile ?? svc['@context'] ?? '';
-        const isSearch = typeof profile === 'string'
-            ? profile.includes('search/1')
-            : Array.isArray(profile) && profile.some(p => typeof p === 'string' && p.includes('search/1'));
+        const type    = svc.type ?? svc['@type'] ?? '';
+
+        const profileStr = typeof profile === 'string' ? profile
+            : Array.isArray(profile) ? profile.find(p => typeof p === 'string' && p.includes('search')) ?? ''
+            : '';
+
+        const isSearch = profileStr.includes('search')
+            || type === 'SearchService1'
+            || type === 'SearchService2';
 
         if (!isSearch) continue;
 
@@ -128,6 +138,125 @@ export function extractSearchServices(manifest) {
     }
 
     return results;
+}
+
+// ---- Search response normalisation -------------------------------------------
+
+/**
+ * Normalises a IIIF Search API v1 or v2 response into a common shape.
+ *
+ * Returns:
+ *   {
+ *     hitList:  [{ canvasId, x, y, w, h, before, match, after }],
+ *     allRects: [{ canvasId, x, y, w, h }]   // one per matched word
+ *   }
+ */
+export function normalizeSearchResults(data) {
+    if (data.type === 'AnnotationPage') {
+        return _normalizeV2Results(data);
+    }
+    return _normalizeV1Results(data);
+}
+
+function _normalizeV1Results(data) {
+    const resourceById = {};
+    for (const r of data.resources ?? []) {
+        resourceById[r['@id']] = r;
+    }
+
+    const hitList  = [];
+    const allRects = [];
+
+    for (const hit of data.hits ?? []) {
+        const firstAnnoId = hit.annotations?.[0];
+        const firstAnno   = resourceById[firstAnnoId];
+        if (!firstAnno) continue;
+
+        const parsed = parseXYWH(firstAnno.on);
+        if (!parsed) continue;
+
+        for (const annoId of (hit.annotations ?? [])) {
+            const anno = resourceById[annoId];
+            if (!anno) continue;
+            const p = parseXYWH(anno.on);
+            if (p) allRects.push(p);
+        }
+
+        hitList.push({
+            canvasId: parsed.canvasId,
+            x: parsed.x, y: parsed.y, w: parsed.w, h: parsed.h,
+            before: hit.before ?? '',
+            match:  hit.match  ?? '',
+            after:  hit.after  ?? '',
+        });
+    }
+
+    return { hitList, allRects };
+}
+
+function _normalizeV2Results(data) {
+    const annoById = {};
+    for (const item of data.items ?? []) {
+        annoById[item.id] = item;
+    }
+
+    // allRects = every matched word position
+    const allRects = (data.items ?? [])
+        .map(item => parseXYWH(item.target))
+        .filter(Boolean);
+
+    const hitList = [];
+
+    const contextItems = (data.annotations ?? []).flatMap(p => p.items ?? []);
+    const contextualizing = contextItems.filter(a => a.motivation === 'contextualizing');
+
+    if (contextualizing.length > 0) {
+        for (const anno of contextualizing) {
+            const source    = anno.target?.source;
+            const paintAnno = annoById[source];
+            if (!paintAnno) continue;
+
+            const parsed = parseXYWH(paintAnno.target);
+            if (!parsed) continue;
+
+            const selectorArr = anno.target?.selector;
+            const tqs = Array.isArray(selectorArr)
+                ? selectorArr.find(s => s.type === 'TextQuoteSelector')
+                : (selectorArr?.type === 'TextQuoteSelector' ? selectorArr : null);
+
+            hitList.push({
+                canvasId: parsed.canvasId,
+                x: parsed.x, y: parsed.y, w: parsed.w, h: parsed.h,
+                before: tqs?.prefix  ?? '',
+                match:  tqs?.exact   ?? paintAnno.body?.value ?? '',
+                after:  tqs?.suffix  ?? '',
+            });
+        }
+    } else {
+        // No contextualizing annotations — use items directly (no context text)
+        for (const item of data.items ?? []) {
+            const parsed = parseXYWH(item.target);
+            if (!parsed) continue;
+            hitList.push({
+                canvasId: parsed.canvasId,
+                x: parsed.x, y: parsed.y, w: parsed.w, h: parsed.h,
+                before: '', match: item.body?.value ?? '', after: '',
+            });
+        }
+    }
+
+    return { hitList, allRects };
+}
+
+/**
+ * Normalises a IIIF Search API v1 TermList or v2 TermPage into a plain string array.
+ */
+export function normalizeAutocompleteTerms(data) {
+    if (data.type === 'TermPage') {
+        return (data.items ?? []).map(t => t.value).filter(Boolean);
+    }
+    // v1 TermList
+    return (data.terms ?? []).map(t => t.match).filter(Boolean);
 }
 
 // ---- IIIF Image API ----------------------------------------------------------

@@ -63,6 +63,35 @@ app.UseHttpsRedirection();
 
 // ---- Endpoints --------------------------------------------------------------
 
+// GET /search/v2/{**id}?q={term}
+app.MapGet("/search/v2/{**id}", async (
+    string id, string? q,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl = BuildSelfUrl(options, ctx, $"search/v2/{id}", q);
+
+    var result = await sender.Send(new SearchV2Request(id, q ?? string.Empty, selfUrl));
+    if (result == null) return Results.NotFound();
+
+    result.Ignored = GetIgnoredParams(ctx);
+    return Results.Json(result);
+});
+
+// GET /autocomplete/v2/{**id}?q={term}
+app.MapGet("/autocomplete/v2/{**id}", async (
+    string id, string? q,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl = BuildSelfUrl(options, ctx, $"autocomplete/v2/{id}", q);
+
+    var result = await sender.Send(new AutocompleteV2Request(id, q ?? string.Empty, selfUrl));
+    if (result == null) return Results.NotFound();
+
+    return Results.Json(result);
+});
+
 // GET /search/v1/{**id}?q={term}
 app.MapGet("/search/v1/{**id}", async (
     string id, string? q,

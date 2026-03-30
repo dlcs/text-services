@@ -5,8 +5,11 @@ using TextServices.Storage;
 namespace TextServices.Search.Api.Features.TextAugmented;
 
 /// <summary>
-/// Returns the stored IIIF Manifest JSON decorated with IIIF Search v1 service descriptors.
-/// The manifest is treated as plain JSON — no IIIF object model required.
+/// Returns the stored IIIF Manifest JSON decorated with IIIF Search service descriptors
+/// for both v2 and v1.  Services use the IIIF Presentation 3 id/type conventions:
+///   type "SearchService2" / "AutoCompleteService2"  (IIIF Search 2)
+///   type "SearchService1" / "AutoCompleteService1"  (IIIF Search 1, legacy)
+/// No @context is emitted inside service blocks — it belongs only at document level.
 /// </summary>
 public record TextAugmentedRequest(string Id, string SelfUrl, string SearchBaseUrl)
     : IRequest<JsonNode?>;
@@ -28,38 +31,49 @@ public class TextAugmentedHandler(ITextStore textStore)
         else
             manifest["id"] = request.SelfUrl;
 
-        // Build the search and autocomplete service descriptors.
-        var searchUrl  = $"{request.SearchBaseUrl}/search/v1/{request.Id}";
-        var autocompleteUrl = $"{request.SearchBaseUrl}/autocomplete/v1/{request.Id}";
+        // Build service descriptors using Presentation 3 id/type conventions.
+        // v2 is listed first; v1 follows for backward-compatible clients.
+        var base_ = request.SearchBaseUrl;
+        var id    = request.Id;
 
-        var searchService = new JsonObject
+        var searchServiceV2 = new JsonObject
         {
-            ["@context"] = "http://iiif.io/api/search/1/context.json",
-            ["@id"]      = searchUrl,
-            ["profile"]  = "http://iiif.io/api/search/1/search",
-            ["label"]    = "Search within this manifest",
-            ["service"]  = new JsonObject
+            ["id"]   = $"{base_}/search/v2/{id}",
+            ["type"] = "SearchService2",
+            ["service"] = new JsonArray(new JsonObject
             {
-                ["@context"] = "http://iiif.io/api/search/1/context.json",
-                ["@id"]      = autocompleteUrl,
-                ["profile"]  = "http://iiif.io/api/search/1/autocomplete"
-            }
+                ["id"]   = $"{base_}/autocomplete/v2/{id}",
+                ["type"] = "AutoCompleteService2",
+            }),
         };
 
-        // Insert at position 0 so IIIF clients that take the first search service they find
-        // will use ours. Existing services are pushed down the array, not displaced.
+        var searchServiceV1 = new JsonObject
+        {
+            ["id"]   = $"{base_}/search/v1/{id}",
+            ["type"] = "SearchService1",
+            ["service"] = new JsonArray(new JsonObject
+            {
+                ["id"]   = $"{base_}/autocomplete/v1/{id}",
+                ["type"] = "AutoCompleteService1",
+            }),
+        };
+
+        // Insert v2 then v1 at position 0 so v2 appears first.
+        // Existing services (e.g. IIIF Image services) are pushed down, not displaced.
         if (manifest["service"] is JsonArray existingArray)
         {
-            existingArray.Insert(0, searchService);
+            existingArray.Insert(0, searchServiceV1);
+            existingArray.Insert(0, searchServiceV2);
         }
         else if (manifest["service"] is JsonObject existingObject)
         {
-            // Spec allows service to be a single object — promote to array with ours first.
-            manifest["service"] = new JsonArray(searchService, existingObject.DeepClone());
+            // Spec allows service to be a single object — promote to array.
+            manifest["service"] = new JsonArray(
+                searchServiceV2, searchServiceV1, existingObject.DeepClone());
         }
         else
         {
-            manifest["service"] = new JsonArray(searchService);
+            manifest["service"] = new JsonArray(searchServiceV2, searchServiceV1);
         }
 
         return manifest;

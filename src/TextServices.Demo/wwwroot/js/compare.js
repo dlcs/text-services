@@ -1,4 +1,4 @@
-import { fetchManifest, extractCanvases, extractSearchServices, buildImageUrl, parseXYWH } from './iiif-helpers.js';
+import { fetchManifest, extractCanvases, extractSearchServices, buildImageUrl, parseXYWH, normalizeSearchResults, normalizeAutocompleteTerms } from './iiif-helpers.js';
 
 // ---- State -------------------------------------------------------------------
 let canvases = [];
@@ -116,14 +116,12 @@ function renderSearchResults(side, settled, svc) {
     const { data, ms } = settled.value;
     latencyEl.textContent = `${ms} ms`;
 
-    const resources = data.resources ?? [];
-    const hits      = data.hits ?? [];
-    const resourceById = Object.fromEntries(resources.map(r => [r['@id'], r]));
+    const { hitList, allRects } = normalizeSearchResults(data);
 
-    const total = hits.length;
+    const total = hitList.length;
     resultsEl.innerHTML = `<div style="font-size:0.78rem;color:#666;margin-bottom:0.3rem">${total} hit${total === 1 ? '' : 's'}</div>`;
 
-    hits.slice(0, 20).forEach(hit => {
+    hitList.slice(0, 20).forEach(hit => {
         const div = document.createElement('div');
         div.className = 'result-item';
         div.innerHTML =
@@ -131,28 +129,26 @@ function renderSearchResults(side, settled, svc) {
         resultsEl.appendChild(div);
     });
 
-    // Thumbnails — one per annotation rectangle within each hit
-    hits.slice(0, 12).forEach(hit => {
-        (hit.annotations ?? []).forEach(id => {
-            const parsed = parseXYWH(resourceById[id]?.on);
-            if (!parsed) return;
+    // Thumbnails — one per matched word rectangle
+    allRects.slice(0, 20).forEach(rect => {
+        const canvas = canvases.find(c => c.id === rect.canvasId);
+        if (!canvas?.imageServiceId) return;
 
-            const canvas = canvases.find(c => c.id === parsed.canvasId);
-            if (!canvas?.imageServiceId) return;
+        const hitForRect = hitList.find(h => h.canvasId === rect.canvasId);
+        const matchLabel = hitForRect?.match ?? '';
 
-            const thumbUrl = buildImageUrl(
-                canvas.imageServiceId,
-                `${parsed.x},${parsed.y},${parsed.w},${parsed.h}`,
-                '!150,150'
-            );
+        const thumbUrl = buildImageUrl(
+            canvas.imageServiceId,
+            `${rect.x},${rect.y},${rect.w},${rect.h}`,
+            '!150,150'
+        );
 
-            const img = document.createElement('img');
-            img.src   = thumbUrl;
-            img.title = hit.match;
-            img.alt   = hit.match;
-            img.crossOrigin = 'anonymous';
-            thumbsEl.appendChild(img);
-        });
+        const img = document.createElement('img');
+        img.src   = thumbUrl;
+        img.title = matchLabel;
+        img.alt   = matchLabel;
+        img.crossOrigin = 'anonymous';
+        thumbsEl.appendChild(img);
     });
 }
 
@@ -182,7 +178,7 @@ async function fetchAc(url, q) {
     const res = await fetch(`${url}?q=${encodeURIComponent(q)}`);
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.terms ?? []).map(t => t.match);
+    return normalizeAutocompleteTerms(data);
 }
 
 function renderAcList(side, settled) {

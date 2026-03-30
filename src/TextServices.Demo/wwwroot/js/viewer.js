@@ -1,4 +1,4 @@
-import { fetchManifest, extractCanvases, extractSearchServices, buildImageUrl, parseXYWH } from './iiif-helpers.js';
+import { fetchManifest, extractCanvases, extractSearchServices, buildImageUrl, parseXYWH, normalizeSearchResults, normalizeAutocompleteTerms } from './iiif-helpers.js';
 
 // ---- State -------------------------------------------------------------------
 let canvases = [];
@@ -172,39 +172,8 @@ async function doSearch(q) {
         if (!res.ok) throw new Error(`Search returned HTTP ${res.status}`);
         const data = await res.json();
 
-        // Index resources by @id for lookup from hits
-        const resourceById = {};
-        for (const r of data.resources ?? []) {
-            resourceById[r['@id']] = r;
-        }
-
-        // Build flat hit list: one entry per SearchHit (may span multiple annotations/words)
-        const hitList = [];
-        for (const hit of data.hits ?? []) {
-            // Use the first annotation to determine canvas + coordinates
-            const firstAnnoId = hit.annotations?.[0];
-            const firstAnno   = resourceById[firstAnnoId];
-            if (!firstAnno) continue;
-
-            const parsed = parseXYWH(firstAnno.on);
-            if (!parsed) continue;
-
-            // Accumulate all word rectangles for this hit for overlay purposes
-            for (const annoId of hit.annotations) {
-                const anno = resourceById[annoId];
-                if (!anno) continue;
-                const p = parseXYWH(anno.on);
-                if (p) currentHits.push(p);
-            }
-
-            hitList.push({
-                canvasId: parsed.canvasId,
-                x: parsed.x, y: parsed.y, w: parsed.w, h: parsed.h,
-                before: hit.before ?? '',
-                match:  hit.match  ?? '',
-                after:  hit.after  ?? '',
-            });
-        }
+        const { hitList, allRects } = normalizeSearchResults(data);
+        currentHits = allRects;
 
         resultsCount.textContent = `${hitList.length} hit${hitList.length === 1 ? '' : 's'}`;
         resultsList.innerHTML = '';
@@ -261,9 +230,9 @@ async function fetchAutocomplete() {
         if (!res.ok) return;
         const data = await res.json();
 
-        (data.terms ?? []).slice(0, 20).forEach(term => {
+        normalizeAutocompleteTerms(data).slice(0, 20).forEach(term => {
             const opt = document.createElement('option');
-            opt.value = term.match;
+            opt.value = term;
             acSuggestions.appendChild(opt);
         });
     } catch { /* ignore autocomplete errors */ }
