@@ -86,6 +86,27 @@ export function extractCanvases(manifest) {
     });
 }
 
+// ---- Figures annotation page extraction --------------------------------------
+
+/**
+ * Returns the URL of the figures AnnotationPage referenced in the manifest's
+ * top-level `annotations` array, or null if none is present.
+ *
+ * Recognises entries whose label (en) contains "figure" (case-insensitive).
+ */
+export function extractFiguresUrl(manifest) {
+    const annotations = manifest.annotations;
+    if (!Array.isArray(annotations)) return null;
+
+    for (const anno of annotations) {
+        const label = anno.label?.en?.[0] ?? '';
+        if (typeof label === 'string' && label.toLowerCase().includes('figure')) {
+            return anno.id ?? anno['@id'] ?? null;
+        }
+    }
+    return null;
+}
+
 // ---- Search service extraction -----------------------------------------------
 
 /**

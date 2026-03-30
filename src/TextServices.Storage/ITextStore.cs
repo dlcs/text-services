@@ -40,6 +40,16 @@ public interface ITextStore
     /// </summary>
     Task<string?> LoadManifest(string key);
 
+    /// <summary>Persists the IIIF AnnotationPage JSON for identified figures.</summary>
+    Task SaveFigures(string key, string json);
+
+    /// <summary>
+    /// Loads the IIIF AnnotationPage JSON for identified figures, or
+    /// <see langword="null"/> if no artefact exists (e.g. the manifest had no ALTO
+    /// ComposedBlocks with non-zero dimensions).
+    /// </summary>
+    Task<string?> LoadFigures(string key);
+
     /// <summary>
     /// Returns <see langword="true"/> if a <see cref="Text"/> artefact exists
     /// for the given key; <see langword="false"/> otherwise.

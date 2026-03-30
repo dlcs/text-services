@@ -16,6 +16,7 @@ public class FileSystemTextStore : ITextStore
     private const string TextFileName         = "text.bin";
     private const string AutoCompleteFileName = "autocomplete.bin";
     private const string ManifestFileName     = "manifest.json";
+    private const string FiguresFileName      = "figures.json";
 
     private readonly string _rootPath;
 
@@ -76,6 +77,22 @@ public class FileSystemTextStore : ITextStore
     public async Task<string?> LoadManifest(string key)
     {
         var path = GetPath(key, ManifestFileName);
+        if (!File.Exists(path)) return null;
+        return await File.ReadAllTextAsync(path);
+    }
+
+    /// <inheritdoc/>
+    public async Task SaveFigures(string key, string json)
+    {
+        var path = GetPath(key, FiguresFileName);
+        EnsureDirectory(path);
+        await File.WriteAllTextAsync(path, json);
+    }
+
+    /// <inheritdoc/>
+    public async Task<string?> LoadFigures(string key)
+    {
+        var path = GetPath(key, FiguresFileName);
         if (!File.Exists(path)) return null;
         return await File.ReadAllTextAsync(path);
     }

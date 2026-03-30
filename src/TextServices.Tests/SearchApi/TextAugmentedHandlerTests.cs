@@ -167,7 +167,7 @@ public class TextAugmentedHandlerTests
     private static string V3ManifestWithServiceObject()
         => """{"id":"https://example.org/m/1","type":"Manifest","service":{"@id":"https://example.org/other","profile":"other"}}""";
 
-    private sealed class StubTextStore(string? manifestJson) : ITextStore
+    private sealed class StubTextStore(string? manifestJson, string? figuresJson = null) : ITextStore
     {
         public Task<string?> LoadManifest(string key) => Task.FromResult(manifestJson);
         public Task SaveManifest(string key, string json) => Task.CompletedTask;
@@ -175,6 +175,8 @@ public class TextAugmentedHandlerTests
         public Task<Text?> LoadText(string key) => Task.FromResult<Text?>(null);
         public Task SaveAutoComplete(string key, AutoComplete ac) => Task.CompletedTask;
         public Task<AutoComplete?> LoadAutoComplete(string key) => Task.FromResult<AutoComplete?>(null);
+        public Task SaveFigures(string key, string json) => Task.CompletedTask;
+        public Task<string?> LoadFigures(string key) => Task.FromResult(figuresJson);
         public Task<bool> Exists(string key) => Task.FromResult(false);
     }
 }

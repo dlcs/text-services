@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Identified Figures — TextServices Demo</title>
+  <link rel="stylesheet" href="/demo.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="/builder.html">TextServices Demo</a>
+  <a href="/builder.html">Builder</a>
+  <a href="/viewer.html">Viewer</a>
+  <a href="/compare.html">Compare</a>
+  <a href="/figures.html">Figures</a>
+</nav>
+<main>
+  <h1>Identified Figures</h1>
+  <p style="font-size:0.88rem;color:#555;margin-top:0">
+    Load a text-augmented manifest to browse all figures, illustrations and tables
+    identified in the OCR.  Images load lazily as you scroll.
+  </p>
+
+  <div class="row" style="margin-bottom:0.8rem">
+    <input type="url" id="manifest-url" placeholder="Text-augmented manifest URL" />
+    <button id="load-btn">Load</button>
+  </div>
+
+  <div id="error-area"></div>
+  <div id="info-area" class="info-box" style="display:none"></div>
+  <div id="figures-area"></div>
+</main>
+<script type="module" src="/js/figures.js"></script>
+</body>
+</html>

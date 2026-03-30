@@ -76,6 +76,37 @@ public class TextAugmentedHandler(ITextStore textStore)
             manifest["service"] = new JsonArray(searchServiceV2, searchServiceV1);
         }
 
+        // ---- figures annotation page reference ----------------------------------
+        // If the builder stored a figures.json (ComposedBlocks with non-zero area),
+        // add a manifest-level annotations reference so clients can discover it.
+        var figuresUrl  = $"{base_}/identified/figures/{id}";
+        var figuresJson = await textStore.LoadFigures(request.Id);
+        if (figuresJson != null)
+        {
+            var figuresRef = new JsonObject
+            {
+                ["id"]   = figuresUrl,
+                ["type"] = "AnnotationPage",
+                ["label"] = new JsonObject
+                {
+                    ["en"] = new JsonArray("Figures, tables and illustrations"),
+                },
+            };
+
+            if (manifest["annotations"] is JsonArray existingAnnos)
+            {
+                existingAnnos.Add(figuresRef);
+            }
+            else if (manifest["annotations"] is JsonObject singleAnno)
+            {
+                manifest["annotations"] = new JsonArray(singleAnno.DeepClone(), figuresRef);
+            }
+            else
+            {
+                manifest["annotations"] = new JsonArray(figuresRef);
+            }
+        }
+
         return manifest;
     }
 }
