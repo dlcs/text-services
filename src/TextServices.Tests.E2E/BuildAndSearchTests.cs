@@ -208,11 +208,11 @@ public class BuildAndSearchTests(E2ETestContext ctx) : IClassFixture<E2ETestCont
         // id should be replaced with the text-augmented URL
         body["id"]!.GetValue<string>().ShouldContain("text-augmented");
 
-        // Search service should be first in the service array
+        // Search service v2 should be first, v1 second
         var service = body["service"]!.AsArray();
-        service.Count.ShouldBeGreaterThan(0);
-        service[0]!["profile"]!.GetValue<string>()
-            .ShouldBe("http://iiif.io/api/search/1/search");
+        service.Count.ShouldBeGreaterThanOrEqualTo(2);
+        service[0]!["type"]!.GetValue<string>().ShouldBe("SearchService2");
+        service[1]!["type"]!.GetValue<string>().ShouldBe("SearchService1");
     }
 
     [Fact]
