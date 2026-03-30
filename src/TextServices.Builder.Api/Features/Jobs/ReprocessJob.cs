@@ -1,0 +1,62 @@
+using Hangfire;
+using MediatR;
+using TextServices.Builder.Api.Configuration;
+using TextServices.Builder.Api.Data;
+using TextServices.Builder.Api.Jobs;
+
+namespace TextServices.Builder.Api.Features.Jobs;
+
+public record ReprocessJobRequest(string Id) : IRequest<ReprocessJobResult>;
+
+public enum ReprocessStatus { Ok, NotFound, Conflict }
+
+public record ReprocessJobResult(ReprocessStatus Status, JobResponse? Response);
+
+/// <summary>
+/// Resets an existing job back to Waiting and re-enqueues it via Hangfire so the
+/// manifest and all ALTO files are re-fetched and the Text/AutoComplete artefacts
+/// are rebuilt from scratch.
+///
+/// Returns 409 if the job is currently Running — wait for it to finish first.
+/// </summary>
+public class ReprocessJobHandler(
+    BuilderDbContext db,
+    IBackgroundJobClient hangfire,
+    TextServicesOptions options)
+    : IRequestHandler<ReprocessJobRequest, ReprocessJobResult>
+{
+    public async Task<ReprocessJobResult> Handle(ReprocessJobRequest request, CancellationToken ct)
+    {
+        var job = await db.Jobs.FindAsync([request.Id], ct);
+        if (job == null)
+            return new ReprocessJobResult(ReprocessStatus.NotFound, null);
+
+        // Can't safely re-enqueue while the worker is actively processing.
+        if (job.Status == JobStatus.Running)
+            return new ReprocessJobResult(ReprocessStatus.Conflict, JobResponse.From(job, options));
+
+        // Remove the old Hangfire job entry (may be queued, awaiting retry, or
+        // already finished — Delete is a no-op if the job no longer exists).
+        if (job.HangfireJobId != null)
+            hangfire.Delete(job.HangfireJobId);
+
+        // Reset all transient fields.
+        job.Status          = JobStatus.Waiting;
+        job.Started         = null;
+        job.Finished        = null;
+        job.TotalPages      = 0;
+        job.PagesCompleted  = 0;
+        job.TotalWordCount  = 0;
+        job.TotalImageCount = 0;
+        job.Errors          = null;
+        job.HangfireJobId   = null;
+
+        await db.SaveChangesAsync(ct);
+
+        var hangfireJobId = hangfire.Enqueue<TextBuildJob>(j => j.ExecuteAsync(job.Id, null!));
+        job.HangfireJobId = hangfireJobId;
+        await db.SaveChangesAsync(ct);
+
+        return new ReprocessJobResult(ReprocessStatus.Ok, JobResponse.From(job, options));
+    }
+}

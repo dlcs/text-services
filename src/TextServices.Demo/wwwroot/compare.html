@@ -16,7 +16,8 @@
 <main>
   <h1>Search Comparator</h1>
   <p style="font-size:0.88rem;color:#555;margin-top:0">
-    Load a manifest that has two search services to compare their autocomplete and search results side by side.
+    Load a manifest with search services to compare autocomplete and search results side by side.
+    Text-augmented manifests include both v2 and v1 services.
   </p>
 
   <div class="row" style="margin-bottom:0.8rem">
@@ -35,20 +36,7 @@
     </div>
 
     <div class="compare-columns" id="compare-columns">
-      <div class="compare-col" id="col-a">
-        <h3 id="label-a">Service A</h3>
-        <div class="latency" id="latency-a"></div>
-        <div id="ac-a"><strong style="font-size:0.8rem">Autocomplete</strong><ul class="ac-list" id="ac-list-a"></ul></div>
-        <div id="results-a"><strong style="font-size:0.8rem">Search results</strong><div id="results-list-a"></div></div>
-        <div class="thumb-grid" id="thumbs-a"></div>
-      </div>
-      <div class="compare-col" id="col-b">
-        <h3 id="label-b">Service B</h3>
-        <div class="latency" id="latency-b"></div>
-        <div id="ac-b"><strong style="font-size:0.8rem">Autocomplete</strong><ul class="ac-list" id="ac-list-b"></ul></div>
-        <div id="results-b"><strong style="font-size:0.8rem">Search results</strong><div id="results-list-b"></div></div>
-        <div class="thumb-grid" id="thumbs-b"></div>
-      </div>
+      <!-- Columns are built dynamically by compare.js -->
     </div>
   </div>
 </main>

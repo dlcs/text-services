@@ -142,6 +142,18 @@ app.MapGet("/textbuilder/{**id}", async (string id, ISender sender) =>
     return response == null ? Results.NotFound() : Results.Ok(response);
 });
 
+// PUT /textbuilder/{**id}  — reprocess an existing job
+app.MapPut("/textbuilder/{**id}", async (string id, ISender sender) =>
+{
+    var result = await sender.Send(new ReprocessJobRequest(id));
+    return result.Status switch
+    {
+        ReprocessStatus.NotFound => Results.NotFound(),
+        ReprocessStatus.Conflict => Results.Conflict(result.Response),
+        _ => Results.Accepted($"/textbuilder/{id}", result.Response),
+    };
+});
+
 // DELETE /textbuilder/{**id}
 app.MapDelete("/textbuilder/{**id}", async (string id, ISender sender) =>
 {

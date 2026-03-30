@@ -180,6 +180,15 @@ function renderTable(rows) {
             actionsCell.appendChild(a);
         }
 
+        if (job && (job.status === 'Completed' || job.status === 'Failed')) {
+            const btn = document.createElement('button');
+            btn.textContent = 'Reprocess';
+            btn.className = 'secondary';
+            btn.style.cssText = 'font-size:0.82rem;padding:0.2rem 0.5rem;margin-left:0.5rem';
+            btn.addEventListener('click', () => reprocessJob(id, btn));
+            actionsCell.appendChild(btn);
+        }
+
         jobsBody.appendChild(tr);
     });
 }
@@ -207,6 +216,36 @@ function startPolling() {
         });
         if (hasActive) await refreshJobs();
     }, 4000);
+}
+
+// ---- Reprocess ---------------------------------------------------------------
+
+async function reprocessJob(id, btn) {
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Reprocessing…';
+
+    try {
+        const res = await fetch(`${config.builderApi}/textbuilder/${encodeJobId(id)}`, {
+            method: 'PUT',
+        });
+
+        if (res.status === 202) {
+            await refreshJobs();
+            return;
+        }
+
+        if (res.status === 409) {
+            btn.textContent = 'Still running';
+        } else {
+            btn.textContent = `Error ${res.status}`;
+        }
+    } catch (err) {
+        btn.textContent = 'Network error';
+    }
+
+    // Reset button after a short pause so the user can see the feedback.
+    setTimeout(() => { btn.disabled = false; btn.textContent = original; }, 2500);
 }
 
 // ---- Helpers -----------------------------------------------------------------

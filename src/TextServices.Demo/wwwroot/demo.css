@@ -149,8 +149,8 @@ progress { width: 80px; height: 10px; }
 #results-list .hit-match { font-weight: 700; }
 #results-list .hit-before, #results-list .hit-after { color: #555; }
 
-/* Compare */
-.compare-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.8rem; }
+/* Compare — column count set dynamically by compare.js via style.gridTemplateColumns */
+.compare-columns { display: grid; grid-template-columns: repeat(2, minmax(200px, 1fr)); gap: 1rem; margin-top: 0.8rem; overflow-x: auto; }
 .compare-col { border: 1px solid #ddd; border-radius: 6px; padding: 0.8rem; background: #fff; }
 .compare-col h3 { margin: 0 0 0.5rem; font-size: 0.9rem; word-break: break-all; color: #444; }
 .compare-col .latency { font-size: 0.75rem; color: #888; }

@@ -6,13 +6,14 @@ let services = [];   // [{ searchUrl, autocompleteUrl }, ...]
 let acTimer  = null;
 
 // ---- DOM refs ----------------------------------------------------------------
-const manifestInput = document.getElementById('manifest-url');
-const loadBtn       = document.getElementById('load-btn');
-const errorArea     = document.getElementById('error-area');
-const compareUi     = document.getElementById('compare-ui');
-const servicesInfo  = document.getElementById('services-info');
-const queryInput    = document.getElementById('query-input');
-const searchBtn     = document.getElementById('search-btn');
+const manifestInput  = document.getElementById('manifest-url');
+const loadBtn        = document.getElementById('load-btn');
+const errorArea      = document.getElementById('error-area');
+const compareUi      = document.getElementById('compare-ui');
+const servicesInfo   = document.getElementById('services-info');
+const queryInput     = document.getElementById('query-input');
+const searchBtn      = document.getElementById('search-btn');
+const compareColumns = document.getElementById('compare-columns');
 
 // ---- Init --------------------------------------------------------------------
 
@@ -39,24 +40,22 @@ manifestInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadBtn.
 async function loadManifest(url) {
     errorArea.innerHTML = '';
     compareUi.style.display = 'none';
+    compareColumns.innerHTML = '';
 
     try {
         const manifest = await fetchManifest(url);
         canvases = extractCanvases(manifest);
         services = extractSearchServices(manifest);
 
-        if (services.length < 2) {
-            showError(`Found ${services.length} search service(s). This page requires at least two to compare.`);
+        if (services.length < 1) {
+            showError('No search services found in this manifest.');
             return;
         }
 
-        // Update labels
-        setLabel('a', services[0].searchUrl);
-        setLabel('b', services[1].searchUrl);
+        buildColumns(services);
 
-        // Update info box
-        const svcLines = services.slice(0, 2).map((s, i) =>
-            `<span class="label">Service ${i === 0 ? 'A' : 'B'}:</span>${esc(s.searchUrl)}`
+        const svcLines = services.map((s, i) =>
+            `<span class="label">Service ${i + 1}:</span>${esc(s.searchUrl)}`
         );
         servicesInfo.innerHTML = svcLines.join('<br>');
 
@@ -66,8 +65,29 @@ async function loadManifest(url) {
     }
 }
 
-function setLabel(side, url) {
-    document.getElementById(`label-${side}`).textContent = url;
+function buildColumns(svcs) {
+    compareColumns.innerHTML = '';
+    compareColumns.style.gridTemplateColumns = `repeat(${svcs.length}, minmax(200px, 1fr))`;
+
+    svcs.forEach((svc, i) => {
+        const col = document.createElement('div');
+        col.className = 'compare-col';
+        col.id = `col-${i}`;
+        col.innerHTML = `
+            <h3 id="label-${i}" title="${esc(svc.searchUrl)}">${esc(truncate(svc.searchUrl, 60))}</h3>
+            <div class="latency" id="latency-${i}"></div>
+            <div>
+              <strong style="font-size:0.8rem">Autocomplete</strong>
+              <ul class="ac-list" id="ac-list-${i}"></ul>
+            </div>
+            <div>
+              <strong style="font-size:0.8rem">Search results</strong>
+              <div id="results-list-${i}"></div>
+            </div>
+            <div class="thumb-grid" id="thumbs-${i}"></div>
+        `;
+        compareColumns.appendChild(col);
+    });
 }
 
 // ---- Search ------------------------------------------------------------------
@@ -77,21 +97,19 @@ queryInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch();
 
 async function doSearch() {
     const q = queryInput.value.trim();
-    if (!q || services.length < 2) return;
+    if (!q || services.length === 0) return;
 
     clearResults();
 
-    const [resA, resB] = await Promise.allSettled([
-        timedSearch(services[0].searchUrl, q),
-        timedSearch(services[1].searchUrl, q),
-    ]);
+    const results = await Promise.allSettled(
+        services.map(svc => timedSearch(svc.searchUrl, q))
+    );
 
-    renderSearchResults('a', resA, services[0]);
-    renderSearchResults('b', resB, services[1]);
+    results.forEach((res, i) => renderSearchResults(i, res));
 }
 
 async function timedSearch(searchUrl, q) {
-    const t0 = Date.now();
+    const t0  = Date.now();
     const res = await fetch(`${searchUrl}?q=${encodeURIComponent(q)}`);
     const ms  = Date.now() - t0;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -99,12 +117,12 @@ async function timedSearch(searchUrl, q) {
     return { data, ms };
 }
 
-function renderSearchResults(side, settled, svc) {
-    const latencyEl  = document.getElementById(`latency-${side}`);
-    const resultsEl  = document.getElementById(`results-list-${side}`);
-    const thumbsEl   = document.getElementById(`thumbs-${side}`);
+function renderSearchResults(idx, settled) {
+    const latencyEl = document.getElementById(`latency-${idx}`);
+    const resultsEl = document.getElementById(`results-list-${idx}`);
+    const thumbsEl  = document.getElementById(`thumbs-${idx}`);
 
-    thumbsEl.innerHTML = '';
+    thumbsEl.innerHTML  = '';
     resultsEl.innerHTML = '';
 
     if (settled.status === 'rejected') {
@@ -144,9 +162,9 @@ function renderSearchResults(side, settled, svc) {
         );
 
         const img = document.createElement('img');
-        img.src   = thumbUrl;
-        img.title = matchLabel;
-        img.alt   = matchLabel;
+        img.src         = thumbUrl;
+        img.title       = matchLabel;
+        img.alt         = matchLabel;
         img.crossOrigin = 'anonymous';
         thumbsEl.appendChild(img);
     });
@@ -162,15 +180,13 @@ queryInput.addEventListener('input', () => {
 async function doAutocomplete() {
     const q = queryInput.value.trim();
     clearAcLists();
-    if (q.length < 3 || services.length < 2) return;
+    if (q.length < 3 || services.length === 0) return;
 
-    const [resA, resB] = await Promise.allSettled([
-        fetchAc(services[0].autocompleteUrl, q),
-        fetchAc(services[1].autocompleteUrl, q),
-    ]);
+    const results = await Promise.allSettled(
+        services.map(svc => fetchAc(svc.autocompleteUrl, q))
+    );
 
-    renderAcList('a', resA);
-    renderAcList('b', resB);
+    results.forEach((res, i) => renderAcList(i, res));
 }
 
 async function fetchAc(url, q) {
@@ -181,8 +197,9 @@ async function fetchAc(url, q) {
     return normalizeAutocompleteTerms(data);
 }
 
-function renderAcList(side, settled) {
-    const ul = document.getElementById(`ac-list-${side}`);
+function renderAcList(idx, settled) {
+    const ul = document.getElementById(`ac-list-${idx}`);
+    if (!ul) return;
     ul.innerHTML = '';
     if (settled.status === 'rejected') return;
     const terms = settled.value ?? [];
@@ -200,15 +217,21 @@ function renderAcList(side, settled) {
 // ---- Helpers -----------------------------------------------------------------
 
 function clearResults() {
-    ['a', 'b'].forEach(s => {
-        document.getElementById(`latency-${s}`).textContent = '';
-        document.getElementById(`results-list-${s}`).innerHTML = '<div style="color:#888;font-size:0.85rem">Searching…</div>';
-        document.getElementById(`thumbs-${s}`).innerHTML = '';
+    services.forEach((_, i) => {
+        const latency = document.getElementById(`latency-${i}`);
+        const results = document.getElementById(`results-list-${i}`);
+        const thumbs  = document.getElementById(`thumbs-${i}`);
+        if (latency) latency.textContent = '';
+        if (results) results.innerHTML = '<div style="color:#888;font-size:0.85rem">Searching…</div>';
+        if (thumbs)  thumbs.innerHTML = '';
     });
 }
 
 function clearAcLists() {
-    ['a', 'b'].forEach(s => document.getElementById(`ac-list-${s}`).innerHTML = '');
+    services.forEach((_, i) => {
+        const ul = document.getElementById(`ac-list-${i}`);
+        if (ul) ul.innerHTML = '';
+    });
 }
 
 function showError(msg) {
@@ -217,4 +240,8 @@ function showError(msg) {
 
 function esc(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function truncate(s, n) {
+    return s.length > n ? s.slice(0, n) + '…' : s;
 }

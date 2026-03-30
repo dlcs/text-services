@@ -37,6 +37,8 @@ public class JobResponse
 
         string? searchV1       = null;
         string? autocompleteV1 = null;
+        string? searchV2       = null;
+        string? autocompleteV2 = null;
 
         if (job.Status == JobStatus.Completed &&
             !string.IsNullOrEmpty(options.SearchApiBaseUrl))
@@ -44,6 +46,8 @@ public class JobResponse
             var baseUrl = options.SearchApiBaseUrl.TrimEnd('/');
             searchV1       = $"{baseUrl}/search/v1/{job.Id}";
             autocompleteV1 = $"{baseUrl}/autocomplete/v1/{job.Id}";
+            searchV2       = $"{baseUrl}/search/v2/{job.Id}";
+            autocompleteV2 = $"{baseUrl}/autocomplete/v2/{job.Id}";
         }
 
         return new JobResponse
@@ -62,8 +66,8 @@ public class JobResponse
             Errors         = job.Errors,
             SearchV1       = searchV1,
             AutocompleteV1 = autocompleteV1,
-            SearchV2       = null,   // v2 not yet implemented
-            AutocompleteV2 = null,
+            SearchV2       = searchV2,
+            AutocompleteV2 = autocompleteV2,
         };
     }
 }
