@@ -95,11 +95,11 @@ public class TextAugmentedHandler(ITextStore textStore)
 
             if (manifest["annotations"] is JsonArray existingAnnos)
             {
-                existingAnnos.Add(figuresRef);
+                existingAnnos.Insert(0, figuresRef);
             }
             else if (manifest["annotations"] is JsonObject singleAnno)
             {
-                manifest["annotations"] = new JsonArray(singleAnno.DeepClone(), figuresRef);
+                manifest["annotations"] = new JsonArray(figuresRef, singleAnno.DeepClone());
             }
             else
             {

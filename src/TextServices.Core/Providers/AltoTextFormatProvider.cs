@@ -143,6 +143,31 @@ public class AltoTextFormatProvider : ITextFormatProvider
                 info.Start,
                 info.End);
         }
+
+        // Second pass: capture non-text ComposedBlocks (Illustration, Figure, etc.)
+        // that contain no TextBlock descendants and were therefore missed by the word
+        // iteration above (e.g. purely graphical regions in Wellcome ALTO).
+        var seenBlockIds = new HashSet<string>(composedBlockTracker.Keys);
+        foreach (var cb in FindDescendants(printSpace, ns, "ComposedBlock"))
+        {
+            var cbId = cb.Attribute("ID")?.Value
+                ?? RuntimeHelpers.GetHashCode(cb).ToString();
+            if (!seenBlockIds.Add(cbId)) continue; // already captured via text tracking
+
+            int cbW = Scale(cb, "WIDTH",  scaleW);
+            int cbH = Scale(cb, "HEIGHT", scaleH);
+            if (cbW <= 0 || cbH <= 0) continue;
+
+            var pos = accumulator.LastWordNormPosition;
+            accumulator.AddComposedBlock(
+                Scale(cb, "HPOS",   scaleW),
+                Scale(cb, "VPOS",   scaleH),
+                cbW,
+                cbH,
+                cb.Attribute("TYPE")?.Value,
+                pos,
+                pos);
+        }
     }
 
     // -------------------------------------------------------------------------
