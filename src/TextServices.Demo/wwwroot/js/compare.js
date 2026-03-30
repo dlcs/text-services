@@ -131,39 +131,28 @@ function renderSearchResults(side, settled, svc) {
         resultsEl.appendChild(div);
     });
 
-    // Thumbnails — one per hit, using the union bounding box of all annotations
+    // Thumbnails — one per annotation rectangle within each hit
     hits.slice(0, 12).forEach(hit => {
-        // Collect all parsed xywh values for this hit (may be multiple words)
-        const rects = (hit.annotations ?? [])
-            .map(id => parseXYWH(resourceById[id]?.on))
-            .filter(Boolean);
-        if (rects.length === 0) return;
+        (hit.annotations ?? []).forEach(id => {
+            const parsed = parseXYWH(resourceById[id]?.on);
+            if (!parsed) return;
 
-        // All annotations should be on the same canvas; use the first as reference
-        const canvasId = rects[0].canvasId;
-        if (rects.some(r => r.canvasId !== canvasId)) return; // spans canvases — skip
+            const canvas = canvases.find(c => c.id === parsed.canvasId);
+            if (!canvas?.imageServiceId) return;
 
-        const canvas = canvases.find(c => c.id === canvasId);
-        if (!canvas?.imageServiceId) return;
+            const thumbUrl = buildImageUrl(
+                canvas.imageServiceId,
+                `${parsed.x},${parsed.y},${parsed.w},${parsed.h}`,
+                '!150,150'
+            );
 
-        // Union bounding box
-        const x1 = Math.min(...rects.map(r => r.x));
-        const y1 = Math.min(...rects.map(r => r.y));
-        const x2 = Math.max(...rects.map(r => r.x + r.w));
-        const y2 = Math.max(...rects.map(r => r.y + r.h));
-
-        const thumbUrl = buildImageUrl(
-            canvas.imageServiceId,
-            `${x1},${y1},${x2 - x1},${y2 - y1}`,
-            '!150,150'
-        );
-
-        const img = document.createElement('img');
-        img.src   = thumbUrl;
-        img.title = hit.match;
-        img.alt   = hit.match;
-        img.crossOrigin = 'anonymous';
-        thumbsEl.appendChild(img);
+            const img = document.createElement('img');
+            img.src   = thumbUrl;
+            img.title = hit.match;
+            img.alt   = hit.match;
+            img.crossOrigin = 'anonymous';
+            thumbsEl.appendChild(img);
+        });
     });
 }
 
