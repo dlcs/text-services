@@ -154,6 +154,10 @@ function renderTable(rows) {
             ? `/compare.html?iiif-content=${encodeURIComponent(`${config.searchApi}/text-augmented/v3/${id}`)}`
             : null;
 
+        const figuresUrl = job?.status === 'Completed'
+            ? `/figures.html?iiif-content=${encodeURIComponent(`${config.searchApi}/text-augmented/v3/${id}`)}`
+            : null;
+
         tr.innerHTML = `
             <td><code style="font-size:0.8rem">${esc(id)}</code></td>
             <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(sourceUri)}">${esc(truncate(sourceUri, 50))}</td>
@@ -176,6 +180,13 @@ function renderTable(rows) {
             const a = document.createElement('a');
             a.href = compareUrl;
             a.textContent = 'Compare';
+            a.style.cssText = 'margin-right:0.5rem;font-size:0.82rem';
+            actionsCell.appendChild(a);
+        }
+        if (figuresUrl) {
+            const a = document.createElement('a');
+            a.href = figuresUrl;
+            a.textContent = 'Figures';
             a.style.cssText = 'font-size:0.82rem';
             actionsCell.appendChild(a);
         }

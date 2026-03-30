@@ -1,10 +1,12 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using Hangfire;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
 using TextServices.Builder.Api.Services;
+using TextServices.Core.Models;
 using TextServices.Core.Providers;
 using TextServices.Storage;
 
@@ -154,9 +156,71 @@ public class TextBuildJob(
         {
             await textStore.SaveText(job.Id, result.Text);
             await textStore.SaveAutoComplete(job.Id, result.AutoComplete);
+
+            var figuresJson = BuildFiguresJson(result.Text);
+            if (figuresJson != null)
+                await textStore.SaveFigures(job.Id, figuresJson);
         }
 
         return (result.Text.Words.Count, result.Text.Images.Length, errors);
+    }
+
+    /// <summary>
+    /// Builds a IIIF Presentation 3 AnnotationPage JSON string from the ComposedBlocks
+    /// in the given <paramref name="text"/>.  Returns <see langword="null"/> when there
+    /// are no blocks with non-zero dimensions (nothing to surface).
+    /// </summary>
+    /// <remarks>
+    /// The top-level <c>id</c> is left empty — it is replaced with the request URL at
+    /// serve time by the Search API, the same way the stored Manifest's <c>id</c> is
+    /// patched by the text-augmented endpoint.
+    /// </remarks>
+    private static string? BuildFiguresJson(Text text)
+    {
+        if (text.ComposedBlocks == null || text.ComposedBlocks.Length == 0)
+            return null;
+
+        var items = new JsonArray();
+
+        foreach (var cb in text.ComposedBlocks)
+        {
+            // Skip degenerate blocks (zero area) that occasionally appear in ALTO.
+            if (cb.W <= 0 || cb.H <= 0) continue;
+            if (cb.ImageIndex < 0 || cb.ImageIndex >= text.Images.Length) continue;
+
+            var canvasId  = text.Images[cb.ImageIndex].ImageIdentifier;
+            var blockType = string.IsNullOrWhiteSpace(cb.BlockType) ? "Unknown" : cb.BlockType;
+
+            items.Add(new JsonObject
+            {
+                ["id"]         = $"f{cb.ComposedBlockIndex}",
+                ["type"]       = "Annotation",
+                ["motivation"] = "tagging",
+                ["body"] = new JsonObject
+                {
+                    ["type"]   = "TextualBody",
+                    ["value"]  = blockType,
+                    ["format"] = "text/plain",
+                },
+                ["target"] = $"{canvasId}#xywh={cb.X},{cb.Y},{cb.W},{cb.H}",
+            });
+        }
+
+        if (items.Count == 0) return null;
+
+        var page = new JsonObject
+        {
+            ["@context"] = "http://iiif.io/api/presentation/3/context.json",
+            ["id"]       = "",   // patched at serve time
+            ["type"]     = "AnnotationPage",
+            ["label"]    = new JsonObject
+            {
+                ["en"] = new JsonArray("Figures, tables and illustrations"),
+            },
+            ["items"] = items,
+        };
+
+        return page.ToJsonString();
     }
 
     private async Task<(PageInstruction Page, XElement? Xml, string? Error)> FetchWithSemaphoreAsync(

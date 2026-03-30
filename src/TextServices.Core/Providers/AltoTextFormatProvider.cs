@@ -143,6 +143,46 @@ public class AltoTextFormatProvider : ITextFormatProvider
                 info.Start,
                 info.End);
         }
+
+        // Second pass: capture non-text block elements that have no TextBlock descendants
+        // and were therefore missed by the word-tracking pass above.
+        //
+        // ALTO defines several block-level elements that sit alongside TextBlock in PrintSpace:
+        //   <Illustration>    — photographic images and drawings
+        //   <GraphicalElement>— rules, lines, decorative elements
+        //   <ComposedBlock>   — mixed regions; text-containing ones already tracked above
+        var seenBlockIds = new HashSet<string>(composedBlockTracker.Keys);
+        string[] nonTextBlockNames = ["Illustration", "GraphicalElement", "ComposedBlock"];
+
+        foreach (var blockName in nonTextBlockNames)
+        {
+            foreach (var elem in FindDescendants(printSpace, ns, blockName))
+            {
+                var elemId = elem.Attribute("ID")?.Value
+                    ?? RuntimeHelpers.GetHashCode(elem).ToString();
+                if (!seenBlockIds.Add(elemId)) continue; // already captured
+
+                int elemW = Scale(elem, "WIDTH",  scaleW);
+                int elemH = Scale(elem, "HEIGHT", scaleH);
+                if (elemW <= 0 || elemH <= 0) continue;
+
+                // Use the element name as the block type for Illustration/GraphicalElement;
+                // for ComposedBlock use the TYPE attribute (may be null → "Unknown" in BuildFiguresJson).
+                var blockType = blockName == "ComposedBlock"
+                    ? elem.Attribute("TYPE")?.Value
+                    : blockName;
+
+                var pos = accumulator.LastWordNormPosition;
+                accumulator.AddComposedBlock(
+                    Scale(elem, "HPOS",   scaleW),
+                    Scale(elem, "VPOS",   scaleH),
+                    elemW,
+                    elemH,
+                    blockType,
+                    pos,
+                    pos);
+            }
+        }
     }
 
     // -------------------------------------------------------------------------

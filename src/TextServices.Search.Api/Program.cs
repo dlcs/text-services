@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.Caching.Memory;
 using TextServices.Search.Api.Configuration;
 using TextServices.Search.Api.Features.Autocomplete;
+using TextServices.Search.Api.Features.Figures;
 using TextServices.Search.Api.Features.Search;
 using TextServices.Search.Api.Features.TextAugmented;
 using TextServices.Search.Api.Services;
@@ -116,6 +117,19 @@ app.MapGet("/autocomplete/v1/{**id}", async (
     var selfUrl = BuildSelfUrl(options, ctx, $"autocomplete/v1/{id}", q);
 
     var result = await sender.Send(new AutocompleteRequest(id, q ?? string.Empty, selfUrl));
+    if (result == null) return Results.NotFound();
+
+    return Results.Json(result);
+});
+
+// GET /identified/figures/{**id}
+app.MapGet("/identified/figures/{**id}", async (
+    string id,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl = BuildSelfUrl(options, ctx, $"identified/figures/{id}", null);
+    var result  = await sender.Send(new FiguresRequest(id, selfUrl));
     if (result == null) return Results.NotFound();
 
     return Results.Json(result);
