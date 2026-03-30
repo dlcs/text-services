@@ -299,7 +299,7 @@ Both factories share a single temp directory (`FileSystemTextStore`) created by 
 ### In-memory infrastructure replacements
 
 All external infrastructure is replaced in `ConfigureTestServices`:
-- **EF Core PostgreSQL → InMemory**: `RemoveAll<DbContextOptions<BuilderDbContext>>()` then `AddDbContext` with `UseInMemoryDatabase`. The fake connection string `"Host=test-placeholder;"` prevents `Program.cs` from throwing at startup before the override takes effect.
+- **EF Core PostgreSQL → InMemory**: removes all DI descriptors whose service type is generic over `BuilderDbContext` (including `IDbContextOptionsConfiguration<BuilderDbContext>` — not just `DbContextOptions<BuilderDbContext>`), then adds `AddDbContext` with `UseInMemoryDatabase`. Removing only `DbContextOptions<T>` is insufficient: EF Core rebuilds options by applying all registered `IDbContextOptionsConfiguration<T>` actions, so both Npgsql and InMemory end up registered and EF Core throws. The fake connection string `"Host=test-placeholder;"` prevents `Program.cs` from throwing at startup before the override takes effect.
 - **Hangfire PostgreSQL → InMemory**: `AddHangfire(config => config.UseInMemoryStorage())` — `Hangfire.InMemory` replaces the existing PostgreSQL storage without needing to remove the prior registration.
 - **ITextStore**: replaced with `FileSystemTextStore` pointing at the shared temp dir.
 - **IAltoFetcher → FixtureAltoFetcher**: maps real Wellcome ALTO URLs to local XML files under `Fixtures/b2888193x/alto/`.
