@@ -27,7 +27,7 @@ public class TextBuilder
     /// Initialises a <see cref="TextBuilder"/> with the default set of providers
     /// (ALTO ns-v2 / ns-v3 only).
     /// </summary>
-    public TextBuilder() : this([new AltoTextFormatProvider()]) { }
+    public TextBuilder() : this([new AltoTextFormatProvider(), new HocrTextFormatProvider()]) { }
 
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with an explicit list of providers,

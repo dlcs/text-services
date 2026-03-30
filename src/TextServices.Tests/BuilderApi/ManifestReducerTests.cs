@@ -226,6 +226,63 @@ public class ManifestReducerTests
     }
 
     // -------------------------------------------------------------------------
+    // hOCR seeAlso detection
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Reduce_HocrByMimeTypeProfile_DetectsLink()
+    {
+        var json = Manifest(canvases: [CanvasWithAlto(
+            "https://example.org/c/1", 100, 200,
+            altoUri: "https://example.org/ocr/1.html",
+            profile: "text/vnd.hocr+html",
+            label: null)]);
+
+        var pages = _reducer.Reduce(json);
+        pages[0].Text.ShouldBe("https://example.org/ocr/1.html");
+        pages[0].Profile.ShouldBe("text/vnd.hocr+html");
+    }
+
+    [Fact]
+    public void Reduce_HocrByLabel_DetectsLink()
+    {
+        var json = Manifest(canvases: [CanvasWithAltoLangMapLabel(
+            "https://example.org/c/1", 100, 200,
+            altoUri: "https://example.org/ocr/1.html",
+            labelKey: "en",
+            labelValue: "Tesseract hOCR output")]);
+
+        var pages = _reducer.Reduce(json);
+        pages[0].Text.ShouldBe("https://example.org/ocr/1.html");
+    }
+
+    [Fact]
+    public void Reduce_HocrProfile_StoredOnPageInstruction()
+    {
+        var json = Manifest(canvases: [CanvasWithAlto(
+            "https://example.org/c/1", 100, 200,
+            altoUri: "https://example.org/ocr/1.html",
+            profile: "text/vnd.hocr+html",
+            label: null)]);
+
+        var pages = _reducer.Reduce(json);
+        pages[0].Profile.ShouldBe("text/vnd.hocr+html");
+    }
+
+    [Fact]
+    public void Reduce_AltoProfile_StoredOnPageInstruction()
+    {
+        var json = Manifest(canvases: [CanvasWithAlto(
+            "https://example.org/c/1", 100, 200,
+            altoUri: "https://example.org/alto/1.xml",
+            profile: "http://www.loc.gov/standards/alto/v3/alto.xsd",
+            label: null)]);
+
+        var pages = _reducer.Reduce(json);
+        pages[0].Profile.ShouldBe("http://www.loc.gov/standards/alto/v3/alto.xsd");
+    }
+
+    // -------------------------------------------------------------------------
     // Sparse manifests
     // -------------------------------------------------------------------------
 

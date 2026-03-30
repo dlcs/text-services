@@ -93,14 +93,22 @@ public class AltoParsingTests
     }
 
     [Theory]
-    [InlineData(null, null)]
     [InlineData("application/json", null)]
     [InlineData("http://iiif.io/api/presentation/3", null)]
     [InlineData(null, "hOCR")]
-    public void Supports_NonAltoProfileOrLabel_ReturnsFalse(string? profile, string? label)
+    public void Supports_ExplicitNonAltoProfileOrLabel_ReturnsFalse(string? profile, string? label)
     {
         var provider = new AltoTextFormatProvider();
         provider.Supports(profile, label).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Supports_NullProfileAndLabel_ReturnsTrueAsDefaultFallback()
+    {
+        // When no format metadata is present (e.g. inline sourceData without seeAlso),
+        // ALTO is the default format.
+        var provider = new AltoTextFormatProvider();
+        provider.Supports(null, null).ShouldBeTrue();
     }
 
     // -------------------------------------------------------------------------

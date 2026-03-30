@@ -14,6 +14,12 @@ public class PageInstruction
     /// <summary>Canvas height in pixels.</summary>
     public int Height { get; set; }
 
-    /// <summary>URI of the ALTO (or other format) text file for this page. Null for sparse pages.</summary>
+    /// <summary>URI of the text file for this page (ALTO, hOCR, etc.). Null for sparse pages.</summary>
     public string? Text { get; set; }
+
+    /// <summary>IIIF seeAlso profile URI, used to select the correct text-format provider.</summary>
+    public string? Profile { get; set; }
+
+    /// <summary>IIIF seeAlso label, used as a fallback when Profile is absent or unrecognised.</summary>
+    public string? Label { get; set; }
 }
