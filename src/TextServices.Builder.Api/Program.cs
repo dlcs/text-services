@@ -12,6 +12,15 @@ using TextServices.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---- CORS -------------------------------------------------------------------
+
+var corsOrigins = builder.Configuration.GetSection("CorsAllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
+{
+    if (corsOrigins.Length > 0)
+        p.WithOrigins(corsOrigins).AllowAnyMethod().AllowAnyHeader();
+}));
+
 // ---- Configuration ----------------------------------------------------------
 
 var tsOptions = builder.Configuration
@@ -89,6 +98,7 @@ if (app.Environment.IsDevelopment())
     app.UseHangfireDashboard("/hangfire");
 }
 
+app.UseCors();
 app.UseHttpsRedirection();
 
 // ---- Endpoints --------------------------------------------------------------
