@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="itext7" Version="9.5.0" />
+    <PackageReference Include="itext7.bouncy-castle-adapter" Version="9.5.0" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.5" />
     <!-- Override itext7's transitive dependency on the vulnerable Newtonsoft.Json 9.0.1 -->
