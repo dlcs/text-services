@@ -44,7 +44,8 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     {
         var pages = ParseManifestPages(manifestJson);
 
-        var pdfWriter = new PdfWriter(output, new WriterProperties().SetFullCompressionMode(true));
+        // Wrap output so that iText's PdfWriter.Close() cannot close the caller's stream.
+        var pdfWriter = new PdfWriter(new NonClosingStream(output), new WriterProperties().SetFullCompressionMode(true));
         using var pdfDoc = new PdfDocument(pdfWriter);
         var font = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
 
@@ -301,4 +302,27 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         List<ImageSize> Sizes);
 
     private sealed record ImageSize(int Width, int Height);
+
+    /// <summary>
+    /// Stream decorator that forwards all operations to an inner stream but ignores
+    /// <see cref="Close"/> and <see cref="Dispose(bool)"/> calls, preventing iText's
+    /// <c>PdfWriter</c> from closing a stream it does not own.
+    /// </summary>
+    private sealed class NonClosingStream(Stream inner) : Stream
+    {
+        public override bool CanRead  => inner.CanRead;
+        public override bool CanSeek  => inner.CanSeek;
+        public override bool CanWrite => inner.CanWrite;
+        public override long Length   => inner.Length;
+        public override long Position { get => inner.Position; set => inner.Position = value; }
+
+        public override void  Flush() => inner.Flush();
+        public override int   Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+        public override long  Seek(long offset, SeekOrigin origin)       => inner.Seek(offset, origin);
+        public override void  SetLength(long value)                      => inner.SetLength(value);
+        public override void  Write(byte[] buffer, int offset, int count) => inner.Write(buffer, offset, count);
+
+        public override void Close() { /* do not close the caller's stream */ }
+        protected override void Dispose(bool disposing) { /* do not dispose the caller's stream */ }
+    }
 }
