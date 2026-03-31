@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using TextServices.Search.Api.Configuration;
 using TextServices.Search.Api.Features.Autocomplete;
 using TextServices.Search.Api.Features.Figures;
+using TextServices.Search.Api.Features.PlainText;
 using TextServices.Search.Api.Features.Search;
 using TextServices.Search.Api.Features.TextAugmented;
 using TextServices.Search.Api.Services;
@@ -120,6 +121,16 @@ app.MapGet("/autocomplete/v1/{**id}", async (
     if (result == null) return Results.NotFound();
 
     return Results.Json(result);
+});
+
+// GET /text/v1/{**id}
+app.MapGet("/text/v1/{**id}", async (
+    string id,
+    ISender sender) =>
+{
+    var result = await sender.Send(new RawTextRequest(id));
+    if (result == null) return Results.NotFound();
+    return Results.Text(result, "text/plain");
 });
 
 // GET /identified/figures/{**id}

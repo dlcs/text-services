@@ -157,6 +157,9 @@ public class TextBuildJob(
             await textStore.SaveText(job.Id, result.Text);
             await textStore.SaveAutoComplete(job.Id, result.AutoComplete);
 
+            if (!string.IsNullOrEmpty(result.Text.RawFullText))
+                await textStore.SaveRawText(job.Id, result.Text.RawFullText);
+
             var figuresJson = BuildFiguresJson(result.Text);
             if (figuresJson != null)
                 await textStore.SaveFigures(job.Id, figuresJson);

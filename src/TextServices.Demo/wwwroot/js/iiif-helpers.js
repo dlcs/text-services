@@ -107,6 +107,24 @@ export function extractFiguresUrl(manifest) {
     return null;
 }
 
+// ---- Rendering extraction ----------------------------------------------------
+
+/**
+ * Returns an array of rendering descriptors from a v3 Manifest.
+ * Each descriptor: { id, label, format }
+ */
+export function extractRendering(manifest) {
+    const items = manifest.rendering;
+    if (!items) return [];
+    return (Array.isArray(items) ? items : [items])
+        .filter(r => r.id)
+        .map(r => ({
+            id:     r.id,
+            label:  labelToString(r.label) || r.format || 'Download',
+            format: r.format ?? null,
+        }));
+}
+
 // ---- Search service extraction -----------------------------------------------
 
 /**

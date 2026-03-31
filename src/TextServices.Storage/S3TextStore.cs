@@ -17,6 +17,7 @@ public class S3TextStore : ITextStore, IDisposable
     private const string TextFileName         = "text.bin";
     private const string AutoCompleteFileName = "autocomplete.bin";
     private const string ManifestFileName     = "manifest.json";
+    private const string RawTextFileName      = "rawtext.txt";
     private const string FiguresFileName      = "figures.json";
 
     private readonly IAmazonS3 _s3;
@@ -78,6 +79,22 @@ public class S3TextStore : ITextStore, IDisposable
     public async Task<string?> LoadManifest(string key)
     {
         var stream = await GetObjectStreamAsync(GetS3Key(key, ManifestFileName));
+        if (stream == null) return null;
+        using var reader = new StreamReader(stream);
+        return await reader.ReadToEndAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task SaveRawText(string key, string rawText)
+    {
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(rawText));
+        await PutObjectAsync(GetS3Key(key, RawTextFileName), stream, "text/plain");
+    }
+
+    /// <inheritdoc/>
+    public async Task<string?> LoadRawText(string key)
+    {
+        var stream = await GetObjectStreamAsync(GetS3Key(key, RawTextFileName));
         if (stream == null) return null;
         using var reader = new StreamReader(stream);
         return await reader.ReadToEndAsync();

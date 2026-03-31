@@ -1,4 +1,4 @@
-import { fetchManifest, extractCanvases, extractSearchServices, buildImageUrl, parseXYWH, normalizeSearchResults, normalizeAutocompleteTerms } from './iiif-helpers.js';
+import { fetchManifest, extractCanvases, extractSearchServices, extractRendering, buildImageUrl, parseXYWH, normalizeSearchResults, normalizeAutocompleteTerms } from './iiif-helpers.js';
 
 // ---- State -------------------------------------------------------------------
 let canvases = [];
@@ -62,10 +62,11 @@ async function loadManifest(url) {
         canvases = extractCanvases(manifest);
         if (canvases.length === 0) throw new Error('Manifest contains no canvases.');
 
-        const services = extractSearchServices(manifest);
+        const services  = extractSearchServices(manifest);
         searchService = services.length > 0 ? services[0] : null;
 
-        updateServicesInfo(url, searchService);
+        const rendering = extractRendering(manifest);
+        updateServicesInfo(url, searchService, rendering);
         searchPanel.style.display = searchService ? 'block' : 'none';
 
         currentIndex = 0;
@@ -77,13 +78,19 @@ async function loadManifest(url) {
     }
 }
 
-function updateServicesInfo(manifestUrl, svc) {
+function updateServicesInfo(manifestUrl, svc, rendering) {
     const lines = [`<span class="label">Manifest:</span>${esc(manifestUrl)}`];
     if (svc) {
         lines.push(`<span class="label">Search service:</span>${esc(svc.searchUrl)}`);
         lines.push(`<span class="label">Autocomplete:</span>${svc.autocompleteUrl ? esc(svc.autocompleteUrl) : '(none)'}`);
     } else {
         lines.push('<span class="label">Search service:</span>none detected');
+    }
+    if (rendering.length > 0) {
+        const links = rendering.map(r =>
+            `<a href="${esc(r.id)}" target="_blank" class="download-link">${esc(r.label)}</a>`
+        ).join(' ');
+        lines.push(`<span class="label">Downloads:</span>${links}`);
     }
     servicesInfo.innerHTML = lines.join('<br>');
     servicesInfo.style.display = 'block';

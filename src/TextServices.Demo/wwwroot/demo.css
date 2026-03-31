@@ -35,6 +35,18 @@ h2 { font-size: 1.1rem; margin: 1rem 0 0.5rem; }
   word-break: break-all;
 }
 .info-box .label { font-weight: 600; color: #555; margin-right: 0.4rem; }
+.info-box .download-link {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  background: #fff;
+  border: 1px solid #7a9edf;
+  border-radius: 3px;
+  color: #1a4db0;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.info-box .download-link:hover { background: #d4e2fb; }
 
 .error-box {
   background: #fde8e8;

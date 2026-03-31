@@ -14,6 +14,7 @@ public class TextAugmentedHandlerTests
     private const string ExpectedAutocompleteV2 = "https://search.example.org/autocomplete/v2/test/book";
     private const string ExpectedSearchV1       = "https://search.example.org/search/v1/test/book";
     private const string ExpectedAutocompleteV1 = "https://search.example.org/autocomplete/v1/test/book";
+    private const string ExpectedRawTextUrl     = "https://search.example.org/text/v1/test/book";
 
     // -------------------------------------------------------------------------
     // Not found
@@ -166,11 +167,53 @@ public class TextAugmentedHandlerTests
     }
 
     // -------------------------------------------------------------------------
+    // Rendering link (plain text)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_TextExists_AddsRenderingLink()
+    {
+        var handler = MakeHandler(V3Manifest(), textExists: true);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+        rendering[0]!["type"]!.GetValue<string>().ShouldBe("Text");
+        rendering[0]!["format"]!.GetValue<string>().ShouldBe("text/plain");
+    }
+
+    [Fact]
+    public async Task Handle_TextNotBuilt_NoRenderingLink()
+    {
+        var handler = MakeHandler(V3Manifest(), textExists: false);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        result!["rendering"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_TextExists_RenderingLinkIsFirstWhenRenderingAlreadyPresent()
+    {
+        var handler = MakeHandler(V3ManifestWithRendering(), textExists: true);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count.ShouldBe(2); // ours + original
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static TextAugmentedHandler MakeHandler(string? manifestJson)
-        => new(new StubTextStore(manifestJson));
+    private static TextAugmentedHandler MakeHandler(string? manifestJson, bool textExists = false)
+        => new(new StubTextStore(manifestJson, textExists: textExists));
 
     private static string V3Manifest(string id = "https://original.example.org/manifest/1")
         => $$"""{"id":"{{id}}","type":"Manifest","@context":"http://iiif.io/api/presentation/3/context.json"}""";
@@ -184,7 +227,13 @@ public class TextAugmentedHandlerTests
     private static string V3ManifestWithServiceObject()
         => """{"id":"https://example.org/m/1","type":"Manifest","service":{"@id":"https://example.org/other","profile":"other"}}""";
 
-    private sealed class StubTextStore(string? manifestJson, string? figuresJson = null) : ITextStore
+    private static string V3ManifestWithRendering()
+        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://example.org/pdf","type":"Text","format":"application/pdf"}]}""";
+
+    private sealed class StubTextStore(
+        string? manifestJson,
+        string? figuresJson = null,
+        bool textExists = false) : ITextStore
     {
         public Task<string?> LoadManifest(string key) => Task.FromResult(manifestJson);
         public Task SaveManifest(string key, string json) => Task.CompletedTask;
@@ -192,8 +241,10 @@ public class TextAugmentedHandlerTests
         public Task<Text?> LoadText(string key) => Task.FromResult<Text?>(null);
         public Task SaveAutoComplete(string key, AutoComplete ac) => Task.CompletedTask;
         public Task<AutoComplete?> LoadAutoComplete(string key) => Task.FromResult<AutoComplete?>(null);
+        public Task SaveRawText(string key, string raw) => Task.CompletedTask;
+        public Task<string?> LoadRawText(string key) => Task.FromResult<string?>(null);
         public Task SaveFigures(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadFigures(string key) => Task.FromResult(figuresJson);
-        public Task<bool> Exists(string key) => Task.FromResult(false);
+        public Task<bool> Exists(string key) => Task.FromResult(textExists);
     }
 }
