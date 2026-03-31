@@ -65,8 +65,7 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
 
             await AddPageAsync(pdfDoc, font, http, text, pageIndex, pageInfo, ct);
         }
-
-        pdfDoc.Close();
+        // pdfDoc disposed by using — flushes all content streams and closes PdfWriter
     }
 
     // -------------------------------------------------------------------------
@@ -110,9 +109,9 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         var page   = pdfDoc.AddNewPage(new PageSize(pageWidthPt, pageHeightPt));
         var canvas = new PdfCanvas(page);
 
-        // Background image — fills the entire page
-        canvas.AddImageFittedIntoRectangle(
-            imageData, new Rectangle(0, 0, pageWidthPt, pageHeightPt), false);
+        // Background image — scale to fill the page using the CTM directly.
+        // Parameters: (image, a=width, b=0, c=0, d=height, e=x, f=y)
+        canvas.AddImageWithTransformationMatrix(imageData, pageWidthPt, 0, 0, pageHeightPt, 0, 0);
 
         // Invisible text layer
         var words = text.Words.Values
