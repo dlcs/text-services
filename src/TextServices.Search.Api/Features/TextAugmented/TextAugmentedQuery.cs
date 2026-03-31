@@ -76,11 +76,20 @@ public class TextAugmentedHandler(ITextStore textStore)
             manifest["service"] = new JsonArray(searchServiceV2, searchServiceV1);
         }
 
-        // ---- plain text rendering link ------------------------------------------
-        // rawtext.txt is always saved alongside text.bin; Exists() is a cheap proxy.
+        // ---- rendering links (PDF + plain text) ---------------------------------
+        // Both added unconditionally whenever text artefacts exist.
+        // PDF is generated lazily on first GET /pdf/v1/{id}; the link is present immediately.
         if (await textStore.Exists(request.Id))
         {
-            var renderingRef = new JsonObject
+            // PDF first (Wellcome order), then plain text
+            var pdfRef = new JsonObject
+            {
+                ["id"]     = $"{base_}/pdf/v1/{id}",
+                ["type"]   = "Text",
+                ["label"]  = new JsonObject { ["en"] = new JsonArray("Download as PDF") },
+                ["format"] = "application/pdf",
+            };
+            var textRef = new JsonObject
             {
                 ["id"]     = $"{base_}/text/v1/{id}",
                 ["type"]   = "Text",
@@ -90,15 +99,16 @@ public class TextAugmentedHandler(ITextStore textStore)
 
             if (manifest["rendering"] is JsonArray existingRendering)
             {
-                existingRendering.Insert(0, renderingRef);
+                existingRendering.Insert(0, textRef);
+                existingRendering.Insert(0, pdfRef);
             }
             else if (manifest["rendering"] is JsonObject singleRendering)
             {
-                manifest["rendering"] = new JsonArray(renderingRef, singleRendering.DeepClone());
+                manifest["rendering"] = new JsonArray(pdfRef, textRef, singleRendering.DeepClone());
             }
             else
             {
-                manifest["rendering"] = new JsonArray(renderingRef);
+                manifest["rendering"] = new JsonArray(pdfRef, textRef);
             }
         }
 

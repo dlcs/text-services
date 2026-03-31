@@ -314,3 +314,90 @@ Real Wellcome fixture files are checked into `src/TextServices.Tests.E2E/Fixture
 `E2ETestContext.WaitForJobAsync` polls `GET /textbuilder/{id}` until the response body contains `"Completed"` or `"Failed"`, with configurable timeout (default 30 s) and incremental backoff (200 ms, growing to 2 s).
 
 <!-- Add new sessions below this line -->
+
+---
+
+## 2026-03-31 — Plain text derivative (PR #22)
+
+### Plain text stored separately from Text protobuf
+
+**Decision:** `rawtext.txt` is written alongside `text.bin` rather than extracted from the
+protobuf at request time.
+
+Two reasons: (1) it is small, so storage cost is negligible; (2) plain text is the kind of
+content that will be bulk-harvested, where requiring deserialization of the full `Text` object
+on every request would quickly exhaust memory and degrade throughput.
+
+`ITextStore` gains `SaveRawText` / `LoadRawText`. `FileSystemTextStore` stores as `rawtext.txt`;
+`S3TextStore` stores with `Content-Type: text/plain`.
+
+### `GET /text/v1/{**id}` endpoint
+
+New Search API endpoint serving `rawtext.txt` as `text/plain`. Handler loads directly from
+`ITextStore` (no in-process cache — the file is a plain string, not a large binary, and is
+served cheaply via file read or S3 GET).
+
+### Rendering link — unconditional
+
+The plain text rendering link is added to `manifest.rendering[0]` in the text-augmented manifest
+unconditionally whenever `textStore.Exists(id)` is true. The same policy is applied to the later
+PDF derivative: the link appears immediately once text artefacts exist, even before a consumer has
+triggered generation. The first request for a not-yet-generated derivative may be slow; subsequent
+requests serve from storage.
+
+---
+
+## 2026-03-31 — PDF derivative design session
+
+### Library choice: iText 7 Community (AGPL)
+
+iText 7 Community is the only viable open-source .NET library with native support for PDF text
+rendering mode 3 (Tr=3 — invisible text). PdfSharp (MIT) has no text rendering mode API; making
+it work would require injecting raw PDF content-stream operators through unsupported internal
+paths. All other capable options (Aspose, Syncfusion, IronPDF) are commercial.
+
+The project is open source on GitHub, so AGPL is compatible. iText usage is isolated in a
+dedicated `TextServices.Pdf` project so the AGPL dependency does not contaminate Core, Storage,
+or the API projects.
+
+### On-demand generation, not build-time
+
+PDF generation requires fetching all page images — potentially 100s of HTTP requests for a large
+manifest. Doing this during the Builder API job would make job times unpredictable and couple the
+job's success to the availability of every image server. Instead, the PDF is generated lazily on
+first request by the Search API and cached to storage.
+
+### Synchronous GET + async POST
+
+- `GET /pdf/v1/{**id}` — synchronous; generates if absent, serves on completion. This is the
+  link in `rendering`. Always eventually returns a PDF (or 404 if no text artefacts exist).
+- `POST /pdf/v1/{**id}` — async trigger for machine-to-machine / bulk pre-generation workflows.
+  Returns 202 Accepted with `Location` and `Retry-After`. A client that doesn't want to hold a
+  long-lived HTTP connection POSTs to trigger generation, does other work, then GETs when ready.
+
+The GET always blocks until complete regardless of whether a POST triggered background
+generation — the `AsyncKeyedLock` on the job key serialises concurrent requests automatically.
+Streaming the PDF during generation provides no UX benefit because PDF viewers cannot render
+anything until the complete file is received (the cross-reference table is at the end).
+
+### Rendering link — unconditional (same policy as plain text)
+
+The PDF rendering link is added unconditionally to `manifest.rendering[0]` whenever
+`textStore.Exists(id)` is true. PDF before plain text (matching Wellcome order). The first click
+may be slow on a cold cache; all subsequent clicks serve from storage.
+
+### Image sizing
+
+Prefer the painting annotation body's own `width`/`height` over canvas dimensions when
+evaluating the 2000 px longest-edge threshold (canvas dimensions may be at a different scale
+than the image resource). Use the image service `sizes` array when available (pre-generated
+tiles, most cache-friendly). Fall back to `!2000,2000` IIIF Image API request as last resort.
+
+### Page sizing and coordinate mapping
+
+PDF page sized at **150 dpi** from the fetched image's actual pixel dimensions (not canvas).
+Words from `Text.Words` are filtered by `Word.Idx == pageIndex`. Y-axis is flipped (PDF origin
+bottom-left). Horizontal scale (`Tz`) stretches each word string to fill its bounding box width,
+the standard OCR-overlay technique.
+
+Full design in `instructions/pdf-derivative.md`.

@@ -18,6 +18,7 @@ public class S3TextStore : ITextStore, IDisposable
     private const string AutoCompleteFileName = "autocomplete.bin";
     private const string ManifestFileName     = "manifest.json";
     private const string RawTextFileName      = "rawtext.txt";
+    private const string PdfFileName          = "book.pdf";
     private const string FiguresFileName      = "figures.json";
 
     private readonly IAmazonS3 _s3;
@@ -98,6 +99,21 @@ public class S3TextStore : ITextStore, IDisposable
         if (stream == null) return null;
         using var reader = new StreamReader(stream);
         return await reader.ReadToEndAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task SavePdf(string key, Stream pdfStream)
+    {
+        using var ms = new MemoryStream();
+        await pdfStream.CopyToAsync(ms);
+        await PutObjectAsync(GetS3Key(key, PdfFileName), ms, "application/pdf");
+    }
+
+    /// <inheritdoc/>
+    public async Task<Stream?> LoadPdf(string key)
+    {
+        var stream = await GetObjectStreamAsync(GetS3Key(key, PdfFileName));
+        return stream;
     }
 
     /// <inheritdoc/>

@@ -32,6 +32,8 @@ public class RawTextHandlerTests
     private sealed class StubTextStore(string? rawText) : ITextStore
     {
         public Task<string?> LoadRawText(string key) => Task.FromResult(rawText);
+        public Task SavePdf(string key, Stream s) => Task.CompletedTask;
+        public Task<Stream?> LoadPdf(string key) => Task.FromResult<Stream?>(null);
         public Task SaveRawText(string key, string raw) => Task.CompletedTask;
         public Task SaveText(string key, Text text) => Task.CompletedTask;
         public Task<Text?> LoadText(string key) => Task.FromResult<Text?>(null);
