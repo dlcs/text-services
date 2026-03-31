@@ -401,3 +401,24 @@ bottom-left). Horizontal scale (`Tz`) stretches each word string to fill its bou
 the standard OCR-overlay technique.
 
 Full design in `instructions/pdf-derivative.md`.
+
+### Implementation notes — bugs found during development
+
+**iText 9 image placement**: `AddImageFittedIntoRectangle` is unreliable in iText 9.x and
+produced blank pages. Replaced with `AddImageWithTransformationMatrix(imageData, w, 0, 0, h, 0, 0)`
+which directly sets the PDF CTM and works correctly.
+
+**User-Agent required by IIIF image servers**: The Wellcome image server (and likely others)
+returns HTTP 403 for requests without a `User-Agent` header. .NET `HttpClient` sends no
+`User-Agent` by default. Fixed by configuring the "pdf" named `HttpClient` with a descriptive
+agent string (`TextServices/1.0 +https://github.com/tomcrane/TextServices`).
+
+**iText closes the output stream on document close**: `PdfDocument.Close()` closes the
+underlying stream, which disposes the `MemoryStream` before `SavePdf` can read it. Fixed with a
+`NonClosingStream` decorator that forwards all operations except `Close()`/`Dispose()`.
+
+### `.pdf` URL extension
+
+The `GET /pdf/v1/{**id}` route accepts an optional `.pdf` suffix
+(e.g. `/pdf/v1/my/book.pdf`) which is stripped before the key lookup. This makes browser
+"Save As" filenames friendlier without requiring a separate route or route constraint.

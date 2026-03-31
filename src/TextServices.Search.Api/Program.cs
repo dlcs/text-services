@@ -146,10 +146,12 @@ app.MapGet("/text/v1/{**id}", async (
 });
 
 // GET /pdf/v1/{**id}  — synchronous; generates on first request, then serves from storage
+// Accepts optional .pdf suffix (e.g. /pdf/v1/my/book.pdf) for nicer save-as filenames.
 app.MapGet("/pdf/v1/{**id}", async (
     string id,
     ISender sender) =>
 {
+    id = StripPdfExtension(id);
     var stream = await sender.Send(new PdfRequest(id));
     if (stream == null) return Results.NotFound();
     return Results.Stream(stream, "application/pdf",
@@ -162,6 +164,7 @@ app.MapPost("/pdf/v1/{**id}", async (
     ISender sender,
     HttpContext ctx) =>
 {
+    id = StripPdfExtension(id);
     var started = await sender.Send(new PdfTriggerRequest(id));
     if (!started)
     {
@@ -206,6 +209,9 @@ app.MapGet("/text-augmented/v3/{**id}", async (
 app.Run();
 
 // ---- Helpers ----------------------------------------------------------------
+
+static string StripPdfExtension(string id) =>
+    id.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? id[..^4] : id;
 
 static string BuildSelfUrl(SearchApiOptions opts, HttpContext ctx, string path, string? q)
 {
