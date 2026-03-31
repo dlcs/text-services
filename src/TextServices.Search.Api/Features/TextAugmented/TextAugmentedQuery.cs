@@ -76,6 +76,32 @@ public class TextAugmentedHandler(ITextStore textStore)
             manifest["service"] = new JsonArray(searchServiceV2, searchServiceV1);
         }
 
+        // ---- plain text rendering link ------------------------------------------
+        // rawtext.txt is always saved alongside text.bin; Exists() is a cheap proxy.
+        if (await textStore.Exists(request.Id))
+        {
+            var renderingRef = new JsonObject
+            {
+                ["id"]     = $"{base_}/text/v1/{id}",
+                ["type"]   = "Text",
+                ["label"]  = new JsonObject { ["en"] = new JsonArray("View as plain text") },
+                ["format"] = "text/plain",
+            };
+
+            if (manifest["rendering"] is JsonArray existingRendering)
+            {
+                existingRendering.Insert(0, renderingRef);
+            }
+            else if (manifest["rendering"] is JsonObject singleRendering)
+            {
+                manifest["rendering"] = new JsonArray(renderingRef, singleRendering.DeepClone());
+            }
+            else
+            {
+                manifest["rendering"] = new JsonArray(renderingRef);
+            }
+        }
+
         // ---- figures annotation page reference ----------------------------------
         // If the builder stored a figures.json (ComposedBlocks with non-zero area),
         // add a manifest-level annotations reference so clients can discover it.

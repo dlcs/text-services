@@ -40,6 +40,15 @@ public interface ITextStore
     /// </summary>
     Task<string?> LoadManifest(string key);
 
+    /// <summary>Persists the raw (un-normalised) full text as a plain-text string.</summary>
+    Task SaveRawText(string key, string rawText);
+
+    /// <summary>
+    /// Loads the raw full text for the given key, or <see langword="null"/> if it has
+    /// not been stored (e.g. the job produced no words, or pre-dates this feature).
+    /// </summary>
+    Task<string?> LoadRawText(string key);
+
     /// <summary>Persists the IIIF AnnotationPage JSON for identified figures.</summary>
     Task SaveFigures(string key, string json);
 
