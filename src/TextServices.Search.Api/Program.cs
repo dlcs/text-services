@@ -2,8 +2,10 @@ using AsyncKeyedLock;
 using MediatR;
 using Microsoft.Extensions.Caching.Memory;
 using TextServices.Search.Api.Configuration;
+using TextServices.Pdf;
 using TextServices.Search.Api.Features.Autocomplete;
 using TextServices.Search.Api.Features.Figures;
+using TextServices.Search.Api.Features.Pdf;
 using TextServices.Search.Api.Features.PlainText;
 using TextServices.Search.Api.Features.Search;
 using TextServices.Search.Api.Features.TextAugmented;
@@ -39,6 +41,16 @@ builder.Services.AddSingleton<ITextStore>(_ =>
 
 // ITextStore is also injected directly into TextAugmentedHandler (manifest is plain JSON,
 // not routed through the Text/AutoComplete cache).
+
+// ---- PDF --------------------------------------------------------------------
+
+builder.Services.AddSingleton<PdfBuilder>();
+builder.Services.AddHttpClient(PdfBuilder.HttpClientName)
+    .ConfigureHttpClient(c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(60);
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0 (+https://github.com/tomcrane/TextServices)");
+    });
 
 // ---- Cache ------------------------------------------------------------------
 
@@ -133,6 +145,37 @@ app.MapGet("/text/v1/{**id}", async (
     return Results.Text(result, "text/plain");
 });
 
+// GET /pdf/v1/{**id}  — synchronous; generates on first request, then serves from storage
+// Accepts optional .pdf suffix (e.g. /pdf/v1/my/book.pdf) for nicer save-as filenames.
+app.MapGet("/pdf/v1/{**id}", async (
+    string id,
+    ISender sender) =>
+{
+    id = StripPdfExtension(id);
+    var stream = await sender.Send(new PdfRequest(id));
+    if (stream == null) return Results.NotFound();
+    return Results.Stream(stream, "application/pdf",
+        enableRangeProcessing: false);
+});
+
+// POST /pdf/v1/{**id}  — async trigger for M2M / bulk pre-generation
+app.MapPost("/pdf/v1/{**id}", async (
+    string id,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    id = StripPdfExtension(id);
+    var started = await sender.Send(new PdfTriggerRequest(id));
+    if (!started)
+    {
+        // PDF already exists — redirect the caller to download it
+        var location = BuildSelfUrl(options, ctx, $"pdf/v1/{id}", null);
+        return Results.Ok(new { location });
+    }
+    var locationUrl = BuildSelfUrl(options, ctx, $"pdf/v1/{id}", null);
+    return Results.Accepted(locationUrl);
+});
+
 // GET /identified/figures/{**id}
 app.MapGet("/identified/figures/{**id}", async (
     string id,
@@ -166,6 +209,9 @@ app.MapGet("/text-augmented/v3/{**id}", async (
 app.Run();
 
 // ---- Helpers ----------------------------------------------------------------
+
+static string StripPdfExtension(string id) =>
+    id.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? id[..^4] : id;
 
 static string BuildSelfUrl(SearchApiOptions opts, HttpContext ctx, string path, string? q)
 {

@@ -15,6 +15,7 @@ public class TextAugmentedHandlerTests
     private const string ExpectedSearchV1       = "https://search.example.org/search/v1/test/book";
     private const string ExpectedAutocompleteV1 = "https://search.example.org/autocomplete/v1/test/book";
     private const string ExpectedRawTextUrl     = "https://search.example.org/text/v1/test/book";
+    private const string ExpectedPdfUrl        = "https://search.example.org/pdf/v1/test/book";
 
     // -------------------------------------------------------------------------
     // Not found
@@ -171,7 +172,7 @@ public class TextAugmentedHandlerTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task Handle_TextExists_AddsRenderingLink()
+    public async Task Handle_TextExists_AddsPdfAndPlainTextRenderingLinks()
     {
         var handler = MakeHandler(V3Manifest(), textExists: true);
 
@@ -179,13 +180,15 @@ public class TextAugmentedHandlerTests
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
         var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
-        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
-        rendering[0]!["type"]!.GetValue<string>().ShouldBe("Text");
-        rendering[0]!["format"]!.GetValue<string>().ShouldBe("text/plain");
+        rendering.Count.ShouldBe(2);
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedPdfUrl);
+        rendering[0]!["format"]!.GetValue<string>().ShouldBe("application/pdf");
+        rendering[1]!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+        rendering[1]!["format"]!.GetValue<string>().ShouldBe("text/plain");
     }
 
     [Fact]
-    public async Task Handle_TextNotBuilt_NoRenderingLink()
+    public async Task Handle_TextNotBuilt_NoRenderingLinks()
     {
         var handler = MakeHandler(V3Manifest(), textExists: false);
 
@@ -196,7 +199,7 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
-    public async Task Handle_TextExists_RenderingLinkIsFirstWhenRenderingAlreadyPresent()
+    public async Task Handle_TextExists_RenderingLinksArePrependedToExisting()
     {
         var handler = MakeHandler(V3ManifestWithRendering(), textExists: true);
 
@@ -204,8 +207,9 @@ public class TextAugmentedHandlerTests
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
         var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
-        rendering.Count.ShouldBe(2); // ours + original
-        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+        rendering.Count.ShouldBe(3); // PDF + plain text + original
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedPdfUrl);
+        rendering[1]!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
     }
 
     // -------------------------------------------------------------------------
@@ -243,6 +247,8 @@ public class TextAugmentedHandlerTests
         public Task<AutoComplete?> LoadAutoComplete(string key) => Task.FromResult<AutoComplete?>(null);
         public Task SaveRawText(string key, string raw) => Task.CompletedTask;
         public Task<string?> LoadRawText(string key) => Task.FromResult<string?>(null);
+        public Task SavePdf(string key, Stream s) => Task.CompletedTask;
+        public Task<Stream?> LoadPdf(string key) => Task.FromResult<Stream?>(null);
         public Task SaveFigures(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadFigures(string key) => Task.FromResult(figuresJson);
         public Task<bool> Exists(string key) => Task.FromResult(textExists);

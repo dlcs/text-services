@@ -17,6 +17,7 @@ public class FileSystemTextStore : ITextStore
     private const string AutoCompleteFileName = "autocomplete.bin";
     private const string ManifestFileName     = "manifest.json";
     private const string RawTextFileName      = "rawtext.txt";
+    private const string PdfFileName          = "book.pdf";
     private const string FiguresFileName      = "figures.json";
 
     private readonly string _rootPath;
@@ -96,6 +97,23 @@ public class FileSystemTextStore : ITextStore
         var path = GetPath(key, RawTextFileName);
         if (!File.Exists(path)) return null;
         return await File.ReadAllTextAsync(path);
+    }
+
+    /// <inheritdoc/>
+    public async Task SavePdf(string key, Stream pdfStream)
+    {
+        var path = GetPath(key, PdfFileName);
+        EnsureDirectory(path);
+        await using var file = File.Create(path);
+        await pdfStream.CopyToAsync(file);
+    }
+
+    /// <inheritdoc/>
+    public Task<Stream?> LoadPdf(string key)
+    {
+        var path = GetPath(key, PdfFileName);
+        if (!File.Exists(path)) return Task.FromResult<Stream?>(null);
+        return Task.FromResult<Stream?>(File.OpenRead(path));
     }
 
     /// <inheritdoc/>

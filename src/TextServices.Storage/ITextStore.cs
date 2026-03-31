@@ -49,6 +49,18 @@ public interface ITextStore
     /// </summary>
     Task<string?> LoadRawText(string key);
 
+    /// <summary>
+    /// Persists the searchable PDF derivative.
+    /// The caller is responsible for disposing <paramref name="pdfStream"/> after the call returns.
+    /// </summary>
+    Task SavePdf(string key, Stream pdfStream);
+
+    /// <summary>
+    /// Returns a readable stream over the stored PDF, or <see langword="null"/> if none exists.
+    /// The caller is responsible for disposing the returned stream.
+    /// </summary>
+    Task<Stream?> LoadPdf(string key);
+
     /// <summary>Persists the IIIF AnnotationPage JSON for identified figures.</summary>
     Task SaveFigures(string key, string json);
 
