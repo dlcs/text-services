@@ -149,7 +149,6 @@ app.MapGet("/pdf/v1/{**id}", async (
     var stream = await sender.Send(new PdfRequest(id));
     if (stream == null) return Results.NotFound();
     return Results.Stream(stream, "application/pdf",
-        fileDownloadName: "text.pdf",
         enableRangeProcessing: false);
 });
 
