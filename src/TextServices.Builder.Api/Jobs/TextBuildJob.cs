@@ -27,11 +27,14 @@ public class TextBuildJob(
     BuilderDbContext db,
     IManifestFetcher manifestFetcher,
     IAltoFetcher altoFetcher,
+    IVttFetcher vttFetcher,
     ITextStore textStore,
     TextServicesOptions options,
     ILogger<TextBuildJob> logger)
 {
     private const int ProgressBatchSize = 10;
+
+    private record FetchedPage(PageInstruction Page, XElement? Xml, string? Vtt, string? Error);
 
     [JobDisplayName("TextBuild: {0}")]
     public async Task ExecuteAsync(string jobId, IJobCancellationToken cancellationToken)
@@ -126,7 +129,9 @@ public class TextBuildJob(
         var semaphore = new SemaphoreSlim(options.MaxConcurrentAltoFetches);
 
         var fetchTasks = pages
-            .Select(page => FetchWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken))
+            .Select(page => IsVttPage(page)
+                ? FetchVttWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken)
+                : FetchXmlWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken))
             .ToList();
 
         var fetched = await Task.WhenAll(fetchTasks);
@@ -136,12 +141,16 @@ public class TextBuildJob(
         var errors      = fetched.Where(r => r.Error != null).Select(r => r.Error!).ToList();
         int completed   = 0;
 
-        foreach (var (page, xml, _) in fetched)
+        foreach (var fetchedPage in fetched)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (xml != null)
-                textBuilder.AddPage(page.Id, page.Width, page.Height, xml, page.Profile, page.Label);
+            var page = fetchedPage.Page;
+            if (fetchedPage.Xml != null)
+                textBuilder.AddPage(page.Id, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Label);
+            else if (fetchedPage.Vtt != null)
+                textBuilder.AddTranscriptPage(page.Id, page.Width, page.Height, fetchedPage.Vtt,
+                    profile: page.Profile, format: page.Format, label: page.Label);
 
             completed++;
             job.PagesCompleted = completed;
@@ -226,13 +235,23 @@ public class TextBuildJob(
         return page.ToJsonString();
     }
 
-    private async Task<(PageInstruction Page, XElement? Xml, string? Error)> FetchWithSemaphoreAsync(
+    private static bool IsVttPage(PageInstruction page) =>
+        ContainsIgnoreCase(page.Profile, "text/vtt")  || ContainsIgnoreCase(page.Format, "text/vtt")  ||
+        ContainsIgnoreCase(page.Profile, "vtt")        || ContainsIgnoreCase(page.Format, "vtt")        ||
+        ContainsIgnoreCase(page.Label,   "vtt")        ||
+        ContainsIgnoreCase(page.Label,   "webvtt")     ||
+        ContainsIgnoreCase(page.Label,   "transcript");
+
+    private static bool ContainsIgnoreCase(string? value, string term) =>
+        value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+
+    private async Task<FetchedPage> FetchXmlWithSemaphoreAsync(
         PageInstruction page,
         SemaphoreSlim semaphore,
         CancellationToken ct)
     {
         if (page.Text == null)
-            return (page, null, null);
+            return new FetchedPage(page, null, null, null);
 
         await semaphore.WaitAsync(ct);
         try
@@ -244,14 +263,42 @@ public class TextBuildJob(
                     "No ALTO content at {AltoUri} for canvas {CanvasId} — skipping",
                     page.Text, page.Id);
 
-            return (page, xml, null);
+            return new FetchedPage(page, xml, null, null);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
                 "Failed to fetch or parse ALTO for canvas {CanvasId} ({AltoUri})",
                 page.Id, page.Text);
-            return (page, null, $"{page.Id}: {ex.Message}");
+            return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    private async Task<FetchedPage> FetchVttWithSemaphoreAsync(
+        PageInstruction page,
+        SemaphoreSlim semaphore,
+        CancellationToken cancellationToken)
+    {
+        if (page.Text == null) return new FetchedPage(page, null, null, null);
+
+        await semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            var vtt = await vttFetcher.FetchAsync(page.Text, cancellationToken);
+            if (vtt == null)
+                logger.LogDebug("VTT not found for canvas {CanvasId}: {Url}", page.Id, page.Text);
+            else
+                logger.LogDebug("VTT fetched for canvas {CanvasId}: {Url}", page.Id, page.Text);
+            return new FetchedPage(page, null, vtt, null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch VTT for canvas {CanvasId} from {Url}", page.Id, page.Text);
+            return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
         }
         finally
         {

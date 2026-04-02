@@ -48,6 +48,11 @@ public class Word
     /// <summary>Start position of this word in the raw full-text string.</summary>
     [ProtoMember(12)] public int PosRaw { get; set; }
 
+    /// <summary>Start time in milliseconds (temporal content only; 0 for spatial words).</summary>
+    [ProtoMember(13)] public int StartMs { get; set; }
+    /// <summary>End time in milliseconds (temporal content only; 0 for spatial words).</summary>
+    [ProtoMember(14)] public int EndMs { get; set; }
+
     /// <summary>Length of this word in the normalised full-text string.</summary>
     public int LenNorm => ContentNorm.Length;
 

@@ -20,4 +20,7 @@ public class Image
     /// or whatever identifier the caller supplied for this page in the build sequence.
     /// </summary>
     [ProtoMember(2)] public string ImageIdentifier { get; set; } = string.Empty;
+
+    /// <summary>True when this canvas carries temporal (VTT) content; false for spatial (image) canvases.</summary>
+    [ProtoMember(3)] public bool IsTemporalContent { get; set; }
 }

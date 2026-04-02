@@ -35,12 +35,13 @@ public class TextAccumulator
     /// <summary>
     /// Signals the start of a new page. Must be called before adding any words for that page.
     /// </summary>
-    public void BeginPage(string imageIdentifier)
+    public void BeginPage(string imageIdentifier, bool isTemporalContent = false)
     {
         _images.Add(new Image
         {
             StartCharacter = _normText.Length,
-            ImageIdentifier = imageIdentifier
+            ImageIdentifier = imageIdentifier,
+            IsTemporalContent = isTemporalContent,
         });
         // Do NOT reset _lineCounter here. Li must be a globally unique line number
         // across the entire document (matching both reference implementations).
@@ -86,6 +87,40 @@ public class TextAccumulator
             W = w,
             H = h,
             Sp = spaceAfter,
+            Wd = _wordCounter++,
+            Li = _lineCounter,
+            Idx = _images.Count - 1,
+            PosNorm = _normText.Length,
+            PosRaw = _rawText.Length,
+        };
+
+        _words[word.PosNorm] = word;
+        _lastWordNormPosition = word.PosNorm;
+        _normText.Append(contentNorm);
+        _rawText.Append(contentRaw);
+        _hasContent = true;
+    }
+
+    /// <summary>
+    /// Adds a temporal word (from VTT or similar time-coded source) to the accumulator.
+    /// </summary>
+    public void AddWord(string contentRaw, string contentNorm, int startMs, int endMs)
+    {
+        if (string.IsNullOrEmpty(contentNorm)) return;
+
+        if (_normText.Length > 0)
+        {
+            _normText.Append(' ');
+            _rawText.Append(' ');
+        }
+
+        var word = new Word
+        {
+            ContentRaw = contentRaw,
+            ContentNorm = contentNorm,
+            X = 0, Y = 0, W = 0, H = 0, Sp = 0,
+            StartMs = startMs,
+            EndMs = endMs,
             Wd = _wordCounter++,
             Li = _lineCounter,
             Idx = _images.Count - 1,

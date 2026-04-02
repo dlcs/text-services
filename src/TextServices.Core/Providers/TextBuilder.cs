@@ -21,22 +21,24 @@ namespace TextServices.Core.Providers;
 public class TextBuilder
 {
     private readonly IReadOnlyList<ITextFormatProvider> _providers;
+    private readonly IReadOnlyList<ITranscriptFormatProvider> _transcriptProviders;
     private readonly TextAccumulator _accumulator = new();
 
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with the default set of providers
-    /// (ALTO ns-v2 / ns-v3 only).
+    /// (ALTO ns-v2 / ns-v3, hOCR, and VTT).
     /// </summary>
-    public TextBuilder() : this([new AltoTextFormatProvider(), new HocrTextFormatProvider()]) { }
+    public TextBuilder() : this([new AltoTextFormatProvider(), new HocrTextFormatProvider()], [new VttTextFormatProvider()]) { }
 
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with an explicit list of providers,
     /// tried in order until one reports that it <see cref="ITextFormatProvider.Supports"/>
     /// the given profile/label.
     /// </summary>
-    public TextBuilder(IReadOnlyList<ITextFormatProvider> providers)
+    public TextBuilder(IReadOnlyList<ITextFormatProvider> providers, IReadOnlyList<ITranscriptFormatProvider>? transcriptProviders = null)
     {
         _providers = providers;
+        _transcriptProviders = transcriptProviders ?? [];
     }
 
     /// <summary>
@@ -64,6 +66,24 @@ public class TextBuilder
         if (provider == null) return;
 
         provider.ProcessPage(_accumulator, root, id, canvasWidth, canvasHeight);
+    }
+
+    /// <summary>
+    /// Adds one transcript page (VTT or similar plain-text format) to the build.
+    /// </summary>
+    public void AddTranscriptPage(
+        string  id,
+        int     canvasWidth,
+        int     canvasHeight,
+        string? rawContent,
+        string? profile = null,
+        string? format  = null,
+        string? label   = null)
+    {
+        if (rawContent == null) return;
+        var provider = _transcriptProviders.FirstOrDefault(p => p.Supports(profile, format, label));
+        if (provider == null) return;
+        provider.ProcessPage(_accumulator, rawContent, id, canvasWidth, canvasHeight);
     }
 
     /// <summary>

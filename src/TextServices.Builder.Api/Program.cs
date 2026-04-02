@@ -57,6 +57,7 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddSingleton<IManifestReducer, ManifestReducer>();
 builder.Services.AddScoped<IManifestFetcher, ManifestFetcher>();
 builder.Services.AddScoped<IAltoFetcher, AltoFetcher>();
+builder.Services.AddScoped<IVttFetcher, VttFetcher>();
 
 builder.Services.AddHttpClient("Manifest", client =>
 {
@@ -76,6 +77,12 @@ builder.Services.AddHttpClient("Alto", client =>
     // application/octet-stream, or nothing). We parse whatever comes back as XML.
     client.DefaultRequestHeaders.Accept.Add(
         new MediaTypeWithQualityHeaderValue("*/*"));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddHttpClient("Vtt", client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0 (+https://github.com/tomcrane/TextServices)");
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 

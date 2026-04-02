@@ -32,6 +32,11 @@ public class ResultRect
     /// <summary>Bounding box height in Canvas pixels.</summary>
     public int H { get; set; }
 
+    /// <summary>Start time in milliseconds (temporal results only).</summary>
+    public int StartMs { get; set; }
+    /// <summary>End time in milliseconds (temporal results only).</summary>
+    public int EndMs { get; set; }
+
     /// <summary>Sequential word numbers of all words in this rect (for adjacency tracking).</summary>
     public List<int> Wds { get; set; } = [];
 
@@ -87,6 +92,8 @@ public class ResultRect
         Wds = [word.Wd],
         PosNorms = [word.PosNorm],
         PosRaw = word.PosRaw,
+        StartMs = word.StartMs,
+        EndMs = word.EndMs,
     };
 
     /// <summary>Creates a shallow copy of this ResultRect (used during coalescing).</summary>
