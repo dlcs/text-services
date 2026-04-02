@@ -62,6 +62,46 @@ public class ProtobufSerializationTests
     }
 
     [Fact]
+    public void TemporalWord_StartEndMs_RoundTrip()
+    {
+        var acc = new TextAccumulator();
+        acc.BeginPage("https://example.org/canvas/1", isTemporalContent: true);
+        acc.NextLine();
+        acc.AddWord("Hello", "hello", startMs: 5000, endMs: 8500);
+        acc.AddWord("world", "world", startMs: 5000, endMs: 8500);
+        var original = acc.Build().Text;
+
+        using var ms = new MemoryStream();
+        Serializer.Serialize(ms, original);
+        ms.Position = 0;
+        var roundTripped = Serializer.Deserialize<Text>(ms);
+
+        var words = roundTripped.Words.Values.OrderBy(w => w.Wd).ToList();
+        words[0].StartMs.ShouldBe(5000);
+        words[0].EndMs.ShouldBe(8500);
+        words[1].StartMs.ShouldBe(5000);
+        words[1].EndMs.ShouldBe(8500);
+    }
+
+    [Fact]
+    public void Image_IsTemporalContent_RoundTrip()
+    {
+        var acc = new TextAccumulator();
+        acc.BeginPage("https://example.org/canvas/1", isTemporalContent: true);
+        acc.NextLine();
+        acc.AddWord("Hello", "hello", startMs: 1000, endMs: 2000);
+        var original = acc.Build().Text;
+
+        using var ms = new MemoryStream();
+        Serializer.Serialize(ms, original);
+        ms.Position = 0;
+        var roundTripped = Serializer.Deserialize<Text>(ms);
+
+        roundTripped.Images.Length.ShouldBe(1);
+        roundTripped.Images[0].IsTemporalContent.ShouldBeTrue();
+    }
+
+    [Fact]
     public void Text_Search_WorksAfterRoundTrip()
     {
         var original = BuildResult().Text;

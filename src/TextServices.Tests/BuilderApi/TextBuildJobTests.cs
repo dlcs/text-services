@@ -252,6 +252,101 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // VTT transcript pages
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ExecuteAsync_VttCanvas_FetchesVttAndSavesTemporalIndex()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/audio", Width = 0, Height = 0,
+                    Text = "https://example.org/transcript.vtt", Format = "text/vtt" },
+        };
+
+        var job = await CreateJob("test/vtt-canvas",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var vttFetcher = new FakeVttFetcher(_ => Task.FromResult<string?>(SimpleVtt()));
+
+        var sut = MakeJob(vttFetcher: vttFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Completed);
+        updated.TotalWordCount.ShouldBeGreaterThan(0);
+        updated.Errors.ShouldBeNull();
+
+        (await _textStore.Exists(job.Id)).ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_VttFetchReturnsNull_PageSkippedSilently()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/audio", Width = 0, Height = 0,
+                    Text = "https://example.org/transcript.vtt", Format = "text/vtt" },
+        };
+
+        var job = await CreateJob("test/vtt-null",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var vttFetcher = new FakeVttFetcher(_ => Task.FromResult<string?>(null));
+
+        var sut = MakeJob(vttFetcher: vttFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Completed);
+        updated.TotalWordCount.ShouldBe(0);
+        updated.Errors.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_MixedAltoAndVttPages_BothProcessed()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    Text = "https://example.org/alto/1.xml" },
+            new() { Id = "https://example.org/c/audio", Width = 0, Height = 0,
+                    Text = "https://example.org/transcript.vtt", Format = "text/vtt" },
+        };
+
+        var job = await CreateJob("test/mixed-alto-vtt",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+        });
+
+        var vttFetcher = new FakeVttFetcher(_ => Task.FromResult<string?>(SimpleVtt()));
+
+        var sut = MakeJob(altoFetcher: altoFetcher, vttFetcher: vttFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Completed);
+        updated.TotalWordCount.ShouldBeGreaterThan(0);
+        updated.TotalImageCount.ShouldBe(2);
+        updated.Errors.ShouldBeNull();
+    }
+
+    private static string SimpleVtt() =>
+        """
+        WEBVTT
+
+        00:00:05.000 --> 00:00:08.500
+        Hello world
+
+        00:00:10.000 --> 00:00:15.000
+        foo bar
+
+        """;
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
