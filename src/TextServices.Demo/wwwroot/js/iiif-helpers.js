@@ -44,16 +44,20 @@ export async function fetchManifest(url) {
 
 /**
  * Returns an array of canvas descriptors from a v3 Manifest.
- * Each descriptor: { id, label, width, height, imageUrl, imageServiceId }
+ * Each descriptor: { id, label, width, height, imageUrl, imageServiceId, videoUrl, isTemporalContent }
  *
- * imageUrl  — the direct image URL (info.json/@id stripped, or body id)
- * imageServiceId — IIIF Image API base URL if present, else null
+ * imageUrl          — the direct image URL (info.json stripped, or body id)
+ * imageServiceId    — IIIF Image API base URL if present, else null
+ * videoUrl          — direct video/audio URL if the canvas is temporal, else null
+ * isTemporalContent — true when the painting body is a Video or Sound resource
  */
 export function extractCanvases(manifest) {
     return (manifest.items ?? []).map(canvas => {
         const label = labelToString(canvas.label);
         let imageUrl = null;
         let imageServiceId = null;
+        let videoUrl = null;
+        let isTemporalContent = false;
 
         // Walk: canvas.items[0].items[0] = the painting annotation
         const paintingAnno = canvas.items?.[0]?.items?.[0];
@@ -62,15 +66,21 @@ export function extractCanvases(manifest) {
             // body may be a single resource or an array
             const resource = Array.isArray(body) ? body[0] : body;
             if (resource) {
-                imageUrl = resource.id ?? resource['@id'] ?? null;
-                const services = normaliseServices(resource.service);
-                const imgSvc = services.find(s => isImageService(s));
-                if (imgSvc) {
-                    imageServiceId = imgSvc.id ?? imgSvc['@id'] ?? null;
-                }
-                // If the image URL points to an info.json, strip it
-                if (imageUrl?.endsWith('/info.json')) {
-                    imageUrl = imageUrl.slice(0, -'/info.json'.length);
+                const type = resource.type ?? resource['@type'] ?? '';
+                if (type === 'Video' || type === 'Sound') {
+                    isTemporalContent = true;
+                    videoUrl = resource.id ?? resource['@id'] ?? null;
+                } else {
+                    imageUrl = resource.id ?? resource['@id'] ?? null;
+                    const services = normaliseServices(resource.service);
+                    const imgSvc = services.find(s => isImageService(s));
+                    if (imgSvc) {
+                        imageServiceId = imgSvc.id ?? imgSvc['@id'] ?? null;
+                    }
+                    // If the image URL points to an info.json, strip it
+                    if (imageUrl?.endsWith('/info.json')) {
+                        imageUrl = imageUrl.slice(0, -'/info.json'.length);
+                    }
                 }
             }
         }
@@ -78,10 +88,12 @@ export function extractCanvases(manifest) {
         return {
             id: canvas.id,
             label,
-            width: canvas.width ?? 1000,
-            height: canvas.height ?? 1000,
+            width: canvas.width ?? 0,
+            height: canvas.height ?? 0,
             imageUrl,
             imageServiceId,
+            videoUrl,
+            isTemporalContent,
         };
     });
 }
@@ -239,7 +251,7 @@ function _normalizeV2Results(data) {
         annoById[item.id] = item;
     }
 
-    // allRects = every matched word position
+    // allRects = spatial matched word positions (used for image overlays)
     const allRects = (data.items ?? [])
         .map(item => parseXYWH(item.target))
         .filter(Boolean);
@@ -255,8 +267,11 @@ function _normalizeV2Results(data) {
             const paintAnno = annoById[source];
             if (!paintAnno) continue;
 
-            const parsed = parseXYWH(paintAnno.target);
-            if (!parsed) continue;
+            // Try spatial fragment first, then temporal
+            const spatial  = parseXYWH(paintAnno.target);
+            const temporal = spatial ? null : parseTemporalFragment(paintAnno.target);
+            const fragment = spatial ?? temporal;
+            if (!fragment) continue;
 
             const selectorArr = anno.target?.selector;
             const tqs = Array.isArray(selectorArr)
@@ -264,8 +279,10 @@ function _normalizeV2Results(data) {
                 : (selectorArr?.type === 'TextQuoteSelector' ? selectorArr : null);
 
             hitList.push({
-                canvasId: parsed.canvasId,
-                x: parsed.x, y: parsed.y, w: parsed.w, h: parsed.h,
+                canvasId: fragment.canvasId,
+                x: spatial?.x ?? 0, y: spatial?.y ?? 0,
+                w: spatial?.w ?? 0, h: spatial?.h ?? 0,
+                startS: temporal?.startS ?? 0, endS: temporal?.endS ?? 0,
                 before: tqs?.prefix  ?? '',
                 match:  tqs?.exact   ?? paintAnno.body?.value ?? '',
                 after:  tqs?.suffix  ?? '',
@@ -274,11 +291,15 @@ function _normalizeV2Results(data) {
     } else {
         // No contextualizing annotations — use items directly (no context text)
         for (const item of data.items ?? []) {
-            const parsed = parseXYWH(item.target);
-            if (!parsed) continue;
+            const spatial  = parseXYWH(item.target);
+            const temporal = spatial ? null : parseTemporalFragment(item.target);
+            const fragment = spatial ?? temporal;
+            if (!fragment) continue;
             hitList.push({
-                canvasId: parsed.canvasId,
-                x: parsed.x, y: parsed.y, w: parsed.w, h: parsed.h,
+                canvasId: fragment.canvasId,
+                x: spatial?.x ?? 0, y: spatial?.y ?? 0,
+                w: spatial?.w ?? 0, h: spatial?.h ?? 0,
+                startS: temporal?.startS ?? 0, endS: temporal?.endS ?? 0,
                 before: '', match: item.body?.value ?? '', after: '',
             });
         }
@@ -329,6 +350,21 @@ export function parseXYWH(on) {
     const parts = on.slice(hashIdx + 6).split(',').map(Number);
     if (parts.length !== 4 || parts.some(isNaN)) return null;
     return { canvasId, x: parts[0], y: parts[1], w: parts[2], h: parts[3] };
+}
+
+/**
+ * Parses a temporal annotation target like
+ *   "https://example.org/canvas/1#t=10.167,14.973"
+ * Returns { canvasId, startS, endS } (seconds as floats) or null if no #t= fragment.
+ */
+export function parseTemporalFragment(on) {
+    if (!on) return null;
+    const hashIdx = on.indexOf('#t=');
+    if (hashIdx === -1) return null;
+    const canvasId = on.slice(0, hashIdx);
+    const parts = on.slice(hashIdx + 3).split(',').map(Number);
+    if (parts.length !== 2 || parts.some(isNaN)) return null;
+    return { canvasId, startS: parts[0], endS: parts[1] };
 }
 
 // ---- Utilities ---------------------------------------------------------------
