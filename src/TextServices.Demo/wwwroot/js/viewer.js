@@ -246,9 +246,20 @@ function navigateToHit(hit) {
     }
 
     if (hit.startS > 0) {
-        // Temporal: seek video to the hit timestamp
-        canvasVideo.currentTime = hit.startS;
-        canvasVideo.play();
+        // Temporal: seek to hit position, then play once seek completes.
+        // play() called before seeked fires would race and start from position 0.
+        const doSeek = (startS) => {
+            canvasVideo.addEventListener('seeked', () => {
+                canvasVideo.play().catch(() => {});
+            }, { once: true });
+            canvasVideo.currentTime = startS;
+        };
+        if (canvasVideo.readyState >= 1) {
+            doSeek(hit.startS);
+        } else {
+            canvasVideo.addEventListener('loadedmetadata', () => doSeek(hit.startS), { once: true });
+        }
+        canvasArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } else {
         // Spatial: render overlays (image may still be loading if we just switched canvas)
         if (canvasImg.complete) {
