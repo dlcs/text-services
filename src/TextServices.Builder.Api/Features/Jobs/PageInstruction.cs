@@ -17,8 +17,11 @@ public class PageInstruction
     /// <summary>URI of the text file for this page (ALTO, hOCR, etc.). Null for sparse pages.</summary>
     public string? Text { get; set; }
 
-    /// <summary>IIIF seeAlso profile URI, used to select the correct text-format provider.</summary>
+    /// <summary>IIIF seeAlso profile URI, used alongside Format to select the correct text-format provider.</summary>
     public string? Profile { get; set; }
+
+    /// <summary>IIIF format MIME type (e.g. "text/vtt"), used alongside Profile to select the provider.</summary>
+    public string? Format { get; set; }
 
     /// <summary>IIIF seeAlso label, used as a fallback when Profile is absent or unrecognised.</summary>
     public string? Label { get; set; }

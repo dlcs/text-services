@@ -371,6 +371,179 @@ public class ManifestReducerTests
     }
 
     // -------------------------------------------------------------------------
+    // VTT temporal canvas detection
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Reduce_VttViaSeeAlso_Format_IncludesCanvas()
+    {
+        var json = Manifest(canvases: [
+            """
+            {
+              "id": "https://example.org/c/audio",
+              "type": "Canvas",
+              "duration": 180.0,
+              "seeAlso": [{
+                "id": "https://example.org/transcript.vtt",
+                "type": "Dataset",
+                "format": "text/vtt"
+              }]
+            }
+            """
+        ]);
+
+        var pages = _reducer.Reduce(json);
+
+        pages.Count.ShouldBe(1);
+        pages[0].Id.ShouldBe("https://example.org/c/audio");
+        pages[0].Text.ShouldBe("https://example.org/transcript.vtt");
+        pages[0].Format.ShouldBe("text/vtt");
+    }
+
+    [Fact]
+    public void Reduce_VttViaSeeAlso_Label_IncludesCanvas()
+    {
+        var json = Manifest(canvases: [
+            """
+            {
+              "id": "https://example.org/c/audio",
+              "type": "Canvas",
+              "duration": 180.0,
+              "seeAlso": [{
+                "id": "https://example.org/transcript.vtt",
+                "type": "Dataset",
+                "label": { "none": ["WebVTT"] }
+              }]
+            }
+            """
+        ]);
+
+        var pages = _reducer.Reduce(json);
+
+        pages.Count.ShouldBe(1);
+        pages[0].Id.ShouldBe("https://example.org/c/audio");
+        pages[0].Text.ShouldBe("https://example.org/transcript.vtt");
+    }
+
+    [Fact]
+    public void Reduce_VttViaAnnotations_Supplementing_IncludesCanvas()
+    {
+        var json = Manifest(canvases: [
+            """
+            {
+              "id": "https://example.org/c/audio",
+              "type": "Canvas",
+              "duration": 180.0,
+              "annotations": [{
+                "type": "AnnotationPage",
+                "items": [{
+                  "type": "Annotation",
+                  "motivation": "supplementing",
+                  "body": {
+                    "id": "https://example.org/transcript.vtt",
+                    "type": "Text",
+                    "format": "text/vtt"
+                  },
+                  "target": "https://example.org/c/audio"
+                }]
+              }]
+            }
+            """
+        ]);
+
+        var pages = _reducer.Reduce(json);
+
+        pages.Count.ShouldBe(1);
+        pages[0].Id.ShouldBe("https://example.org/c/audio");
+        pages[0].Text.ShouldBe("https://example.org/transcript.vtt");
+        pages[0].Format.ShouldBe("text/vtt");
+    }
+
+    [Fact]
+    public void Reduce_VttViaAnnotations_MotivationAsArray_Handled()
+    {
+        var json = Manifest(canvases: [
+            """
+            {
+              "id": "https://example.org/c/audio",
+              "type": "Canvas",
+              "duration": 180.0,
+              "annotations": [{
+                "type": "AnnotationPage",
+                "items": [{
+                  "type": "Annotation",
+                  "motivation": ["supplementing"],
+                  "body": {
+                    "id": "https://example.org/transcript.vtt",
+                    "type": "Text",
+                    "format": "text/vtt"
+                  },
+                  "target": "https://example.org/c/audio"
+                }]
+              }]
+            }
+            """
+        ]);
+
+        var pages = _reducer.Reduce(json);
+
+        pages.Count.ShouldBe(1);
+        pages[0].Text.ShouldBe("https://example.org/transcript.vtt");
+    }
+
+    [Fact]
+    public void Reduce_VttCanvas_HasZeroDimensions()
+    {
+        var json = Manifest(canvases: [
+            """
+            {
+              "id": "https://example.org/c/audio",
+              "type": "Canvas",
+              "duration": 180.0,
+              "seeAlso": [{
+                "id": "https://example.org/transcript.vtt",
+                "type": "Dataset",
+                "format": "text/vtt"
+              }]
+            }
+            """
+        ]);
+
+        var pages = _reducer.Reduce(json);
+
+        pages.Count.ShouldBe(1);
+        pages[0].Width.ShouldBe(0);
+        pages[0].Height.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Reduce_MixedSpatialAndTemporalCanvases_BothIncludedWhenVttPresent()
+    {
+        var json = Manifest(canvases: [
+            Canvas("https://example.org/c/1", 4000, 6000),
+            """
+            {
+              "id": "https://example.org/c/audio",
+              "type": "Canvas",
+              "duration": 90.0,
+              "seeAlso": [{
+                "id": "https://example.org/transcript.vtt",
+                "type": "Dataset",
+                "format": "text/vtt"
+              }]
+            }
+            """,
+        ]);
+
+        var pages = _reducer.Reduce(json);
+
+        pages.Count.ShouldBe(2);
+        pages[0].Id.ShouldBe("https://example.org/c/1");
+        pages[1].Id.ShouldBe("https://example.org/c/audio");
+        pages[1].Format.ShouldBe("text/vtt");
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 

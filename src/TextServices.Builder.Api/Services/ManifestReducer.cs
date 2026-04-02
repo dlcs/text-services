@@ -29,23 +29,29 @@ public class ManifestReducer : IManifestReducer
         {
             if (!canvas.TryGetProperty("id", out var idEl)) continue;
 
-            // Skip canvases that have no spatial dimensions (e.g., audio-only canvases
-            // that carry only a duration). Canvases with width, height AND duration
-            // (e.g., video) are included — they can still carry ALTO text.
-            if (!canvas.TryGetProperty("width",  out var w) ||
-                !canvas.TryGetProperty("height", out var h))
-                continue;
-
             var id     = idEl.GetString() ?? string.Empty;
             var source = FindTextSource(canvas);
+
+            canvas.TryGetProperty("width",  out var w);
+            canvas.TryGetProperty("height", out var h);
+            bool hasDimensions = w.ValueKind == JsonValueKind.Number && h.ValueKind == JsonValueKind.Number;
+            bool hasDuration   = canvas.TryGetProperty("duration", out _);
+
+            if (!hasDimensions)
+            {
+                // Include temporal-only canvases (e.g. video with VTT) that have a recognised VTT source
+                if (!hasDuration || source == null || !IsVttFormat(source.Profile, source.Format, source.Label))
+                    continue;
+            }
 
             pages.Add(new PageInstruction
             {
                 Id      = id,
-                Width   = w.GetInt32(),
-                Height  = h.GetInt32(),
+                Width   = hasDimensions ? w.GetInt32() : 0,
+                Height  = hasDimensions ? h.GetInt32() : 0,
                 Text    = source?.Uri,
                 Profile = source?.Profile,
+                Format  = source?.Format,
                 Label   = source?.Label,
             });
         }
@@ -88,19 +94,24 @@ public class ManifestReducer : IManifestReducer
     // Text-source seeAlso detection (ALTO, hOCR, …)
     // -------------------------------------------------------------------------
 
-    private record TextSource(string Uri, string? Profile, string? Label);
+    private record TextSource(string Uri, string? Profile, string? Format, string? Label);
 
     private static TextSource? FindTextSource(JsonElement canvas)
     {
-        if (!canvas.TryGetProperty("seeAlso", out var seeAlso))
-            return null;
-
-        return seeAlso.ValueKind switch
+        // 1. Try seeAlso first
+        if (canvas.TryGetProperty("seeAlso", out var seeAlso))
         {
-            JsonValueKind.Array  => FindTextSourceInArray(seeAlso),
-            JsonValueKind.Object => TryGetTextSource(seeAlso),
-            _                    => null,
-        };
+            var source = seeAlso.ValueKind switch
+            {
+                JsonValueKind.Array  => FindTextSourceInArray(seeAlso),
+                JsonValueKind.Object => TryGetTextSource(seeAlso),
+                _                    => null,
+            };
+            if (source != null) return source;
+        }
+
+        // 2. Fall back to supplementing annotations
+        return FindTextSourceInAnnotations(canvas);
     }
 
     private static TextSource? FindTextSourceInArray(JsonElement array)
@@ -116,21 +127,75 @@ public class ManifestReducer : IManifestReducer
     private static TextSource? TryGetTextSource(JsonElement item)
     {
         var profile = item.TryGetProperty("profile", out var p) ? p.GetString() : null;
+        var format  = item.TryGetProperty("format",  out var f) ? f.GetString() : null;
         var label   = item.TryGetProperty("label",   out var l) ? ExtractLabelText(l) : null;
 
-        if (!IsRecognisedTextFormat(profile, label)) return null;
+        if (!IsRecognisedTextFormat(profile, format, label)) return null;
 
         var uri = item.TryGetProperty("id", out var id) ? id.GetString() : null;
-        return uri != null ? new TextSource(uri, profile, label) : null;
+        return uri != null ? new TextSource(uri, profile, format, label) : null;
     }
 
+    private static TextSource? FindTextSourceInAnnotations(JsonElement canvas)
+    {
+        if (!canvas.TryGetProperty("annotations", out var annotationPages))
+            return null;
+
+        foreach (var annoPage in annotationPages.EnumerateArray())
+        {
+            if (!annoPage.TryGetProperty("items", out var items)) continue;
+
+            foreach (var anno in items.EnumerateArray())
+            {
+                if (!HasSupplementingMotivation(anno)) continue;
+                if (!anno.TryGetProperty("body", out var bodyEl)) continue;
+
+                // body may be an array — take first object
+                var body = bodyEl.ValueKind == JsonValueKind.Array
+                    ? (bodyEl.EnumerateArray().FirstOrDefault())
+                    : bodyEl;
+                if (body.ValueKind != JsonValueKind.Object) continue;
+
+                var profile = body.TryGetProperty("profile", out var p) ? p.GetString() : null;
+                var format  = body.TryGetProperty("format",  out var f) ? f.GetString() : null;
+                var label   = body.TryGetProperty("label",   out var l) ? ExtractLabelText(l) : null;
+
+                if (!IsRecognisedTextFormat(profile, format, label)) continue;
+
+                var uri = body.TryGetProperty("id", out var id) ? id.GetString() : null;
+                if (uri != null) return new TextSource(uri, profile, format, label);
+            }
+        }
+        return null;
+    }
+
+    private static bool HasSupplementingMotivation(JsonElement annotation)
+    {
+        if (!annotation.TryGetProperty("motivation", out var motivation)) return false;
+        return motivation.ValueKind switch
+        {
+            JsonValueKind.String => motivation.GetString()?.Equals("supplementing", StringComparison.OrdinalIgnoreCase) ?? false,
+            JsonValueKind.Array  => motivation.EnumerateArray()
+                .Any(m => m.ValueKind == JsonValueKind.String &&
+                          m.GetString()?.Equals("supplementing", StringComparison.OrdinalIgnoreCase) == true),
+            _ => false,
+        };
+    }
+
+    private static bool IsVttFormat(string? profile, string? format, string? label) =>
+        ContainsIgnoreCase(profile, "text/vtt")  || ContainsIgnoreCase(format, "text/vtt")  ||
+        ContainsIgnoreCase(profile, "vtt")        || ContainsIgnoreCase(format, "vtt")        ||
+        ContainsIgnoreCase(label,   "vtt")        || ContainsIgnoreCase(label,  "webvtt")     ||
+        ContainsIgnoreCase(label,   "transcript");
+
     /// <summary>
-    /// Returns <see langword="true"/> if the profile URI or label indicates a recognised
-    /// text format (ALTO or hOCR).  Detection is intentionally broad.
+    /// Returns <see langword="true"/> if the profile URI, format MIME type, or label indicates
+    /// a recognised text format (ALTO, hOCR, or VTT). Detection is intentionally broad.
     /// </summary>
-    private static bool IsRecognisedTextFormat(string? profile, string? label) =>
-        ContainsIgnoreCase(profile, "alto")  || ContainsIgnoreCase(label, "alto") ||
-        ContainsIgnoreCase(profile, "hocr")  || ContainsIgnoreCase(label, "hocr");
+    private static bool IsRecognisedTextFormat(string? profile, string? format, string? label) =>
+        ContainsIgnoreCase(profile, "alto") || ContainsIgnoreCase(format, "alto") || ContainsIgnoreCase(label, "alto") ||
+        ContainsIgnoreCase(profile, "hocr") || ContainsIgnoreCase(format, "hocr") || ContainsIgnoreCase(label, "hocr") ||
+        IsVttFormat(profile, format, label);
 
     private static bool ContainsIgnoreCase(string? value, string term) =>
         value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);

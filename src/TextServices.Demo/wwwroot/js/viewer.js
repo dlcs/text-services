@@ -4,7 +4,7 @@ import { fetchManifest, extractCanvases, extractSearchServices, extractRendering
 let canvases = [];
 let currentIndex = 0;
 let searchService = null;   // { searchUrl, autocompleteUrl }
-let currentHits = [];       // flat array of { canvasId, x, y, w, h, before, match, after }
+let currentHits = [];       // flat array of { canvasId, x, y, w, h, startS, endS, before, match, after }
 let acTimer = null;
 
 // ---- DOM refs ----------------------------------------------------------------
@@ -16,6 +16,8 @@ const viewerWrap    = document.getElementById('viewer-wrap');
 const canvasImg     = document.getElementById('canvas-img');
 const canvasArea    = document.getElementById('canvas-area');
 const imgWrap       = document.getElementById('img-wrap');
+const videoWrap     = document.getElementById('video-wrap');
+const canvasVideo   = document.getElementById('canvas-video');
 const prevBtn       = document.getElementById('prev-btn');
 const nextBtn       = document.getElementById('next-btn');
 const pageLabel     = document.getElementById('page-label');
@@ -106,10 +108,20 @@ function renderCanvas(index) {
     prevBtn.disabled = index === 0;
     nextBtn.disabled = index === canvases.length - 1;
 
+    if (canvas.isTemporalContent) {
+        renderVideoCanvas(canvas);
+    } else {
+        renderImageCanvas(canvas);
+    }
+}
+
+function renderImageCanvas(canvas) {
+    videoWrap.style.display = 'none';
+    imgWrap.style.display = 'inline-block';
+
     // Remove existing overlays
     imgWrap.querySelectorAll('.hit-overlay').forEach(el => el.remove());
 
-    // Choose best image URL
     let src = null;
     if (canvas.imageServiceId) {
         src = buildImageUrl(canvas.imageServiceId, 'full', '!1200,900');
@@ -126,15 +138,24 @@ function renderCanvas(index) {
     }
 }
 
+function renderVideoCanvas(canvas) {
+    imgWrap.style.display = 'none';
+    videoWrap.style.display = 'block';
+
+    if (canvas.videoUrl && canvasVideo.src !== canvas.videoUrl) {
+        canvasVideo.src = canvas.videoUrl;
+    }
+}
+
 prevBtn.addEventListener('click', () => renderCanvas(currentIndex - 1));
 nextBtn.addEventListener('click', () => renderCanvas(currentIndex + 1));
 
-// ---- Hit overlays ------------------------------------------------------------
+// ---- Hit overlays (spatial only) --------------------------------------------
 
 function renderHitsForCanvas(canvasId) {
     imgWrap.querySelectorAll('.hit-overlay').forEach(el => el.remove());
 
-    const hits = currentHits.filter(h => h.canvasId === canvasId);
+    const hits = currentHits.filter(h => h.canvasId === canvasId && (h.w > 0 || h.h > 0));
     const canvas = canvases.find(c => c.id === canvasId);
     if (!canvas || hits.length === 0) return;
 
@@ -155,7 +176,9 @@ function renderHitsForCanvas(canvasId) {
 
 // Reposition overlays on resize via ResizeObserver.
 new ResizeObserver(() => {
-    if (canvases.length > 0) renderHitsForCanvas(canvases[currentIndex].id);
+    if (canvases.length > 0 && !canvases[currentIndex].isTemporalContent) {
+        renderHitsForCanvas(canvases[currentIndex].id);
+    }
 }).observe(imgWrap);
 
 // ---- Search ------------------------------------------------------------------
@@ -190,9 +213,13 @@ async function doSearch(q) {
             return;
         }
 
-        hitList.forEach((hit, i) => {
+        hitList.forEach(hit => {
             const li = document.createElement('li');
+            const timeStr = hit.startS > 0
+                ? `<span class="hit-time">${formatTime(hit.startS)}</span> `
+                : '';
             li.innerHTML =
+                timeStr +
                 `<span class="hit-before">${esc(hit.before)} </span>` +
                 `<span class="hit-match">${esc(hit.match)}</span>` +
                 `<span class="hit-after"> ${esc(hit.after)}</span>`;
@@ -200,8 +227,10 @@ async function doSearch(q) {
             resultsList.appendChild(li);
         });
 
-        // Show overlays on the current canvas immediately if it has hits
-        if (canvases.length > 0) renderHitsForCanvas(canvases[currentIndex].id);
+        // Show overlays on the current canvas immediately if it has spatial hits
+        if (canvases.length > 0 && !canvases[currentIndex].isTemporalContent) {
+            renderHitsForCanvas(canvases[currentIndex].id);
+        }
 
     } catch (err) {
         resultsList.innerHTML = `<li style="color:#900">${esc(err.message)}</li>`;
@@ -211,11 +240,32 @@ async function doSearch(q) {
 function navigateToHit(hit) {
     const idx = canvases.findIndex(c => c.id === hit.canvasId);
     if (idx === -1) return;
+
     if (idx !== currentIndex) {
         renderCanvas(idx);
-        // Overlays rendered after image load via onload callback
+    }
+
+    if (hit.startS > 0) {
+        // Temporal: seek to hit position, then play once seek completes.
+        // play() called before seeked fires would race and start from position 0.
+        const doSeek = (startS) => {
+            canvasVideo.addEventListener('seeked', () => {
+                canvasVideo.play().catch(() => {});
+            }, { once: true });
+            canvasVideo.currentTime = startS;
+        };
+        if (canvasVideo.readyState >= 1) {
+            doSeek(hit.startS);
+        } else {
+            canvasVideo.addEventListener('loadedmetadata', () => doSeek(hit.startS), { once: true });
+        }
+        canvasArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } else {
-        renderHitsForCanvas(hit.canvasId);
+        // Spatial: render overlays (image may still be loading if we just switched canvas)
+        if (canvasImg.complete) {
+            renderHitsForCanvas(hit.canvasId);
+        }
+        // else overlays rendered via canvasImg.onload
     }
 }
 
@@ -246,6 +296,19 @@ async function fetchAutocomplete() {
 }
 
 // ---- Helpers -----------------------------------------------------------------
+
+/**
+ * Formats a time in seconds as MM:SS or H:MM:SS.
+ */
+function formatTime(totalSeconds) {
+    const s = Math.floor(totalSeconds);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const mm = String(m).padStart(2, '0');
+    const ss = String(sec).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
 
 function showError(msg) {
     errorArea.innerHTML = `<div class="error-box">${esc(msg)}</div>`;

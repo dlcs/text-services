@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using TextServices.Core.Models;
 using TextServices.Search.Api.Models;
@@ -35,14 +36,33 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
 
         foreach (var rect in rects)
         {
-            var canvasId = text.Images[rect.Idx].ImageIdentifier;
-            var annoId   = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-{rect.X},{rect.Y},{rect.W},{rect.H}";
+            var image    = text.Images[rect.Idx];
+            var canvasId = image.ImageIdentifier;
+            var isTemporal = image.IsTemporalContent;
+
+            string annoId;
+            string target;
+            string motivation;
+
+            if (isTemporal)
+            {
+                annoId     = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-t{rect.StartMs},{rect.EndMs}";
+                target     = $"{canvasId}#{BuildTemporalTarget(rect.StartMs, rect.EndMs)}";
+                motivation = "supplementing";
+            }
+            else
+            {
+                annoId     = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-{rect.X},{rect.Y},{rect.W},{rect.H}";
+                target     = $"{canvasId}#xywh={rect.X},{rect.Y},{rect.W},{rect.H}";
+                motivation = "painting";
+            }
 
             items.Add(new PaintingAnnotationV2
             {
-                Id     = annoId,
-                Body   = new TextualBodyV2 { Value = rect.ContentRaw },
-                Target = $"{canvasId}#xywh={rect.X},{rect.Y},{rect.W},{rect.H}",
+                Id         = annoId,
+                Body       = new TextualBodyV2 { Value = rect.ContentRaw },
+                Target     = target,
+                Motivation = motivation,
             });
 
             if (currentHitIndex != rect.Hit)
@@ -81,6 +101,13 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
                 ? [new ContextualizingAnnotationPage { Items = contexts }]
                 : null,
         };
+    }
+
+    private static string BuildTemporalTarget(int startMs, int endMs)
+    {
+        var start = (startMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture);
+        var end   = (endMs   / 1000.0).ToString("0.###", CultureInfo.InvariantCulture);
+        return $"t={start},{end}";
     }
 
     private static ContextualizingAnnotation MakeContextualizing(

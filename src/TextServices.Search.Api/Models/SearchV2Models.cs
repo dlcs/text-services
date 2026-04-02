@@ -45,7 +45,7 @@ public class PaintingAnnotationV2
     public string Type { get; } = "Annotation";
 
     [JsonPropertyName("motivation")]
-    public string Motivation { get; } = "painting";
+    public string Motivation { get; set; } = "painting";
 
     [JsonPropertyName("body")]
     public required TextualBodyV2 Body { get; set; }
