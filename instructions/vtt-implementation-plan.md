@@ -266,22 +266,125 @@ The existing `AddPage(...)` method is not changed.
 
 ### 4a. `src/TextServices.Builder.Api/Services/ManifestReducer.cs`
 
-**Change 1 — extend `IsRecognisedTextFormat`:**
+**Change 1 — extend `IsRecognisedTextFormat` to check `format` as well:**
 
-Add VTT terms. The cleanest approach is a new private helper:
+Both `seeAlso` entries and annotation bodies can carry `format`, `profile`, and
+`label` as independent signals. `profile` qualifies the format (e.g.,
+`format: "application/xml"` + `profile: "http://www.loc.gov/standards/alto/ns-v3#"`)
+but either may appear alone. Detection must check all three.
 
+Extend the signature to:
 ```csharp
-private static bool IsVttFormat(string? profile, string? label) =>
-    ContainsIgnoreCase(profile, "text/vtt")  ||
-    ContainsIgnoreCase(profile, "vtt")       ||
-    ContainsIgnoreCase(label,   "vtt")       ||
-    ContainsIgnoreCase(label,   "webvtt")    ||
-    ContainsIgnoreCase(label,   "transcript");
+private static bool IsRecognisedTextFormat(string? profile, string? format, string? label)
 ```
 
-Then in `IsRecognisedTextFormat`, add `|| IsVttFormat(profile, label)` at the end.
+And update the body to cover all three, adding a new `IsVttFormat` helper:
 
-**Change 2 — include temporal canvases:**
+```csharp
+private static bool IsVttFormat(string? profile, string? format, string? label) =>
+    ContainsIgnoreCase(profile, "text/vtt")  || ContainsIgnoreCase(format, "text/vtt") ||
+    ContainsIgnoreCase(profile, "vtt")       || ContainsIgnoreCase(format, "vtt")      ||
+    ContainsIgnoreCase(label,   "vtt")       || ContainsIgnoreCase(label,  "webvtt")   ||
+    ContainsIgnoreCase(label,   "transcript");
+
+private static bool IsRecognisedTextFormat(string? profile, string? format, string? label) =>
+    ContainsIgnoreCase(profile, "alto") || ContainsIgnoreCase(format, "alto") || ContainsIgnoreCase(label, "alto") ||
+    ContainsIgnoreCase(profile, "hocr") || ContainsIgnoreCase(format, "hocr") || ContainsIgnoreCase(label, "hocr") ||
+    IsVttFormat(profile, format, label);
+```
+
+Update all call sites of `IsRecognisedTextFormat` and `IsVttFormat` to pass all three arguments.
+
+**Change 2 — extend `TryGetTextSource` to extract `format`:**
+
+Currently `TryGetTextSource` reads only `profile` and `label` from a seeAlso item.
+Add extraction of `format`:
+
+```csharp
+var format  = item.TryGetProperty("format",  out var f) ? f.GetString() : null;
+```
+
+Pass all three to `IsRecognisedTextFormat(profile, format, label)` and carry `format`
+into the `TextSource` record so that `IsVttFormat` can be called on the result later.
+The `TextSource` record gains a `Format` field:
+
+```csharp
+private record TextSource(string Uri, string? Profile, string? Format, string? Label);
+```
+
+Existing callers of `TextSource` that only use `Uri` are unaffected. The `IsVttFormat`
+check in the `Reduce` method becomes `IsVttFormat(source.Profile, source.Format, source.Label)`.
+
+**Change 3 — extend `FindTextSource` to check `annotations`:**
+
+The current `FindTextSource` only looks at `canvas.seeAlso`. Text resources (ALTO,
+hOCR, VTT) can also appear as annotations with `motivation: supplementing` in the
+canvas's `annotations` array. Either location can carry any recognised format.
+
+Update `FindTextSource` to try both, preferring `seeAlso`:
+
+```csharp
+private static TextSource? FindTextSource(JsonElement canvas)
+{
+    // 1. Try seeAlso (existing path)
+    if (canvas.TryGetProperty("seeAlso", out var seeAlso))
+    {
+        var source = seeAlso.ValueKind switch
+        {
+            JsonValueKind.Array  => FindTextSourceInArray(seeAlso),
+            JsonValueKind.Object => TryGetTextSource(seeAlso),
+            _                    => null,
+        };
+        if (source != null) return source;
+    }
+
+    // 2. Fall back to supplementing annotations
+    return FindTextSourceInAnnotations(canvas);
+}
+```
+
+Add new private method `FindTextSourceInAnnotations(JsonElement canvas)`:
+
+```
+- If canvas has no "annotations" property → return null.
+- "annotations" is an array of AnnotationPages.
+- For each AnnotationPage that has an "items" array (skip externally-referenced pages
+  with only "id"):
+    - For each item (Annotation):
+        - Check motivation "supplementing" using HasSupplementingMotivation().
+        - Get body (may be object or array — take first object if array).
+        - Extract body.format, body.profile (if present), body.label (via ExtractLabelText).
+        - Call IsRecognisedTextFormat(profile, format, label).
+        - If recognised: extract body.id as URI → return new TextSource(uri, profile, format, label).
+- Return null if no match found.
+```
+
+Add private helper `HasSupplementingMotivation(JsonElement annotation)`:
+
+```
+- Get annotation["motivation"].
+- If it's a string: return true if == "supplementing" (case-insensitive).
+- If it's an array: return true if any element equals "supplementing".
+- Otherwise: return false.
+```
+
+**Change 4 — include temporal canvases:**
+
+(Same as previously described — now using updated `IsVttFormat` signature.)
+
+VTT canvases are commonly time-only (they have `duration` but no `width`/`height`).
+Replace the current skip logic:
+
+- If the canvas has both `width` and `height`: existing path.
+- Else if the canvas has `duration` AND `FindTextSource` returns a VTT source
+  (checked via `IsVttFormat(source.Profile, source.Format, source.Label)`):
+  include with `Width = 0, Height = 0`.
+- Else: skip.
+
+Note: call `FindTextSource` once and reuse the result in both the format check and
+the `PageInstruction` — avoid calling it twice.
+
+**Change 3 — include temporal canvases:**
 
 VTT canvases are commonly time-only (they have `duration` but no `width`/`height`).
 The current skip logic is:
@@ -295,9 +398,13 @@ if (!canvas.TryGetProperty("width",  out var w) ||
 Replace with two-branch logic:
 
 - If the canvas has both `width` and `height`: existing path, `Width = w`, `Height = h`.
-- Else if the canvas has `duration` AND `FindTextSource` returns a VTT source:
+- Else if the canvas has `duration` AND `FindTextSource` returns a VTT source
+  (checked via `IsVttFormat(source.Profile, source.Format, source.Label)`):
   include with `Width = 0, Height = 0`.
 - Else: skip (current behaviour for audio-only or dimensionless canvases without VTT).
+
+Note: call `FindTextSource` once and reuse the result in both the format check and
+the `PageInstruction` — avoid calling it twice.
 
 Preserve the existing test `Reduce_CanvasWithWidthHeightAndDuration_Included` (a
 canvas that has both spatial dimensions and duration is included as before).
@@ -359,17 +466,21 @@ Add `IVttFetcher vttFetcher` as a new primary constructor parameter.
 
 **Change 3 — `IsVttPage` helper:**
 
+`PageInstruction` carries `Profile`, `Format` (add this field — see below), and
+`Label` from the detected `TextSource`. All three are checked:
+
 ```csharp
 private static bool IsVttPage(PageInstruction page) =>
-    ContainsIgnoreCase(page.Profile, "text/vtt")  ||
-    ContainsIgnoreCase(page.Profile, "vtt")        ||
+    ContainsIgnoreCase(page.Profile, "text/vtt")  || ContainsIgnoreCase(page.Format, "text/vtt") ||
+    ContainsIgnoreCase(page.Profile, "vtt")        || ContainsIgnoreCase(page.Format, "vtt")      ||
     ContainsIgnoreCase(page.Label,   "vtt")        ||
     ContainsIgnoreCase(page.Label,   "webvtt")     ||
     ContainsIgnoreCase(page.Label,   "transcript");
 ```
 
-(Uses the same `ContainsIgnoreCase` helper already in the file, or adds it if
-absent.)
+**`PageInstruction` must gain a `Format` field** (alongside the existing `Profile`
+and `Label`). `ManifestReducer.Reduce` populates it from `source.Format`.
+This is an additive change to the existing model class.
 
 **Change 4 — `ProcessPages` method:**
 
@@ -518,16 +629,37 @@ For the mixed canvas test: call `textBuilder.AddPage(...)` for the ALTO canvas a
 
 Add to the existing test class (no new file):
 
+**seeAlso detection (existing location):**
+
 | Test | Verifies |
 |---|---|
-| `Reduce_VttByProfile_DetectsLink` | `profile: "text/vtt"` detected |
-| `Reduce_VttByLabel_Transcript` | `label: "transcript"` detected |
-| `Reduce_VttByLabel_WebVTT_CaseInsensitive` | `label: "WebVTT"` detected |
-| `Reduce_TemporalCanvas_VttSeeAlso_Included` | Duration-only canvas with VTT seeAlso → `Width=0, Height=0` |
-| `Reduce_TemporalCanvas_NoVttSeeAlso_Skipped` | Duration-only canvas without VTT seeAlso → skipped |
-| `Reduce_MixedManifest_SpatialAndTemporal` | One image canvas + one video canvas → two `PageInstruction` entries |
+| `Reduce_VttByProfile_DetectsLink` | `seeAlso profile: "text/vtt"` detected |
+| `Reduce_VttByFormat_DetectsLink` | `seeAlso format: "text/vtt"` (with no profile) detected |
+| `Reduce_VttByLabel_Transcript_SeeAlso` | `seeAlso label: "transcript"` detected |
+| `Reduce_VttByLabel_WebVTT_CaseInsensitive` | `seeAlso label: "WebVTT"` detected |
 
-Helper: `CanvasWithVtt(string id, double duration, string vttUri, string? profile, string? label)` — canvas with `duration` but no `width`/`height`.
+**Supplementing annotation detection (new):**
+
+| Test | Verifies |
+|---|---|
+| `Reduce_VttAnnotation_ByFormat_DetectsLink` | `annotations[motivation=supplementing].body.format = "text/vtt"` detected |
+| `Reduce_VttAnnotation_ByLabel_DetectsLink` | `annotations[].body.label = "Captions in WebVTT format"` detected |
+| `Reduce_AltoAnnotation_ByLabel_DetectsLink` | ALTO supplied as supplementing annotation is also detected |
+| `Reduce_AnnotationMotivationArray_Detected` | `motivation: ["supplementing"]` (array form) is detected |
+| `Reduce_AnnotationExternalPage_Skipped` | AnnotationPage with only `id` (no `items`) is silently skipped |
+| `Reduce_SeeAlsoPreferredOverAnnotation` | Canvas with both seeAlso ALTO and supplementing VTT annotation → seeAlso result returned |
+| `Reduce_AnnotationFallsBackWhenNoSeeAlso` | Canvas with no seeAlso but supplementing VTT annotation → annotation result returned |
+
+**Temporal canvas inclusion:**
+
+| Test | Verifies |
+|---|---|
+| `Reduce_TemporalCanvas_VttSeeAlso_Included` | Duration-only canvas with VTT seeAlso → `Width=0, Height=0` |
+| `Reduce_TemporalCanvas_VttAnnotation_Included` | Duration-only canvas with VTT supplementing annotation → `Width=0, Height=0` |
+| `Reduce_TemporalCanvas_NoVttSource_Skipped` | Duration-only canvas with no recognised text source → skipped |
+| `Reduce_MixedManifest_SpatialAndTemporal` | One image canvas (ALTO seeAlso) + one video canvas (VTT annotation) → two `PageInstruction` entries |
+
+Helpers: `CanvasWithVttSeeAlso(string id, double duration, string vttUri, string? profile, string? format, string? label)` and `CanvasWithVttAnnotation(string id, double duration, string vttUri, string? format, string? label)`. Both duration-only (no `width`/`height`).
 
 ---
 
@@ -583,7 +715,8 @@ Execute in this order to avoid compile errors at each stage:
  6. ITranscriptFormatProvider.cs   — new interface
  7. VttTextFormatProvider.cs       — new implementation
  8. TextBuilder.cs                 — transcript providers + AddTranscriptPage
- 9. ManifestReducer.cs             — VTT detection + temporal canvas handling
+ 9. PageInstruction.cs             — add Format field
+ 9. ManifestReducer.cs             — VTT/format detection + supplementing annotation + temporal canvas
 10. IVttFetcher.cs                 — new interface
 11. VttFetcher.cs                  — new implementation
 12. TextBuildJob.cs                — FetchedPage record + dual-path processing

@@ -202,10 +202,64 @@ fragment selector. No new response envelope shape is needed.
 
 ## Builder API changes
 
-### VTT seeAlso detection
+### Text-source detection — two locations
 
-`ManifestReducer.TryGetTextSource` currently detects ALTO and hOCR by profile/label.
-Add VTT detection:
+Text resources (ALTO, hOCR, VTT) can appear on a canvas in two places, and both must
+be checked. The same format detection (profile, label, format matching) applies to
+both.
+
+**1. `seeAlso`** — the current location for ALTO and hOCR:
+
+```json
+"seeAlso": [{ "id": "...", "profile": "http://www.loc.gov/standards/alto/ns-v3#", "label": "ALTO" }]
+```
+
+**2. `canvas.annotations[]` with `motivation: supplementing`** — the IIIF v3 pattern
+for captions and transcripts, used for VTT (and potentially hOCR/ALTO from some
+publishers):
+
+```json
+"annotations": [{
+  "type": "AnnotationPage",
+  "items": [{
+    "type": "Annotation",
+    "motivation": "supplementing",
+    "body": {
+      "id": "http://example.org/transcript.vtt",
+      "type": "Text",
+      "format": "text/vtt",
+      "label": { "en": ["Captions in WebVTT format"] }
+    },
+    "target": "https://example.org/canvas/1"
+  }]
+}]
+```
+
+Both `seeAlso` resource entries and annotation bodies can carry `format`, `profile`,
+and `label`. These are independent signals — `profile` qualifies the `format` (for
+example, `format: "application/xml"` with `profile: "http://www.loc.gov/standards/alto/ns-v3#"`),
+but either may appear alone. Detection must check all three signals in all contexts.
+
+The existing `IsRecognisedTextFormat(profile, label)` function is extended to also
+accept `format`, and is called with all three values regardless of whether the source
+comes from `seeAlso` or an annotation body.
+
+`FindTextSource` tries `seeAlso` first, then falls back to `annotations`. Either
+location can carry any recognised format — it is not the case that VTT always comes
+from annotations or ALTO always comes from seeAlso.
+
+**`motivation` handling:** Annotation `motivation` may be a string or an array
+(consistent with how `motivation` is handled elsewhere in the codebase, e.g. the PDF
+builder). A helper `HasSupplementingMotivation(JsonElement annotation)` handles both
+cases.
+
+**Externally-referenced AnnotationPages:** Some manifests reference annotation pages
+by `id` only, without embedding `items`. These are silently skipped — the reducer
+operates on the embedded manifest JSON only.
+
+### VTT format detection
+
+Extend `IsRecognisedTextFormat` to cover VTT terms:
 
 ```csharp
 ContainsIgnoreCase(profile, "text/vtt") ||
