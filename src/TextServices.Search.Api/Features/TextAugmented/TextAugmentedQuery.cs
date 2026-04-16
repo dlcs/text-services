@@ -117,6 +117,50 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
             }
         }
 
+        // ---- per-canvas line and word annotation page references ----------------
+        // Inject line-level and word-level annotation page links into each canvas's
+        // annotations array so harvesting clients can discover and fetch them.
+        // Only canvases that actually have words are decorated; sparse canvases are skipped.
+        if (text != null && manifest["items"] is JsonArray canvases)
+        {
+            // Build a set of canvas indices that have at least one word, in O(words).
+            var canvasesWithWords = text.Words.Values.Select(w => w.Idx).ToHashSet();
+
+            for (var i = 0; i < canvases.Count && i < text.Images.Length; i++)
+            {
+                if (!canvasesWithWords.Contains(i)) continue;
+                if (canvases[i] is not JsonObject canvas) continue;
+
+                var linesRef = new JsonObject
+                {
+                    ["id"]    = $"{base_}/annotations/lines/v1/{i}/{id}",
+                    ["type"]  = "AnnotationPage",
+                    ["label"] = new JsonObject { ["en"] = new JsonArray("Line-level transcription") },
+                };
+                var wordsRef = new JsonObject
+                {
+                    ["id"]    = $"{base_}/annotations/words/v1/{i}/{id}",
+                    ["type"]  = "AnnotationPage",
+                    ["label"] = new JsonObject { ["en"] = new JsonArray("Word-level transcription") },
+                };
+
+                if (canvas["annotations"] is JsonArray existingAnnos)
+                {
+                    existingAnnos.Insert(0, wordsRef);
+                    existingAnnos.Insert(0, linesRef);
+                }
+                else if (canvas["annotations"] is JsonObject singleAnno)
+                {
+                    canvas["annotations"] = new JsonArray(
+                        linesRef, wordsRef, singleAnno.DeepClone());
+                }
+                else
+                {
+                    canvas["annotations"] = new JsonArray(linesRef, wordsRef);
+                }
+            }
+        }
+
         // ---- figures annotation page reference ----------------------------------
         // If the builder stored a figures.json (ComposedBlocks with non-zero area),
         // add a manifest-level annotations reference so clients can discover it.

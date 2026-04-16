@@ -696,3 +696,40 @@ Added consumer-facing documentation to the repository.
 ### Decision: plain ASCII diagrams only
 
 The initial README used Unicode box-drawing characters (`│`, `─`, `►`, `◄`) for the architecture diagram. These rendered inconsistently across editors and terminals, causing misalignment. Replaced with plain ASCII (`|`, `-`, `>`, `<`) throughout.
+
+---
+
+## 2026-04-16 — PR #29: Text granularity annotation endpoints
+
+### Context
+
+Added two new Search API endpoints that return IIIF Presentation 3 `AnnotationPage` objects at line and word granularity, using the [IIIF Text Granularity extension](https://iiif.io/api/extension/text-granularity/). The augmented Manifest endpoint was also updated to inject per-canvas references to these pages.
+
+### On-the-fly generation from the cached Text object
+
+The annotation pages are generated on demand from the `Text` object already held in the Search API memory cache. No additional storage files are written during the build. Rationale:
+
+- The `Text` object is already in memory for any manifest that has had a recent search request.
+- Generating an `AnnotationPage` is a linear pass over `Text.Words` filtered by `Word.Idx` (canvas index), grouped by `Word.Li` (line), with bounding box unions — microseconds of CPU per request.
+- Pre-generating all annotation pages during the build would write O(canvases × 2) extra files per job, adding build time and storage cost for content that most consumers will never request directly.
+- The intended use case is **harvesting**: callers fetch the annotation pages once, rewrite their URLs, and serve them from their own infrastructure. A production deployment that should not serve harvesting traffic can disable the endpoints via configuration.
+
+### URL structure: canvas index before job id
+
+Route: `GET /annotations/lines/v1/{n:int}/{**id}` and `GET /annotations/words/v1/{n:int}/{**id}`
+
+ASP.NET minimal API catch-all segments (`{**id}`) must be last in the route, so the canvas index `{n}` is placed before the job id. This gives URLs of the form `/annotations/lines/v1/0/my-collection/my-book`. The ordering is unconventional but unambiguous; harvesters are expected to rewrite URLs when serving annotation pages from their own systems.
+
+### Per-canvas injection in text-augmented
+
+The `/text-augmented/v3/{**id}` handler now iterates the manifest `items` array and prepends `AnnotationPage` references (lines and words) to each canvas's `annotations` array, for canvases that have at least one word. A `HashSet<int>` of occupied canvas indices is computed in a single O(words) pass before the canvas loop.
+
+### Target format
+
+Spatial canvases: `#xywh=x,y,w,h` where the line bounding box is the outer box of all word boxes on the line (min X/Y, max X+W / Y+H). Word boxes are used as-is.
+
+Temporal canvases: `#t=start,end` in decimal seconds (up to 3 decimal places, no trailing zeros), where the line time range is the union of all word time ranges (min startMs, max endMs).
+
+### Tests
+
+24 new tests in `LineAnnotationsHandlerTests.cs` and `WordAnnotationsHandlerTests.cs`: 404 cases (text not found, canvas out of range, negative index), response shape (correct metadata, granularity label, contexts), single and multi-line spatial, outer bounding box calculation, per-word individual boxes, annotation ids, multi-canvas isolation, sparse canvas (empty items not 404), temporal time fragment formatting.
