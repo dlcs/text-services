@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TextServices Demo</title>
+  <link rel="stylesheet" href="/demo.css">
+  <style>
+    .tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem; margin-top: 1.2rem; }
+    .tool-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .tool-card:hover { border-color: #4a6cf7; box-shadow: 0 2px 8px rgba(74,108,247,0.15); }
+    .tool-card h2 { margin: 0 0 0.4rem; font-size: 1rem; color: #1a1a2e; }
+    .tool-card p  { margin: 0; font-size: 0.83rem; color: #555; line-height: 1.45; }
+  </style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">TextServices Demo</a>
+  <a href="/builder.html">Builder</a>
+  <a href="/viewer.html">Viewer</a>
+  <a href="/compare.html">Compare</a>
+  <a href="/figures.html">Figures</a>
+  <a href="/annotations.html">Annotations</a>
+</nav>
+<main>
+  <h1>TextServices Demo</h1>
+  <p style="font-size:0.9rem;color:#555;margin-top:0;max-width:600px">
+    Tools for building and exploring IIIF text services — search indexes, annotation pages,
+    and augmented manifests.
+  </p>
+
+  <div class="tool-grid">
+    <a class="tool-card" href="/builder.html">
+      <h2>Builder</h2>
+      <p>Submit IIIF manifests or page sequences to build text indexes. Monitor job progress and access derived outputs.</p>
+    </a>
+    <a class="tool-card" href="/viewer.html">
+      <h2>Viewer</h2>
+      <p>Load a text-augmented manifest and search it. Highlights matched words on image canvases and seeks to matched cues on video canvases.</p>
+    </a>
+    <a class="tool-card" href="/compare.html">
+      <h2>Search Comparator</h2>
+      <p>Compare autocomplete and search results from multiple IIIF Content Search services side by side.</p>
+    </a>
+    <a class="tool-card" href="/figures.html">
+      <h2>Figures</h2>
+      <p>Browse figures, tables and illustrations identified from ALTO ComposedBlock elements, with image crop thumbnails.</p>
+    </a>
+    <a class="tool-card" href="/annotations.html">
+      <h2>Annotation Comparator</h2>
+      <p>Compare source annotation pages from a manifest with the generated line- and word-level transcription pages side by side.</p>
+    </a>
+  </div>
+</main>
+</body>
+</html>
