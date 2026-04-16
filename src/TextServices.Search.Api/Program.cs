@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.Caching.Memory;
 using TextServices.Search.Api.Configuration;
 using TextServices.Pdf;
+using TextServices.Search.Api.Features.Annotations;
 using TextServices.Search.Api.Features.Autocomplete;
 using TextServices.Search.Api.Features.Figures;
 using TextServices.Search.Api.Features.Pdf;
@@ -186,6 +187,30 @@ app.MapGet("/identified/figures/{**id}", async (
     var result  = await sender.Send(new FiguresRequest(id, selfUrl));
     if (result == null) return Results.NotFound();
 
+    return Results.Json(result);
+});
+
+// GET /annotations/lines/v1/{n}/{**id}  — line-level annotation page for canvas n
+app.MapGet("/annotations/lines/v1/{n:int}/{**id}", async (
+    int n, string id,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl = BuildSelfUrl(options, ctx, $"annotations/lines/v1/{n}/{id}", null);
+    var result  = await sender.Send(new LineAnnotationsRequest(id, n, selfUrl));
+    if (result == null) return Results.NotFound();
+    return Results.Json(result);
+});
+
+// GET /annotations/words/v1/{n}/{**id}  — word-level annotation page for canvas n
+app.MapGet("/annotations/words/v1/{n:int}/{**id}", async (
+    int n, string id,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl = BuildSelfUrl(options, ctx, $"annotations/words/v1/{n}/{id}", null);
+    var result  = await sender.Send(new WordAnnotationsRequest(id, n, selfUrl));
+    if (result == null) return Results.NotFound();
     return Results.Json(result);
 });
 

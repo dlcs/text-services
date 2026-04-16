@@ -182,6 +182,97 @@ IIIF Content Search API v1 autocomplete. Returns a `search:TermList`.
 
 ---
 
+## Text granularity annotations
+
+These endpoints return IIIF Presentation 3 `AnnotationPage` objects generated on the fly from
+the in-memory text index. Each annotation has `motivation: "supplementing"` and a `TextualBody`
+carrying the raw word or line text. The response includes both the standard IIIF Presentation 3
+context and the [IIIF Text Granularity extension](https://iiif.io/api/extension/text-granularity/)
+context, with a `textGranularity` property indicating the level.
+
+These endpoints are primarily intended for harvesting: callers can fetch all annotation pages
+for a document, rewrite their URLs, and serve them independently. References to these pages are
+injected into each canvas's `annotations` array by the `/text-augmented/v3/` endpoint.
+
+### GET /annotations/lines/v1/{n}/{**id}
+
+Returns line-level annotations for canvas `{n}` (zero-based index into the manifest canvas
+list) of job `{**id}`. Each annotation covers one text line; its target is the outer bounding
+box of all words on that line. For temporal canvases the target uses an `#t=` fragment
+(seconds, up to 3 decimal places) instead of `#xywh=`.
+
+**Responses**
+
+| Status | Meaning |
+|---|---|
+| `200 OK` | AnnotationPage (may have empty `items` for a sparse canvas). |
+| `404 Not Found` | No text index for this `id`, or `{n}` is out of range. |
+
+**Example response**
+
+```json
+{
+  "@context": [
+    "http://iiif.io/api/presentation/3/context.json",
+    "https://iiif.io/api/extension/text-granularity/context.json"
+  ],
+  "id": "https://search.example.org/annotations/lines/v1/0/my-collection/my-book",
+  "type": "AnnotationPage",
+  "textGranularity": "line",
+  "items": [
+    {
+      "id": "https://search.example.org/annotations/lines/v1/0/my-collection/my-book/anno/0",
+      "type": "Annotation",
+      "motivation": "supplementing",
+      "body": { "type": "TextualBody", "value": "REPORT OF THE COMMITTEE", "format": "text/plain" },
+      "target": "https://example.org/canvas/1#xywh=490,502,2376,100"
+    }
+  ]
+}
+```
+
+---
+
+### GET /annotations/words/v1/{n}/{**id}
+
+Returns word-level annotations for canvas `{n}` of job `{**id}`. Each annotation covers one
+word; its target is that word's individual bounding box (or time range for temporal canvases).
+
+**Responses** — same as lines endpoint above.
+
+**Example response**
+
+```json
+{
+  "@context": [
+    "http://iiif.io/api/presentation/3/context.json",
+    "https://iiif.io/api/extension/text-granularity/context.json"
+  ],
+  "id": "https://search.example.org/annotations/words/v1/0/my-collection/my-book",
+  "type": "AnnotationPage",
+  "textGranularity": "word",
+  "items": [
+    {
+      "id": "https://search.example.org/annotations/words/v1/0/my-collection/my-book/anno/0",
+      "type": "Annotation",
+      "motivation": "supplementing",
+      "body": { "type": "TextualBody", "value": "REPORT", "format": "text/plain" },
+      "target": "https://example.org/canvas/1#xywh=490,502,500,100"
+    }
+  ]
+}
+```
+
+### URL structure note
+
+The canvas index `{n}` precedes the job `{**id}` in the path (e.g.
+`/annotations/lines/v1/0/my-collection/my-book`). This ordering is a routing constraint:
+ASP.NET minimal APIs require the catch-all segment `{**id}` to be last, so the integer index
+must come first. Callers who harvest these pages and serve them independently are expected to
+rewrite the URLs to whatever scheme suits their system.
+
+---
+
 ## Derived outputs
 
 ### GET /text-augmented/v3/{**id}
@@ -191,7 +282,8 @@ Returns the original IIIF Presentation 3 Manifest stored by the Builder API, aug
 - **`id`** replaced by the URL of this endpoint.
 - **`service`** array prepended with `SearchService2` (v2 first) and `SearchService1` (v1) descriptors, each containing a nested autocomplete service.
 - **`rendering`** array prepended with a plain-text link and, for image-based manifests, a PDF download link.
-- **`annotations`** array prepended with a reference to the identified figures `AnnotationPage`, when figures were found during the build.
+- **`annotations`** (manifest-level) prepended with a reference to the identified figures `AnnotationPage`, when figures were found during the build.
+- Each canvas's **`annotations`** array prepended with references to the line-level and word-level annotation pages for that canvas (only for canvases that have at least one word).
 
 This is the recommended way to give a viewer working search without modifying the authoritative
 Manifest. Load the URL directly in any IIIF v3 viewer that supports content search.
