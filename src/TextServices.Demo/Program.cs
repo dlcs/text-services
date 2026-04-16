@@ -19,9 +19,10 @@ app.MapGet("/demo-config", (DemoOptions opts) => Results.Ok(new
 }));
 
 // Clean URLs — redirect to the static HTML files.
-app.MapGet("/",       () => Results.Redirect("/builder.html"));
+app.MapGet("/",       () => Results.Redirect("/index.html"));
 app.MapGet("/builder",() => Results.Redirect("/builder.html"));
 app.MapGet("/viewer", () => Results.Redirect("/viewer.html"));
-app.MapGet("/compare",() => Results.Redirect("/compare.html"));
+app.MapGet("/compare",     () => Results.Redirect("/compare.html"));
+app.MapGet("/annotations", () => Results.Redirect("/annotations.html"));
 
 app.Run();

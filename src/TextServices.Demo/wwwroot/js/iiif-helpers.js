@@ -98,6 +98,26 @@ export function extractCanvases(manifest) {
     });
 }
 
+// ---- Canvas annotation page reference extraction ----------------------------
+
+/**
+ * Returns annotation page references from a single canvas's `annotations` array.
+ * Each reference: { id, label }
+ *
+ * These are external AnnotationPage pointers (not embedded items).
+ * Used by the annotation comparator to discover line/word annotation pages.
+ */
+export function extractCanvasAnnotationPageRefs(canvas) {
+    const annos = canvas.annotations;
+    if (!Array.isArray(annos)) return [];
+    return annos
+        .filter(a => a.id && (a.type === 'AnnotationPage' || a['@type'] === 'sc:AnnotationPage'))
+        .map(a => ({
+            id:    a.id ?? a['@id'],
+            label: labelToString(a.label) || (a.id ?? ''),
+        }));
+}
+
 // ---- Figures annotation page extraction --------------------------------------
 
 /**

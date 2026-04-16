@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Annotation Comparator — TextServices Demo</title>
+  <link rel="stylesheet" href="/demo.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">TextServices Demo</a>
+  <a href="/builder.html">Builder</a>
+  <a href="/viewer.html">Viewer</a>
+  <a href="/compare.html">Compare</a>
+  <a href="/figures.html">Figures</a>
+  <a href="/annotations.html">Annotations</a>
+</nav>
+<main>
+  <h1>Annotation Comparator</h1>
+  <p style="font-size:0.88rem;color:#555;margin-top:0">
+    Load a text-augmented manifest to compare source annotation pages with the generated
+    line- and word-level transcription pages side by side.
+  </p>
+
+  <div class="row" style="margin-bottom:0.8rem">
+    <input type="url" id="manifest-url" placeholder="IIIF Manifest URL (v3)" />
+    <button id="load-btn">Load</button>
+  </div>
+
+  <div id="error-area"></div>
+
+  <div id="anno-ui" style="display:none">
+    <div class="row" style="align-items:center;margin-bottom:0.8rem;gap:0.8rem">
+      <label for="canvas-select" style="font-size:0.88rem;white-space:nowrap">Canvas:</label>
+      <select id="canvas-select" style="flex:1;max-width:480px;font-size:0.88rem;padding:0.3rem 0.5rem;border:1px solid #ccc;border-radius:4px"></select>
+      <span id="canvas-info" style="font-size:0.82rem;color:#888;white-space:nowrap"></span>
+    </div>
+
+    <div class="compare-columns" id="anno-columns">
+      <!-- Columns are built dynamically by annotations.js -->
+    </div>
+  </div>
+</main>
+<script type="module" src="/js/annotations.js"></script>
+</body>
+</html>
