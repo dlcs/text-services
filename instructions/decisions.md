@@ -676,3 +676,23 @@ The `W3cAnnotationTextFormatProvider` collects all annotations in a first pass, 
 ### Tests
 
 20 new tests in `W3cAnnotationParsingTests.cs`: provider `Supports()`, URI fragment and SpecificResource spatial targets, pixel: prefix, temporal URI fragment and SpecificResource, all-words-share-bounding-box, multi-annotation different Li, search integration (single word, phrase within annotation, phrase spanning annotations), ManifestReducer detection (external page, seeAlso priority, embedded items skipped).
+
+---
+
+## 2026-04-16 — PR #28: API documentation
+
+### Context
+
+Added consumer-facing documentation to the repository.
+
+### What was added
+
+**`README.md`** — top-level overview: what the two services do, a plain-ASCII architecture diagram showing the call flow from caller through Builder API to Search API, and a three-step quick start (POST a job, poll for completion, search, load decorated Manifest in a viewer). Links to the two detail pages.
+
+**`docs/builder-api.md`** — full Builder API reference covering all five endpoints (`POST`, `GET` list, `GET` single, `PUT` reprocess, `DELETE`), the job response field table, `sourceData` format (for callers supplying an explicit page sequence rather than a Manifest URI), the three-step text source detection priority (seeAlso → embedded annotations → external AnnotationPage), recognised format table, and configuration reference.
+
+**`docs/search-api.md`** — full Search API reference covering all endpoints (search v2/v1, autocomplete v2/v1, text-augmented Manifest, plain text, PDF GET and POST trigger, identified figures), example response bodies, a section on how to link the search services into a caller's own Manifest rather than using the text-augmented proxy, and configuration reference.
+
+### Decision: plain ASCII diagrams only
+
+The initial README used Unicode box-drawing characters (`│`, `─`, `►`, `◄`) for the architecture diagram. These rendered inconsistently across editors and terminals, causing misalignment. Replaced with plain ASCII (`|`, `-`, `>`, `<`) throughout.
