@@ -1,4 +1,5 @@
 using Shouldly;
+using TextServices.Builder.Api.Services;
 using TextServices.Core.Providers;
 
 namespace TextServices.Tests.Core;
@@ -219,7 +220,7 @@ public class W3cAnnotationParsingTests
         ]);
 
         var (text, _) = Build(json, "canvas1");
-        var rects = text.Search("committee", "canvas1");
+        var rects = text.Search("committee");
 
         rects.ShouldHaveSingleItem();
         var rect = rects[0];
@@ -235,7 +236,7 @@ public class W3cAnnotationParsingTests
         ]);
 
         var (text, _) = Build(json, "canvas1");
-        var rects = text.Search("minister spoke", "canvas1");
+        var rects = text.Search("minister spoke");
 
         // All words share the same box — coalesces to one rect.
         rects.ShouldHaveSingleItem();
@@ -250,7 +251,7 @@ public class W3cAnnotationParsingTests
         ]);
 
         var (text, _) = Build(json, "canvas1");
-        var rects = text.Search("one start", "canvas1");
+        var rects = text.Search("one start");
 
         rects.Count.ShouldBe(2);
     }
