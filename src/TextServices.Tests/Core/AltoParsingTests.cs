@@ -374,6 +374,46 @@ public class AltoParsingTests
     }
 
     [Fact]
+    public void AddPage_Hyphenation_MergedWord_AssignedToFirstLineIndex()
+    {
+        // Regression: the merged word must carry the Li of the HypPart1 line, not the
+        // HypPart2 line.  Before the fix, NextLine() was called before the merge was
+        // completed, so the word ended up on the wrong line — causing line-level
+        // annotation endpoints to omit it from line 1 and misplace it on line 2.
+        var alto = XElement.Parse($"""
+            <alto xmlns="{NsV2}">
+              <Layout>
+                <Page WIDTH="1000" HEIGHT="2000">
+                  <PrintSpace>
+                    <TextBlock>
+                      <TextLine>
+                        <String CONTENT="vom"  HPOS="0"   VPOS="0"  WIDTH="30" HEIGHT="20"/>
+                        <String CONTENT="par-" HPOS="40"  VPOS="0"  WIDTH="40" HEIGHT="20"
+                                SUBS_TYPE="HypPart1" SUBS_CONTENT="parliament"/>
+                      </TextLine>
+                      <TextLine>
+                        <String CONTENT="liament" HPOS="0" VPOS="30" WIDTH="70" HEIGHT="20"
+                                SUBS_TYPE="HypPart2" SUBS_CONTENT="parliament"/>
+                        <String CONTENT="met"     HPOS="80" VPOS="30" WIDTH="30" HEIGHT="20"/>
+                      </TextLine>
+                    </TextBlock>
+                  </PrintSpace>
+                </Page>
+              </Layout>
+            </alto>
+            """);
+
+        var text = ParseAlto(alto, 1000, 2000);
+
+        // 3 words: "vom" (line 0), "parliament" (line 0), "met" (line 1)
+        text.Words.Count.ShouldBe(3);
+
+        var byNorm = text.Words.Values.ToDictionary(w => w.ContentNorm);
+        byNorm["vom"].Li.ShouldBe(byNorm["parliament"].Li);   // same line as HypPart1
+        byNorm["met"].Li.ShouldBeGreaterThan(byNorm["parliament"].Li); // next line
+    }
+
+    [Fact]
     public void AddPage_Hyphenation_MarkerCharacter_AlsoDetected()
     {
         // '¬' at end of word is an alternative hyphen marker used by some ALTO producers
