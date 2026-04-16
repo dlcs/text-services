@@ -21,21 +21,23 @@ namespace TextServices.Core.Providers;
 public class TextBuilder
 {
     private readonly IReadOnlyList<ITextFormatProvider> _providers;
-    private readonly IReadOnlyList<ITranscriptFormatProvider> _transcriptProviders;
+    private readonly IReadOnlyList<IStringFormatProvider> _transcriptProviders;
     private readonly TextAccumulator _accumulator = new();
 
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with the default set of providers
     /// (ALTO ns-v2 / ns-v3, hOCR, and VTT).
     /// </summary>
-    public TextBuilder() : this([new AltoTextFormatProvider(), new HocrTextFormatProvider()], [new VttTextFormatProvider()]) { }
+    public TextBuilder() : this(
+        [new AltoTextFormatProvider(), new HocrTextFormatProvider()],
+        [new VttTextFormatProvider(), new W3cAnnotationTextFormatProvider()]) { }
 
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with an explicit list of providers,
     /// tried in order until one reports that it <see cref="ITextFormatProvider.Supports"/>
     /// the given profile/label.
     /// </summary>
-    public TextBuilder(IReadOnlyList<ITextFormatProvider> providers, IReadOnlyList<ITranscriptFormatProvider>? transcriptProviders = null)
+    public TextBuilder(IReadOnlyList<ITextFormatProvider> providers, IReadOnlyList<IStringFormatProvider>? transcriptProviders = null)
     {
         _providers = providers;
         _transcriptProviders = transcriptProviders ?? [];

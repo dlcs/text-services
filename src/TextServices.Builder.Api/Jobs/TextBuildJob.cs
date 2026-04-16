@@ -28,13 +28,15 @@ public class TextBuildJob(
     IManifestFetcher manifestFetcher,
     IAltoFetcher altoFetcher,
     IVttFetcher vttFetcher,
+    IAnnotationPageFetcher annotationPageFetcher,
     ITextStore textStore,
     TextServicesOptions options,
     ILogger<TextBuildJob> logger)
 {
     private const int ProgressBatchSize = 10;
 
-    private record FetchedPage(PageInstruction Page, XElement? Xml, string? Vtt, string? Error);
+    // StringContent carries either VTT text or AnnotationPage JSON, routed by page.Format.
+    private record FetchedPage(PageInstruction Page, XElement? Xml, string? StringContent, string? Error);
 
     [JobDisplayName("TextBuild: {0}")]
     public async Task ExecuteAsync(string jobId, IJobCancellationToken cancellationToken)
@@ -129,9 +131,11 @@ public class TextBuildJob(
         var semaphore = new SemaphoreSlim(options.MaxConcurrentAltoFetches);
 
         var fetchTasks = pages
-            .Select(page => IsVttPage(page)
-                ? FetchVttWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken)
-                : FetchXmlWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken))
+            .Select(page => IsAnnotationPage(page)
+                ? FetchAnnotationPageWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken)
+                : IsVttPage(page)
+                    ? FetchVttWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken)
+                    : FetchXmlWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken))
             .ToList();
 
         var fetched = await Task.WhenAll(fetchTasks);
@@ -148,8 +152,8 @@ public class TextBuildJob(
             var page = fetchedPage.Page;
             if (fetchedPage.Xml != null)
                 textBuilder.AddPage(page.Id, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Label);
-            else if (fetchedPage.Vtt != null)
-                textBuilder.AddTranscriptPage(page.Id, page.Width, page.Height, fetchedPage.Vtt,
+            else if (fetchedPage.StringContent != null)
+                textBuilder.AddTranscriptPage(page.Id, page.Width, page.Height, fetchedPage.StringContent,
                     profile: page.Profile, format: page.Format, label: page.Label);
 
             completed++;
@@ -235,6 +239,9 @@ public class TextBuildJob(
         return page.ToJsonString();
     }
 
+    private static bool IsAnnotationPage(PageInstruction page) =>
+        page.Format == Core.Providers.W3cAnnotationTextFormatProvider.FormatSentinel;
+
     private static bool IsVttPage(PageInstruction page) =>
         ContainsIgnoreCase(page.Profile, "text/vtt")  || ContainsIgnoreCase(page.Format, "text/vtt")  ||
         ContainsIgnoreCase(page.Profile, "vtt")        || ContainsIgnoreCase(page.Format, "vtt")        ||
@@ -298,6 +305,34 @@ public class TextBuildJob(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to fetch VTT for canvas {CanvasId} from {Url}", page.Id, page.Text);
+            return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    private async Task<FetchedPage> FetchAnnotationPageWithSemaphoreAsync(
+        PageInstruction page,
+        SemaphoreSlim semaphore,
+        CancellationToken cancellationToken)
+    {
+        if (page.Text == null) return new FetchedPage(page, null, null, null);
+
+        await semaphore.WaitAsync(cancellationToken);
+        try
+        {
+            var json = await annotationPageFetcher.FetchAsync(page.Text, cancellationToken);
+            if (json == null)
+                logger.LogDebug("Annotation page not found for canvas {CanvasId}: {Url}", page.Id, page.Text);
+            else
+                logger.LogDebug("Annotation page fetched for canvas {CanvasId}: {Url}", page.Id, page.Text);
+            return new FetchedPage(page, null, json, null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to fetch annotation page for canvas {CanvasId} from {Url}", page.Id, page.Text);
             return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
         }
         finally

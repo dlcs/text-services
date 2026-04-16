@@ -1,5 +1,6 @@
 using System.Text.Json;
 using TextServices.Builder.Api.Features.Jobs;
+using TextServices.Core.Providers;
 
 namespace TextServices.Builder.Api.Services;
 
@@ -39,8 +40,12 @@ public class ManifestReducer : IManifestReducer
 
             if (!hasDimensions)
             {
-                // Include temporal-only canvases (e.g. video with VTT) that have a recognised VTT source
-                if (!hasDuration || source == null || !IsVttFormat(source.Profile, source.Format, source.Label))
+                // Include temporal-only canvases (duration but no width/height) when a
+                // VTT or annotation-page source is present; both can carry temporal targets.
+                var isTemporalSource = source != null &&
+                    (IsVttFormat(source.Profile, source.Format, source.Label) ||
+                     source.Format == W3cAnnotationTextFormatProvider.FormatSentinel);
+                if (!hasDuration || !isTemporalSource)
                     continue;
             }
 
@@ -110,8 +115,39 @@ public class ManifestReducer : IManifestReducer
             if (source != null) return source;
         }
 
-        // 2. Fall back to supplementing annotations
-        return FindTextSourceInAnnotations(canvas);
+        // 2. Fall back to embedded supplementing annotations (e.g. a VTT body link)
+        var embedded = FindTextSourceInAnnotations(canvas);
+        if (embedded != null) return embedded;
+
+        // 3. Fall back to externally-referenced AnnotationPages (e.g. Wellcome line annotations)
+        return FindExternalAnnotationPage(canvas);
+    }
+
+    /// <summary>
+    /// Returns a <see cref="TextSource"/> for the first externally-referenced
+    /// <c>AnnotationPage</c> found in <c>canvas.annotations</c> — i.e. entries that
+    /// have an <c>id</c> but no embedded <c>items</c>.  The page will be fetched at
+    /// build time and processed by <see cref="W3cAnnotationTextFormatProvider"/>.
+    /// </summary>
+    private static TextSource? FindExternalAnnotationPage(JsonElement canvas)
+    {
+        if (!canvas.TryGetProperty("annotations", out var annotationPages))
+            return null;
+
+        foreach (var annoPage in annotationPages.EnumerateArray())
+        {
+            // Skip embedded pages — already handled by FindTextSourceInAnnotations.
+            if (annoPage.TryGetProperty("items", out _)) continue;
+
+            if (!annoPage.TryGetProperty("type", out var type) ||
+                type.GetString() != "AnnotationPage") continue;
+
+            var uri = annoPage.TryGetProperty("id", out var id) ? id.GetString() : null;
+            if (uri != null)
+                return new TextSource(uri, null, W3cAnnotationTextFormatProvider.FormatSentinel, null);
+        }
+
+        return null;
     }
 
     private static TextSource? FindTextSourceInArray(JsonElement array)
