@@ -370,6 +370,29 @@ public class W3cAnnotationParsingTests
     private static string Annotation(string value, string target, string motivation = "supplementing") =>
         $$"""{"type":"Annotation","motivation":"{{motivation}}","body":{"type":"TextualBody","value":{{System.Text.Json.JsonSerializer.Serialize(value)}}},"target":"{{target}}"}""";
 
-    private static string AnnotationSpecificResource(string value, string source, string fragmentValue) =>
-        $$"""{"type":"Annotation","motivation":"supplementing","body":{"type":"TextualBody","value":{{System.Text.Json.JsonSerializer.Serialize(value)}}},"target":{"type":"SpecificResource","source":"{{source}}","selector":{"type":"FragmentSelector","value":"{{fragmentValue}}"}}}""";
+    private static string AnnotationSpecificResource(string value, string source, string fragmentValue)
+    {
+        // Built via JsonObject to avoid triple-closing-brace ambiguity in raw string literals.
+        var obj = new System.Text.Json.Nodes.JsonObject
+        {
+            ["type"]       = "Annotation",
+            ["motivation"] = "supplementing",
+            ["body"] = new System.Text.Json.Nodes.JsonObject
+            {
+                ["type"]  = "TextualBody",
+                ["value"] = value,
+            },
+            ["target"] = new System.Text.Json.Nodes.JsonObject
+            {
+                ["type"]   = "SpecificResource",
+                ["source"] = source,
+                ["selector"] = new System.Text.Json.Nodes.JsonObject
+                {
+                    ["type"]  = "FragmentSelector",
+                    ["value"] = fragmentValue,
+                },
+            },
+        };
+        return obj.ToJsonString();
+    }
 }
