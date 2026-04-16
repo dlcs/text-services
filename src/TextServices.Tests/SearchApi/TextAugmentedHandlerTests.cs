@@ -1,7 +1,9 @@
 using System.Text.Json.Nodes;
 using Shouldly;
 using TextServices.Core.Models;
+using TextServices.Core.Providers;
 using TextServices.Search.Api.Features.TextAugmented;
+using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
 namespace TextServices.Tests.SearchApi;
@@ -168,13 +170,13 @@ public class TextAugmentedHandlerTests
     }
 
     // -------------------------------------------------------------------------
-    // Rendering link (plain text)
+    // Rendering links (PDF + plain text)
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task Handle_TextExists_AddsPdfAndPlainTextRenderingLinks()
+    public async Task Handle_ImageBasedContent_AddsPdfAndPlainTextRenderingLinks()
     {
-        var handler = MakeHandler(V3Manifest(), textExists: true);
+        var handler = MakeHandler(V3Manifest(), cachedText: SpatialText());
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
@@ -188,9 +190,23 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
+    public async Task Handle_TemporalOnlyContent_AddsPlainTextButNoPdfLink()
+    {
+        var handler = MakeHandler(V3Manifest(), cachedText: TemporalText());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count.ShouldBe(1);
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+        rendering[0]!["format"]!.GetValue<string>().ShouldBe("text/plain");
+    }
+
+    [Fact]
     public async Task Handle_TextNotBuilt_NoRenderingLinks()
     {
-        var handler = MakeHandler(V3Manifest(), textExists: false);
+        var handler = MakeHandler(V3Manifest(), cachedText: null);
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
@@ -199,9 +215,9 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
-    public async Task Handle_TextExists_RenderingLinksArePrependedToExisting()
+    public async Task Handle_ImageBasedContent_RenderingLinksArePrependedToExisting()
     {
-        var handler = MakeHandler(V3ManifestWithRendering(), textExists: true);
+        var handler = MakeHandler(V3ManifestWithRendering(), cachedText: SpatialText());
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
@@ -212,12 +228,43 @@ public class TextAugmentedHandlerTests
         rendering[1]!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
     }
 
+    [Fact]
+    public async Task Handle_TemporalOnlyContent_PlainTextLinkPrependedToExisting()
+    {
+        var handler = MakeHandler(V3ManifestWithRendering(), cachedText: TemporalText());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count.ShouldBe(2); // plain text + original (no PDF)
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static TextAugmentedHandler MakeHandler(string? manifestJson, bool textExists = false)
-        => new(new StubTextStore(manifestJson, textExists: textExists));
+    private static TextAugmentedHandler MakeHandler(string? manifestJson, Text? cachedText = null)
+        => new(new StubTextStore(manifestJson), new StubTextCache(cachedText));
+
+    /// <summary>A Text with one spatial (image-based) canvas.</summary>
+    private static Text SpatialText()
+    {
+        var acc = new TextAccumulator();
+        acc.BeginPage("canvas/1", isTemporalContent: false);
+        acc.AddWord("hello", "hello", 10, 20, 50, 12);
+        return acc.Build().Text;
+    }
+
+    /// <summary>A Text with one temporal (VTT/video) canvas only.</summary>
+    private static Text TemporalText()
+    {
+        var acc = new TextAccumulator();
+        acc.BeginPage("canvas/1", isTemporalContent: true);
+        acc.AddWord("hello", "hello", 0, 5000);
+        return acc.Build().Text;
+    }
 
     private static string V3Manifest(string id = "https://original.example.org/manifest/1")
         => $$"""{"id":"{{id}}","type":"Manifest","@context":"http://iiif.io/api/presentation/3/context.json"}""";
@@ -236,8 +283,7 @@ public class TextAugmentedHandlerTests
 
     private sealed class StubTextStore(
         string? manifestJson,
-        string? figuresJson = null,
-        bool textExists = false) : ITextStore
+        string? figuresJson = null) : ITextStore
     {
         public Task<string?> LoadManifest(string key) => Task.FromResult(manifestJson);
         public Task SaveManifest(string key, string json) => Task.CompletedTask;
@@ -251,6 +297,14 @@ public class TextAugmentedHandlerTests
         public Task<Stream?> LoadPdf(string key) => Task.FromResult<Stream?>(null);
         public Task SaveFigures(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadFigures(string key) => Task.FromResult(figuresJson);
-        public Task<bool> Exists(string key) => Task.FromResult(textExists);
+        public Task<bool> Exists(string key) => Task.FromResult(false);
+    }
+
+    private sealed class StubTextCache(Text? text) : ITextCache
+    {
+        public Task<Text?> GetTextAsync(string key, CancellationToken ct = default)
+            => Task.FromResult(text);
+        public Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<AutoComplete?>(null);
     }
 }

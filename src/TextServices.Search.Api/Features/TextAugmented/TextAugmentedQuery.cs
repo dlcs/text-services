@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using MediatR;
+using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.TextAugmented;
@@ -14,7 +15,7 @@ namespace TextServices.Search.Api.Features.TextAugmented;
 public record TextAugmentedRequest(string Id, string SelfUrl, string SearchBaseUrl)
     : IRequest<JsonNode?>;
 
-public class TextAugmentedHandler(ITextStore textStore)
+public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
     : IRequestHandler<TextAugmentedRequest, JsonNode?>
 {
     public async Task<JsonNode?> Handle(TextAugmentedRequest request, CancellationToken ct)
@@ -77,18 +78,14 @@ public class TextAugmentedHandler(ITextStore textStore)
         }
 
         // ---- rendering links (PDF + plain text) ---------------------------------
-        // Both added unconditionally whenever text artefacts exist.
-        // PDF is generated lazily on first GET /pdf/v1/{id}; the link is present immediately.
-        if (await textStore.Exists(request.Id))
+        // Plain text is always added when text artefacts exist.
+        // PDF is only added when at least one canvas is image-based (IsTemporalContent == false);
+        // temporal-only manifests (VTT/audio/video) have no page images to render into a PDF.
+        var text = await textCache.GetTextAsync(request.Id, ct);
+        if (text != null)
         {
-            // PDF first (Wellcome order), then plain text
-            var pdfRef = new JsonObject
-            {
-                ["id"]     = $"{base_}/pdf/v1/{id}",
-                ["type"]   = "Text",
-                ["label"]  = new JsonObject { ["en"] = new JsonArray("Download as PDF") },
-                ["format"] = "application/pdf",
-            };
+            var hasImageCanvases = text.Images.Any(img => !img.IsTemporalContent);
+
             var textRef = new JsonObject
             {
                 ["id"]     = $"{base_}/text/v1/{id}",
@@ -100,15 +97,23 @@ public class TextAugmentedHandler(ITextStore textStore)
             if (manifest["rendering"] is JsonArray existingRendering)
             {
                 existingRendering.Insert(0, textRef);
-                existingRendering.Insert(0, pdfRef);
+                if (hasImageCanvases)
+                {
+                    var pdfRef = BuildPdfRef(base_, id);
+                    existingRendering.Insert(0, pdfRef);
+                }
             }
             else if (manifest["rendering"] is JsonObject singleRendering)
             {
-                manifest["rendering"] = new JsonArray(pdfRef, textRef, singleRendering.DeepClone());
+                manifest["rendering"] = hasImageCanvases
+                    ? new JsonArray(BuildPdfRef(base_, id), textRef, singleRendering.DeepClone())
+                    : new JsonArray(textRef, singleRendering.DeepClone());
             }
             else
             {
-                manifest["rendering"] = new JsonArray(pdfRef, textRef);
+                manifest["rendering"] = hasImageCanvases
+                    ? new JsonArray(BuildPdfRef(base_, id), textRef)
+                    : new JsonArray(textRef);
             }
         }
 
@@ -145,4 +150,12 @@ public class TextAugmentedHandler(ITextStore textStore)
 
         return manifest;
     }
+
+    private static JsonObject BuildPdfRef(string baseUrl, string id) => new()
+    {
+        ["id"]     = $"{baseUrl}/pdf/v1/{id}",
+        ["type"]   = "Text",
+        ["label"]  = new JsonObject { ["en"] = new JsonArray("Download as PDF") },
+        ["format"] = "application/pdf",
+    };
 }
