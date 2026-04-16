@@ -196,6 +196,71 @@ progress { width: 80px; height: 10px; }
 .result-item { padding: 0.35rem 0; border-bottom: 1px solid #eee; font-size: 0.83rem; }
 .result-item .match { font-weight: 700; }
 
+/* Annotations comparator page */
+.anno-list { overflow-y: auto; max-height: 70vh; }
+.anno-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.82rem;
+}
+.anno-row:last-child { border-bottom: none; }
+.anno-index {
+  flex: 0 0 1.6rem;
+  text-align: right;
+  color: #bbb;
+  font-size: 0.75rem;
+  padding-top: 0.05rem;
+  user-select: none;
+}
+.anno-body { flex: 1; min-width: 0; }
+.anno-text { word-break: break-word; line-height: 1.4; }
+.frag-badge {
+  display: inline-block;
+  margin-top: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-family: monospace;
+  white-space: nowrap;
+}
+.frag-badge.spatial  { background: #e8f4fd; color: #1a6aa0; border: 1px solid #b8d9f5; }
+.frag-badge.temporal { background: #edf7ed; color: #1a6e1a; border: 1px solid #b5deb5; }
+.gen-badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffd966;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+}
+.src-badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  background: #e8f4fd;
+  color: #1a6aa0;
+  border: 1px solid #b8d9f5;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+}
+.anno-thumb {
+  display: block;
+  margin-top: 0.3rem;
+  max-width: 180px;
+  max-height: 60px;
+  object-fit: contain;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 2px;
+}
+
 /* Figures page */
 .figures-section { margin-bottom: 1.5rem; }
 .figures-section h2 { font-size: 1rem; margin: 0 0 0.6rem; color: #333; }
