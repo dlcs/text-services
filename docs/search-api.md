@@ -194,6 +194,20 @@ These endpoints are primarily intended for harvesting: callers can fetch all ann
 for a document, rewrite their URLs, and serve them independently. References to these pages are
 injected into each canvas's `annotations` array by the `/text-augmented/v3/` endpoint.
 
+**Cross-line hyphenation note:** When ALTO source material contains hyphenated words split across
+two lines (using `SUBS_TYPE="HypPart1"` / `"HypPart2"`), the two fragments are merged into a
+single word in the text index and placed on the **first** line (the line where the hyphen visually
+appears). Consequences for line-level annotations:
+
+- The first line's annotation body contains the merged form (e.g. `"schwarzweiß"`), not the
+  raw hyphenated fragment (`"schwarz-"`).
+- The second line's annotation starts at the word *after* the HypPart2 fragment — the
+  continuation fragment does not appear again as the first word of that line.
+
+This matches the behaviour of both reference implementations. It is a known trade-off of
+single-occurrence word indexing: phrase search and bounding box accuracy are preserved at the
+cost of a minor difference from the raw source text at hyphenated line breaks.
+
 ### GET /annotations/lines/v1/{n}/{**id}
 
 Returns line-level annotations for canvas `{n}` (zero-based index into the manifest canvas

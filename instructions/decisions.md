@@ -733,3 +733,35 @@ Temporal canvases: `#t=start,end` in decimal seconds (up to 3 decimal places, no
 ### Tests
 
 24 new tests in `LineAnnotationsHandlerTests.cs` and `WordAnnotationsHandlerTests.cs`: 404 cases (text not found, canvas out of range, negative index), response shape (correct metadata, granularity label, contexts), single and multi-line spatial, outer bounding box calculation, per-word individual boxes, annotation ids, multi-canvas isolation, sparse canvas (empty items not 404), temporal time fragment formatting.
+
+---
+
+## 2026-04-16 — PR #30: Annotation comparator demo page
+
+Added a new `/annotations` demo page that loads a text-augmented manifest and displays all annotation pages referenced in a canvas's `annotations` array as side-by-side columns. Source pages (from the original manifest) appear on the left; generated pages (our line/word transcriptions) appear on the right with a yellow "generated" badge. Each row shows body text, a spatial `#xywh=` or temporal `#t=` badge, and (for spatial canvases with an image service) an IIIF image crop thumbnail. Detection of "generated" vs "source" pages uses the presence of a `textGranularity` property on the fetched page, or a label containing "transcription".
+
+An `index.html` landing page was also added as the application root, linking to all five demo tools.
+
+---
+
+## 2026-04-16 — PR #31: Fix cross-line hyphenation — merged word assigned to wrong line index
+
+### Bug
+
+In `AltoTextFormatProvider`, `accumulator.NextLine()` was called at the top of each `TextLine` loop before processing its strings. When a `HypPart1` word was pending from the previous line, the merge was completed *after* `NextLine()` had already advanced the `Li` counter. The merged word (e.g. "schwarzweiß") therefore carried the **second line's `Li`**, even though its bounding box coordinates came from the first line (the `HypPart1` position). This caused the line-level annotation endpoint to:
+
+1. Omit the word from line N's annotation body (it was no longer on that `Li`).
+2. Place the merged word at the start of line N+1's annotation body.
+3. Produce a line N+1 bounding box whose x-origin started at the HypPart1 position (from the first line), spanning the visual area of both lines.
+
+The discrepancy was discovered by comparing the Annotation Comparator's "source" and "generated" columns for a German-text manifest.
+
+### Fix
+
+When `hyphenPending` is true at the start of a new `TextLine`, the HypPart2 string is consumed and the merge is completed **before** `NextLine()` is called. The merged word is then emitted with the current (first-line) `Li`, and `startIdx = 1` ensures the HypPart2 string is skipped in the main per-string loop. A regression test (`AddPage_Hyphenation_MergedWord_AssignedToFirstLineIndex`) verifies that the merged word shares its `Li` with the other words on the HypPart1 line.
+
+### Known limitation: body text and second-line start position
+
+After the fix, the generated line annotation for a hyphenated line end shows the **merged** form in its body (e.g. "schwarzweiß"), while the source annotation shows only the raw first fragment ("schwarz¬"). This is correct and consistent with the existing design: the text index stores the merged form as a single word; no separate entry exists for the second fragment.
+
+A side-effect is that the following line's annotation starts at the word **after** the HypPart2 fragment (e.g. "gemischt..."), not at the HypPart2 position ("weiß gemischt..."). The bounding box for that line correctly starts at the first remaining word. The source annotation, which is built from raw ALTO, includes "weiß" as the first word on the continuation line. This divergence between source and generated is **expected and not a bug** — it is a direct consequence of the word-merging design shared with both reference implementations.

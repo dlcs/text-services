@@ -70,9 +70,35 @@ public class AltoTextFormatProvider : ITextFormatProvider
         {
             foreach (var textLine in FindDescendants(textBlock, ns, "TextLine"))
             {
+                var strings = FindDescendants(textLine, ns, "String").ToList();
+                int startIdx = 0;
+
+                // Cross-line hyphenation: if a HypPart1 is pending the first string on
+                // this line is the HypPart2.  Complete the merge BEFORE advancing the line
+                // counter so the merged word is assigned to the line where the hyphen
+                // visually appears (the first line), not the continuation line.
+                if (hyphenPending && strings.Count > 0)
+                {
+                    var hyp2       = strings[0];
+                    var subsContent = hyp2.Attribute("SUBS_CONTENT")?.Value;
+                    var hyp2Raw     = hyp2.Attribute("CONTENT")?.Value ?? string.Empty;
+                    var combinedRaw  = subsContent ?? (pendingRaw + hyp2Raw);
+                    var combinedNorm = Text.Normalise(combinedRaw);
+
+                    accumulator.AddWord(combinedRaw, combinedNorm,
+                        pendingX, pendingY, pendingW, pendingH, pendingSp);
+
+                    if (!string.IsNullOrEmpty(combinedNorm))
+                        TrackComposedBlock(textBlock, ns,
+                            accumulator.LastWordNormPosition, composedBlockTracker);
+
+                    hyphenPending = false;
+                    startIdx = 1; // HypPart2 string consumed — skip it below
+                }
+
                 accumulator.NextLine();
 
-                foreach (var xString in FindDescendants(textLine, ns, "String"))
+                foreach (var xString in strings.Skip(startIdx))
                 {
                     var rawWord = xString.Attribute("CONTENT")?.Value ?? string.Empty;
 
@@ -90,25 +116,6 @@ public class AltoTextFormatProvider : ITextFormatProvider
                     int w  = Scale(xString, "WIDTH",  scaleW);
                     int h  = Scale(xString, "HEIGHT", scaleH);
                     int sp = SpaceAfter(xString, ns, scaleW);
-
-                    if (hyphenPending)
-                    {
-                        // Complete the hyphenated word at the first-part's position.
-                        var subsContent = xString.Attribute("SUBS_CONTENT")?.Value;
-                        var combinedRaw  = subsContent ?? (pendingRaw + rawWord);
-                        var combinedNorm = Text.Normalise(combinedRaw);
-
-                        accumulator.AddWord(combinedRaw, combinedNorm,
-                            pendingX, pendingY, pendingW, pendingH, pendingSp);
-
-                        if (!string.IsNullOrEmpty(combinedNorm))
-                            TrackComposedBlock(textBlock, ns,
-                                accumulator.LastWordNormPosition, composedBlockTracker);
-
-                        hyphenPending = false;
-                        wordIsHyphenFirstPart = false;
-                        continue;
-                    }
 
                     if (wordIsHyphenFirstPart)
                     {
