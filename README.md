@@ -16,20 +16,19 @@ Supported text formats: METS-ALTO (v2 and v3), hOCR, WebVTT, W3C Web Annotation
 ## Architecture
 
 ```
- caller                Builder API                  Search API
-  │                        │                             │
-  │── POST /textbuilder ──►│  fetches Manifest + text    │
-  │◄── 202 + Location ─────│  files; builds & stores     │
-  │                        │  index artefacts            │
-  │── GET  /textbuilder/id ►│                             │
-  │◄── job status ─────────│                             │
-  │                        │                             │
-  │                                                       │
-  │── GET /text-augmented/v3/id ─────────────────────────►│
-  │◄── decorated Manifest ───────────────────────────────│
-  │                                                       │
-  │── GET /search/v2/id?q=term ──────────────────────────►│
-  │◄── IIIF Search v2 AnnotationPage ────────────────────│
+ caller                  Builder API              Search API
+  |                         |                           |
+  |-- POST /textbuilder  -->|  fetches Manifest +       |
+  |<-- 202 + Location ------|  text files; builds &     |
+  |                         |  stores index artefacts   |
+  |-- GET /textbuilder/id ->|                           |
+  |<-- job status ----------|                           |
+  |                         |                           |
+  |-- GET /text-augmented/v3/id ----------------------->|
+  |<-- decorated Manifest ------------------------------|
+  |                                                     |
+  |-- GET /search/v2/id?q=term ------------------------>|
+  |<-- IIIF Search v2 AnnotationPage -------------------|
 ```
 
 The two services share a storage backend (filesystem or S3). The Builder API writes; the Search
