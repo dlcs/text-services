@@ -6,7 +6,7 @@ namespace TextServices.Core.Providers;
 /// Processes WebVTT caption/subtitle files into the text index.
 /// Each VTT cue becomes a set of words sharing the same time range and line number.
 /// </summary>
-public class VttTextFormatProvider : ITranscriptFormatProvider
+public class VttTextFormatProvider : IStringFormatProvider
 {
     public bool Supports(string? profile, string? format, string? label) =>
         ContainsIgnoreCase(profile, "text/vtt")  || ContainsIgnoreCase(format, "text/vtt")  ||

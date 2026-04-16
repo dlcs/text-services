@@ -365,15 +365,17 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     private TextBuildJob MakeJob(
-        IManifestFetcher? manifestFetcher = null,
-        IAltoFetcher?     altoFetcher     = null,
-        IVttFetcher?      vttFetcher      = null)
+        IManifestFetcher?      manifestFetcher      = null,
+        IAltoFetcher?          altoFetcher          = null,
+        IVttFetcher?           vttFetcher           = null,
+        IAnnotationPageFetcher? annotationPageFetcher = null)
     {
         return new TextBuildJob(
             _db,
-            manifestFetcher ?? new FakeManifestFetcher(_ => throw new InvalidOperationException("Unexpected manifest fetch")),
-            altoFetcher     ?? new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null)),
-            vttFetcher      ?? new FakeVttFetcher(_ => Task.FromResult<string?>(null)),
+            manifestFetcher      ?? new FakeManifestFetcher(_ => throw new InvalidOperationException("Unexpected manifest fetch")),
+            altoFetcher          ?? new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null)),
+            vttFetcher           ?? new FakeVttFetcher(_ => Task.FromResult<string?>(null)),
+            annotationPageFetcher ?? new FakeAnnotationPageFetcher(_ => Task.FromResult<string?>(null)),
             _textStore,
             new TextServicesOptions(),
             NullLogger<TextBuildJob>.Instance);
@@ -422,6 +424,11 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     private sealed class FakeVttFetcher(Func<string, Task<string?>> impl) : IVttFetcher
+    {
+        public Task<string?> FetchAsync(string uri, CancellationToken ct = default) => impl(uri);
+    }
+
+    private sealed class FakeAnnotationPageFetcher(Func<string, Task<string?>> impl) : IAnnotationPageFetcher
     {
         public Task<string?> FetchAsync(string uri, CancellationToken ct = default) => impl(uri);
     }

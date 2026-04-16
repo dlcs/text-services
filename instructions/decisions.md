@@ -623,3 +623,56 @@ The existing `Handle_TextExists_AddsPdfAndPlainTextRenderingLinks` test was spli
 - `Handle_TemporalOnlyContent_AddsPlainTextButNoPdfLink` — temporal-only `Text` → plain text only
 
 Two further tests cover the "prepended to existing rendering" variants. `StubTextCache` added to the test helpers; `MakeHandler` now takes `Text? cachedText` instead of `bool textExists`. `SpatialText()` and `TemporalText()` helpers build minimal `Text` objects via `TextAccumulator` directly. 328 tests total, all passing.
+
+---
+
+## 2026-04-16 — W3C Annotation text source provider (PR #27)
+
+### Problem
+
+When a IIIF Manifest has no ALTO, hOCR, or VTT text source, there may still be text available via W3C Web Annotations — supplementing `AnnotationPage`s linked from `canvas.annotations`, where each annotation carries a `TextualBody` value and a spatial (`#xywh=`) or temporal (`#t=`) target. These are the only text sources for many Wellcome manifests and are common in the wider IIIF ecosystem.
+
+### Multi-word annotations are identical to VTT in structure
+
+As in VTT (where all words in a cue share the same time range), all words within one W3C annotation share the same bounding box. This maps cleanly onto the existing model: each word gets `X/Y/W/H` set to the annotation's xywh, and the same `Li` value. Coalescing in `GetRectangles` then works correctly: a single-word query returns the annotation's box; a phrase query spanning one annotation collapses to the same box; a phrase spanning two annotations produces two separate rects. No rescaling is needed — annotation target coordinates are already in canvas pixel space.
+
+### `ITranscriptFormatProvider` renamed `IStringFormatProvider`
+
+The interface was originally named for transcripts (VTT), but `W3cAnnotationTextFormatProvider` is also spatial. The interface's defining characteristic is that it takes a raw string rather than an `XElement`. Renamed to reflect this. `ITranscriptFormatProvider.cs` is kept as a comment-only file; all implementations and usages updated.
+
+### Target parsing — two forms
+
+Both URI fragment targets (`canvasId#xywh=x,y,w,h`) and SpecificResource/FragmentSelector objects are handled:
+
+```json
+{ "type": "SpecificResource", "source": "canvasId",
+  "selector": { "type": "FragmentSelector", "value": "xywh=0,0,750,300" } }
+```
+
+The `value` field in `FragmentSelector` is the fragment *without* the `#`. Both `xywh=` (spatial, optional `pixel:` prefix) and `t=` (temporal, decimal seconds → milliseconds) are supported. `percent:` coordinates are not supported and silently skip the annotation.
+
+For temporal annotations (`#t=`), `CultureInfo.InvariantCulture` is used for decimal parsing, consistent with the VTT and Search API v2 temporal handlers.
+
+### Text source detection — third fallback in `ManifestReducer`
+
+`FindTextSource` gains a third step after seeAlso and embedded supplementing annotations:
+
+1. `seeAlso` → recognised format → return
+2. `canvas.annotations` with embedded `items` → supplementing annotation with recognised format body → return
+3. `canvas.annotations` with only an `id` (no `items`) → externally-referenced `AnnotationPage` → return with sentinel format `"iiif-annotation-page"`
+
+The sentinel value is defined as a constant on `W3cAnnotationTextFormatProvider` so it is shared between `ManifestReducer`, `TextBuildJob`, and the provider's `Supports` method. `seeAlso` still takes priority — a manifest with both ALTO seeAlso and line annotations will use ALTO.
+
+Embedded `AnnotationPage`s that already have `items` are skipped by step 3 (they were already handled or skipped in step 2). This prevents double-processing.
+
+### `FetchedPage.Vtt` renamed `StringContent`
+
+The private record in `TextBuildJob` now carries `StringContent` instead of `Vtt`. Both VTT text and AnnotationPage JSON are plain strings routed to `AddTranscriptPage`; the correct provider is selected from `page.Format`. The renaming makes the intent clear.
+
+### `isTemporalContent` flag
+
+The `W3cAnnotationTextFormatProvider` collects all annotations in a first pass, determines `isTemporalContent` from the first annotation's target type, then calls `BeginPage` with that flag before processing words. Mixed spatial/temporal annotations on a single canvas are not expected in practice; if they occur, the first annotation's type wins.
+
+### Tests
+
+20 new tests in `W3cAnnotationParsingTests.cs`: provider `Supports()`, URI fragment and SpecificResource spatial targets, pixel: prefix, temporal URI fragment and SpecificResource, all-words-share-bounding-box, multi-annotation different Li, search integration (single word, phrase within annotation, phrase spanning annotations), ManifestReducer detection (external page, seeAlso priority, embedded items skipped).

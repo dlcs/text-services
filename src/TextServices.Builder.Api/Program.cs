@@ -58,6 +58,7 @@ builder.Services.AddSingleton<IManifestReducer, ManifestReducer>();
 builder.Services.AddScoped<IManifestFetcher, ManifestFetcher>();
 builder.Services.AddScoped<IAltoFetcher, AltoFetcher>();
 builder.Services.AddScoped<IVttFetcher, VttFetcher>();
+builder.Services.AddScoped<IAnnotationPageFetcher, AnnotationPageFetcher>();
 
 builder.Services.AddHttpClient("Manifest", client =>
 {
@@ -83,6 +84,16 @@ builder.Services.AddHttpClient("Alto", client =>
 builder.Services.AddHttpClient("Vtt", client =>
 {
     client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0 (+https://github.com/tomcrane/TextServices)");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+builder.Services.AddHttpClient("AnnotationPage", client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0 (+https://github.com/tomcrane/TextServices)");
+    client.DefaultRequestHeaders.Accept.Add(
+        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+    client.DefaultRequestHeaders.Accept.Add(
+        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
