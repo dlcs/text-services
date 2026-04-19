@@ -43,6 +43,8 @@ public class RawTextHandlerTests
         public Task<string?> LoadManifest(string key) => Task.FromResult<string?>(null);
         public Task SaveFigures(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadFigures(string key) => Task.FromResult<string?>(null);
+        public Task SaveAnnotations(string key, string json) => Task.CompletedTask;
+        public Task<string?> LoadAnnotations(string key) => Task.FromResult<string?>(null);
         public Task<bool> Exists(string key) => Task.FromResult(false);
     }
 }

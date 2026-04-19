@@ -19,6 +19,7 @@ public class FileSystemTextStore : ITextStore
     private const string RawTextFileName      = "rawtext.txt";
     private const string PdfFileName          = "book.pdf";
     private const string FiguresFileName      = "figures.json";
+    private const string AnnotationsFileName  = "annotations.json";
 
     private readonly string _rootPath;
 
@@ -128,6 +129,22 @@ public class FileSystemTextStore : ITextStore
     public async Task<string?> LoadFigures(string key)
     {
         var path = GetPath(key, FiguresFileName);
+        if (!File.Exists(path)) return null;
+        return await File.ReadAllTextAsync(path);
+    }
+
+    /// <inheritdoc/>
+    public async Task SaveAnnotations(string key, string json)
+    {
+        var path = GetPath(key, AnnotationsFileName);
+        EnsureDirectory(path);
+        await File.WriteAllTextAsync(path, json);
+    }
+
+    /// <inheritdoc/>
+    public async Task<string?> LoadAnnotations(string key)
+    {
+        var path = GetPath(key, AnnotationsFileName);
         if (!File.Exists(path)) return null;
         return await File.ReadAllTextAsync(path);
     }

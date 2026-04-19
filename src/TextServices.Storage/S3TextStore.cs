@@ -20,6 +20,7 @@ public class S3TextStore : ITextStore, IDisposable
     private const string RawTextFileName      = "rawtext.txt";
     private const string PdfFileName          = "book.pdf";
     private const string FiguresFileName      = "figures.json";
+    private const string AnnotationsFileName  = "annotations.json";
 
     private readonly IAmazonS3 _s3;
     private readonly string _bucket;
@@ -127,6 +128,22 @@ public class S3TextStore : ITextStore, IDisposable
     public async Task<string?> LoadFigures(string key)
     {
         var stream = await GetObjectStreamAsync(GetS3Key(key, FiguresFileName));
+        if (stream == null) return null;
+        using var reader = new StreamReader(stream);
+        return await reader.ReadToEndAsync();
+    }
+
+    /// <inheritdoc/>
+    public async Task SaveAnnotations(string key, string json)
+    {
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
+        await PutObjectAsync(GetS3Key(key, AnnotationsFileName), stream, "application/json");
+    }
+
+    /// <inheritdoc/>
+    public async Task<string?> LoadAnnotations(string key)
+    {
+        var stream = await GetObjectStreamAsync(GetS3Key(key, AnnotationsFileName));
         if (stream == null) return null;
         using var reader = new StreamReader(stream);
         return await reader.ReadToEndAsync();

@@ -1,5 +1,7 @@
+using System.IO.Compression;
 using AsyncKeyedLock;
 using MediatR;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Caching.Memory;
 using TextServices.Search.Api.Configuration;
 using TextServices.Pdf;
@@ -15,14 +17,30 @@ using TextServices.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ---- CORS -------------------------------------------------------------------
+// ---- Response compression ---------------------------------------------------
 
-var corsOrigins = builder.Configuration.GetSection("CorsAllowedOrigins").Get<string[]>() ?? [];
-builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
+builder.Services.AddResponseCompression(options =>
 {
-    if (corsOrigins.Length > 0)
-        p.WithOrigins(corsOrigins).AllowAnyMethod().AllowAnyHeader();
-}));
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+    [
+        "application/json",
+        "application/ld+json",
+    ]);
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(o =>
+    o.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(o =>
+    o.Level = CompressionLevel.Fastest);
+
+// ---- CORS -------------------------------------------------------------------
+// All Search API endpoints are public read-only IIIF services; the IIIF spec
+// requires Access-Control-Allow-Origin: * on all responses.
+
+builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
+    p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
 // ---- Configuration ----------------------------------------------------------
 
@@ -73,6 +91,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+app.UseResponseCompression();
 app.UseCors();
 app.UseHttpsRedirection();
 
@@ -187,6 +206,18 @@ app.MapGet("/identified/figures/{**id}", async (
     var result  = await sender.Send(new FiguresRequest(id, selfUrl));
     if (result == null) return Results.NotFound();
 
+    return Results.Json(result);
+});
+
+// GET /annotations/manifest/v1/{**id}  — manifest-level line annotations (stored at build time)
+app.MapGet("/annotations/manifest/v1/{**id}", async (
+    string id,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl = BuildSelfUrl(options, ctx, $"annotations/manifest/v1/{id}", null);
+    var result  = await sender.Send(new ManifestAnnotationsRequest(id, selfUrl));
+    if (result == null) return Results.NotFound();
     return Results.Json(result);
 });
 

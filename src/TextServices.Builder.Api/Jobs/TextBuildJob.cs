@@ -176,6 +176,10 @@ public class TextBuildJob(
             var figuresJson = BuildFiguresJson(result.Text);
             if (figuresJson != null)
                 await textStore.SaveFigures(job.Id, figuresJson);
+
+            var annotationsJson = BuildManifestAnnotationsJson(result.Text);
+            if (annotationsJson != null)
+                await textStore.SaveAnnotations(job.Id, annotationsJson);
         }
 
         return (result.Text.Words.Count, result.Text.Images.Length, errors);
@@ -238,6 +242,92 @@ public class TextBuildJob(
 
         return page.ToJsonString();
     }
+
+    /// <summary>
+    /// Builds a manifest-level IIIF <c>AnnotationPage</c> JSON string containing
+    /// one line-level annotation per text line across all canvases.
+    /// Returns <see langword="null"/> when the text has no words.
+    /// </summary>
+    /// <remarks>
+    /// Annotation <c>id</c> values are stored as relative paths (e.g. <c>"anno/0"</c>)
+    /// and are prefixed with the request URL at serve time by the Search API, following
+    /// the same pattern as <see cref="BuildFiguresJson"/>.
+    /// </remarks>
+    private static string? BuildManifestAnnotationsJson(Text text)
+    {
+        if (text.Images.Length == 0 || text.Words.Count == 0) return null;
+
+        var items     = new JsonArray();
+        var annoIndex = 0;
+
+        for (var i = 0; i < text.Images.Length; i++)
+        {
+            var image      = text.Images[i];
+            var canvasId   = image.ImageIdentifier;
+            var isTemporal = image.IsTemporalContent;
+
+            var canvasWords = text.Words.Values
+                .Where(w => w.Idx == i)
+                .OrderBy(w => w.Wd)
+                .ToList();
+
+            foreach (var lineGroup in canvasWords.GroupBy(w => w.Li).OrderBy(g => g.Key))
+            {
+                var lineWords = lineGroup.ToList();
+                var lineText  = string.Join(" ", lineWords.Select(w => w.ContentRaw));
+
+                string target;
+                if (isTemporal)
+                {
+                    var startMs = lineWords.Min(w => w.StartMs);
+                    var endMs   = lineWords.Max(w => w.EndMs);
+                    target = $"{canvasId}#t={Sec(startMs)},{Sec(endMs)}";
+                }
+                else
+                {
+                    var x      = lineWords.Min(w => w.X);
+                    var y      = lineWords.Min(w => w.Y);
+                    var right  = lineWords.Max(w => w.X + w.W);
+                    var bottom = lineWords.Max(w => w.Y + w.H);
+                    target = $"{canvasId}#xywh={x},{y},{right - x},{bottom - y}";
+                }
+
+                items.Add(new JsonObject
+                {
+                    ["id"]         = $"anno/{annoIndex++}",
+                    ["type"]       = "Annotation",
+                    ["motivation"] = "supplementing",
+                    ["body"]       = new JsonObject
+                    {
+                        ["type"]   = "TextualBody",
+                        ["value"]  = lineText,
+                        ["format"] = "text/plain",
+                    },
+                    ["target"] = target,
+                });
+            }
+        }
+
+        if (items.Count == 0) return null;
+
+        var page = new JsonObject
+        {
+            ["@context"] = new JsonArray(
+                "http://iiif.io/api/presentation/3/context.json",
+                "https://iiif.io/api/extension/text-granularity/context.json"),
+            ["id"]              = "",   // patched at serve time
+            ["type"]            = "AnnotationPage",
+            ["profile"]         = "https://dlcs.io/profiles/all-text",
+            ["textGranularity"] = "line",
+            ["label"]           = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
+            ["items"]           = items,
+        };
+
+        return page.ToJsonString();
+    }
+
+    private static string Sec(int ms) =>
+        (ms / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
     private static bool IsAnnotationPage(PageInstruction page) =>
         page.Format == Core.Providers.W3cAnnotationTextFormatProvider.FormatSentinel;

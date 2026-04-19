@@ -183,6 +183,38 @@ public sealed class FileSystemTextStoreTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // Annotations round-trip
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task LoadAnnotations_BeforeSave_ReturnsNull()
+    {
+        var result = await _store.LoadAnnotations("missing/annotations");
+        result.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SaveAndLoad_Annotations_RoundTrips()
+    {
+        const string json = """{"type":"AnnotationPage","textGranularity":"line","items":[]}""";
+
+        await _store.SaveAnnotations("annotations/test", json);
+        var loaded = await _store.LoadAnnotations("annotations/test");
+
+        loaded.ShouldBe(json);
+    }
+
+    [Fact]
+    public async Task SaveAnnotations_OverwritesExistingFile()
+    {
+        await _store.SaveAnnotations("annotations/overwrite", """{"id":"v1"}""");
+        await _store.SaveAnnotations("annotations/overwrite", """{"id":"v2"}""");
+
+        var loaded = await _store.LoadAnnotations("annotations/overwrite");
+        loaded.ShouldBe("""{"id":"v2"}""");
+    }
+
+    // -------------------------------------------------------------------------
     // Key isolation
     // -------------------------------------------------------------------------
 

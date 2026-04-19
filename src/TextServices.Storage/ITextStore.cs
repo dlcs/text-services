@@ -72,6 +72,18 @@ public interface ITextStore
     Task<string?> LoadFigures(string key);
 
     /// <summary>
+    /// Persists the manifest-level line-annotation <c>AnnotationPage</c> JSON
+    /// (all canvases, line granularity) for the given key.
+    /// </summary>
+    Task SaveAnnotations(string key, string json);
+
+    /// <summary>
+    /// Loads the manifest-level line-annotation <c>AnnotationPage</c> JSON, or
+    /// <see langword="null"/> if it has not been stored.
+    /// </summary>
+    Task<string?> LoadAnnotations(string key);
+
+    /// <summary>
     /// Returns <see langword="true"/> if a <see cref="Text"/> artefact exists
     /// for the given key; <see langword="false"/> otherwise.
     /// </summary>
