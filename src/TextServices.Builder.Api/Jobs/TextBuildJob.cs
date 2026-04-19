@@ -317,8 +317,9 @@ public class TextBuildJob(
                 "https://iiif.io/api/extension/text-granularity/context.json"),
             ["id"]              = "",   // patched at serve time
             ["type"]            = "AnnotationPage",
+            ["profile"]         = "https://dlcs.io/profiles/all-text",
             ["textGranularity"] = "line",
-            ["label"]           = new JsonObject { ["en"] = new JsonArray("Line-level transcription") },
+            ["label"]           = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
             ["items"]           = items,
         };
 

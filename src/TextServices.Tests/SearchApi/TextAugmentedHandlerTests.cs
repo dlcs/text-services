@@ -259,9 +259,12 @@ public class TextAugmentedHandlerTests
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
 
         var annotations = result!["annotations"].ShouldBeOfType<JsonArray>();
-        annotations[0]!["id"]!.GetValue<string>()
+        var ref0 = annotations[0]!;
+        ref0["id"]!.GetValue<string>()
             .ShouldBe("https://search.example.org/annotations/manifest/v1/test/book");
-        annotations[0]!["type"]!.GetValue<string>().ShouldBe("AnnotationPage");
+        ref0["type"]!.GetValue<string>().ShouldBe("AnnotationPage");
+        ref0["profile"]!.GetValue<string>().ShouldBe("https://dlcs.io/profiles/all-text");
+        ref0["label"]!["en"]![0]!.GetValue<string>().ShouldBe("Text of all canvases");
     }
 
     [Fact]

@@ -170,12 +170,10 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         {
             var annotationsRef = new JsonObject
             {
-                ["id"]   = annotationsUrl,
-                ["type"] = "AnnotationPage",
-                ["label"] = new JsonObject
-                {
-                    ["en"] = new JsonArray("Line-level transcription"),
-                },
+                ["id"]      = annotationsUrl,
+                ["type"]    = "AnnotationPage",
+                ["profile"] = "https://dlcs.io/profiles/all-text",
+                ["label"]   = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
             };
 
             if (manifest["annotations"] is JsonArray existingAnnos)

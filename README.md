@@ -181,7 +181,8 @@ Added to the manifest's top-level `annotations` array when: any words were index
 
 ```json
 { "id": "…/annotations/manifest/v1/my-collection/my-book", "type": "AnnotationPage",
-  "label": { "en": ["Line-level transcription"] } }
+  "profile": "https://dlcs.io/profiles/all-text",
+  "label": { "en": ["Text of all canvases"] } }
 ```
 
 This is a single stored `AnnotationPage` covering every canvas, at line granularity. It is
