@@ -245,8 +245,58 @@ public class TextAugmentedHandlerTests
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static TextAugmentedHandler MakeHandler(string? manifestJson, Text? cachedText = null)
-        => new(new StubTextStore(manifestJson), new StubTextCache(cachedText));
+    // -------------------------------------------------------------------------
+    // Manifest-level annotations reference
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_WithAnnotations_InjectsManifestAnnotationsRef()
+    {
+        const string annotationsJson = """{"type":"AnnotationPage","items":[]}""";
+        var handler = MakeHandler(V3Manifest(), annotationsJson: annotationsJson);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var annotations = result!["annotations"].ShouldBeOfType<JsonArray>();
+        annotations[0]!["id"]!.GetValue<string>()
+            .ShouldBe("https://search.example.org/annotations/manifest/v1/test/book");
+        annotations[0]!["type"]!.GetValue<string>().ShouldBe("AnnotationPage");
+    }
+
+    [Fact]
+    public async Task Handle_WithAnnotationsAndFigures_AnnotationsRefBeforeFiguresRef()
+    {
+        const string annotationsJson = """{"type":"AnnotationPage","items":[]}""";
+        const string figuresJson     = """{"type":"AnnotationPage","items":[]}""";
+        var handler = MakeHandler(V3Manifest(), annotationsJson: annotationsJson, figuresJson: figuresJson);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var annotations = result!["annotations"].ShouldBeOfType<JsonArray>();
+        annotations.Count.ShouldBe(2);
+        annotations[0]!["id"]!.GetValue<string>().ShouldContain("annotations/manifest");
+        annotations[1]!["id"]!.GetValue<string>().ShouldContain("identified/figures");
+    }
+
+    [Fact]
+    public async Task Handle_WithoutAnnotations_NoManifestAnnotationsRef()
+    {
+        var handler = MakeHandler(V3Manifest());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        result!["annotations"].ShouldBeNull();
+    }
+
+    private static TextAugmentedHandler MakeHandler(
+        string? manifestJson,
+        string? annotationsJson = null,
+        string? figuresJson = null,
+        Text? cachedText = null)
+        => new(new StubTextStore(manifestJson, annotationsJson, figuresJson), new StubTextCache(cachedText));
 
     /// <summary>A Text with one spatial (image-based) canvas.</summary>
     private static Text SpatialText()
@@ -283,6 +333,7 @@ public class TextAugmentedHandlerTests
 
     private sealed class StubTextStore(
         string? manifestJson,
+        string? annotationsJson = null,
         string? figuresJson = null) : ITextStore
     {
         public Task<string?> LoadManifest(string key) => Task.FromResult(manifestJson);
@@ -297,6 +348,8 @@ public class TextAugmentedHandlerTests
         public Task<Stream?> LoadPdf(string key) => Task.FromResult<Stream?>(null);
         public Task SaveFigures(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadFigures(string key) => Task.FromResult(figuresJson);
+        public Task SaveAnnotations(string key, string json) => Task.CompletedTask;
+        public Task<string?> LoadAnnotations(string key) => Task.FromResult(annotationsJson);
         public Task<bool> Exists(string key) => Task.FromResult(false);
     }
 

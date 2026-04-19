@@ -15,6 +15,13 @@ using TextServices.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ---- Response compression ---------------------------------------------------
+
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
+
 // ---- CORS -------------------------------------------------------------------
 
 var corsOrigins = builder.Configuration.GetSection("CorsAllowedOrigins").Get<string[]>() ?? [];
@@ -73,6 +80,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+app.UseResponseCompression();
 app.UseCors();
 app.UseHttpsRedirection();
 
@@ -187,6 +195,18 @@ app.MapGet("/identified/figures/{**id}", async (
     var result  = await sender.Send(new FiguresRequest(id, selfUrl));
     if (result == null) return Results.NotFound();
 
+    return Results.Json(result);
+});
+
+// GET /annotations/manifest/v1/{**id}  — manifest-level line annotations (stored at build time)
+app.MapGet("/annotations/manifest/v1/{**id}", async (
+    string id,
+    ISender sender,
+    HttpContext ctx) =>
+{
+    var selfUrl = BuildSelfUrl(options, ctx, $"annotations/manifest/v1/{id}", null);
+    var result  = await sender.Send(new ManifestAnnotationsRequest(id, selfUrl));
+    if (result == null) return Results.NotFound();
     return Results.Json(result);
 });
 

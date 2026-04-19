@@ -161,6 +161,31 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
             }
         }
 
+        // ---- manifest-level line annotations reference --------------------------
+        // If the builder stored an annotations.json (all canvases, line granularity),
+        // add a manifest-level annotations reference so clients can discover it.
+        var annotationsUrl  = $"{base_}/annotations/manifest/v1/{id}";
+        var annotationsJson = await textStore.LoadAnnotations(request.Id);
+        if (annotationsJson != null)
+        {
+            var annotationsRef = new JsonObject
+            {
+                ["id"]   = annotationsUrl,
+                ["type"] = "AnnotationPage",
+                ["label"] = new JsonObject
+                {
+                    ["en"] = new JsonArray("Line-level transcription"),
+                },
+            };
+
+            if (manifest["annotations"] is JsonArray existingAnnos)
+                existingAnnos.Insert(0, annotationsRef);
+            else if (manifest["annotations"] is JsonObject singleAnno)
+                manifest["annotations"] = new JsonArray(annotationsRef, singleAnno.DeepClone());
+            else
+                manifest["annotations"] = new JsonArray(annotationsRef);
+        }
+
         // ---- figures annotation page reference ----------------------------------
         // If the builder stored a figures.json (ComposedBlocks with non-zero area),
         // add a manifest-level annotations reference so clients can discover it.
