@@ -1,5 +1,7 @@
+using System.IO.Compression;
 using AsyncKeyedLock;
 using MediatR;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Caching.Memory;
 using TextServices.Search.Api.Configuration;
 using TextServices.Pdf;
@@ -20,7 +22,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddResponseCompression(options =>
 {
     options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
+    [
+        "application/json",
+        "application/ld+json",
+    ]);
 });
+builder.Services.Configure<BrotliCompressionProviderOptions>(o =>
+    o.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(o =>
+    o.Level = CompressionLevel.Fastest);
 
 // ---- CORS -------------------------------------------------------------------
 // All Search API endpoints are public read-only IIIF services; the IIIF spec
