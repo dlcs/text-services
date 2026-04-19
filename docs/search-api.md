@@ -451,8 +451,7 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
     "CacheAbsoluteExpirationHours": 4,
     "CacheMaxEntries": 20,
     "StorageRootPath": "/data/textservices"
-  },
-  "CorsAllowedOrigins": ["https://viewer.example.org"]
+  }
 }
 ```
 
@@ -463,4 +462,5 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
 | `CacheAbsoluteExpirationHours` | `4` | Hard upper limit on cache lifetime, regardless of access frequency. Prevents large objects from living in the LOH indefinitely. |
 | `CacheMaxEntries` | `20` | Maximum number of Text (and AutoComplete) objects held in memory simultaneously. Each object counts as one slot; LRU eviction applies when the limit is reached. Budget approximately 30–40 MB per large text when sizing container memory. |
 | `StorageRootPath` | `textservices-data` | Root directory of the text artefact store. Must point to the same location as the Builder API's `Storage:RootPath`. |
-| `CorsAllowedOrigins` | `[]` | Allowed CORS origins. Empty array disables CORS. |
+
+All responses include `Access-Control-Allow-Origin: *`. The Search API is entirely read-only, so open CORS is required by the IIIF specification and safe without restriction.

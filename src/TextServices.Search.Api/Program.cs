@@ -23,13 +23,11 @@ builder.Services.AddResponseCompression(options =>
 });
 
 // ---- CORS -------------------------------------------------------------------
+// All Search API endpoints are public read-only IIIF services; the IIIF spec
+// requires Access-Control-Allow-Origin: * on all responses.
 
-var corsOrigins = builder.Configuration.GetSection("CorsAllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-{
-    if (corsOrigins.Length > 0)
-        p.WithOrigins(corsOrigins).AllowAnyMethod().AllowAnyHeader();
-}));
+    p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
 // ---- Configuration ----------------------------------------------------------
 
