@@ -1,17 +1,17 @@
 using MediatR;
+using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.PlainText;
 
-/// <summary>
-/// Returns the raw (un-normalised) full text for the given job ID as a plain string,
-/// suitable for serving as <c>text/plain</c>.
-/// </summary>
 public record RawTextRequest(string Id) : IRequest<string?>;
 
-public class RawTextHandler(ITextStore textStore)
+public class RawTextHandler(ITextStore textStore, ITextCache cache)
     : IRequestHandler<RawTextRequest, string?>
 {
     public async Task<string?> Handle(RawTextRequest request, CancellationToken ct)
-        => await textStore.LoadRawText(request.Id);
+    {
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.FullText, ct)) return null;
+        return await textStore.LoadRawText(request.Id);
+    }
 }

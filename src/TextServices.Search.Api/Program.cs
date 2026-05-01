@@ -245,6 +245,46 @@ app.MapGet("/annotations/words/v1/{n:int}/{**id}", async (
     return Results.Json(result);
 });
 
+// GET /proxy/image?uri={uri}
+// Proxies local file:// image URIs so IIIF viewers can load painting annotation bodies
+// from synthesised manifests.  For non-proxiable schemes (e.g. s3://) returns a 1×1
+// transparent PNG placeholder so the manifest remains structurally valid.
+// The Search API hosts this endpoint (not the Builder API) because the Search API is
+// always running when a viewer needs to load images from a stored manifest.
+app.MapGet("/proxy/image", async (string uri, CancellationToken ct) =>
+{
+    if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed))
+        return Results.BadRequest("Invalid URI.");
+
+    if (parsed.Scheme == "file")
+    {
+        // Guard: return placeholder unless AllowFileImageProxy is explicitly enabled.
+        // This prevents the proxy from exposing access-controlled images even if a
+        // proxy URL ends up in a manifest on a deployment where proxying is disabled.
+        if (!options.AllowFileImageProxy)
+            return Results.Bytes(TextServices.Search.Api.ProxyImagePlaceholder.Png, "image/png");
+
+        var path = parsed.LocalPath;
+        if (!File.Exists(path)) return Results.NotFound();
+
+        var ext = Path.GetExtension(path).ToLowerInvariant();
+        var contentType = ext switch
+        {
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".png"            => "image/png",
+            ".tif" or ".tiff" => "image/tiff",
+            ".webp"           => "image/webp",
+            _                 => "application/octet-stream",
+        };
+        return Results.Stream(File.OpenRead(path), contentType);
+    }
+
+    if (parsed.Scheme == "s3")
+        return Results.Bytes(TextServices.Search.Api.ProxyImagePlaceholder.Png, "image/png");
+
+    return Results.BadRequest($"URI scheme '{parsed.Scheme}' is not supported by this proxy.");
+});
+
 // GET /text-augmented/v3/{**id}
 app.MapGet("/text-augmented/v3/{**id}", async (
     string id,

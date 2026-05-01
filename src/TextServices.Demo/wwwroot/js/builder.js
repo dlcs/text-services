@@ -91,14 +91,15 @@ refreshBtn.addEventListener('click', refreshJobs);
 async function refreshJobs() {
     const stored = storedJobs();
 
-    // Also pull page 1 from the API to catch jobs submitted elsewhere
+    // Pull the full job list from the API — this gives us status without extra requests.
     let apiJobs = [];
     try {
+        // TODO: add paging controls — pageSize=100 is a temporary workaround
         const res = await fetch(`${config.builderApi}/textbuilder?pageSize=100`);
         if (res.ok) {
             const data = await res.json();
             apiJobs = data.items ?? [];
-            // Merge into localStorage (add any we don't know about)
+            // Merge any new IDs into localStorage
             for (const j of apiJobs) {
                 if (!stored.find(s => s.id === j.id)) {
                     stored.push({ id: j.id, sourceUri: j.sourceUri ?? '', submittedAt: j.created });
@@ -108,16 +109,27 @@ async function refreshJobs() {
         }
     } catch { /* API may not be running */ }
 
-    // Now fetch status for each stored job
-    const allIds = [...new Set([...stored.map(j => j.id), ...apiJobs.map(j => j.id)])];
+    // Use the list response as the primary source of job data.
+    const apiJobMap = new Map(apiJobs.map(j => [j.id, j]));
 
-    const statuses = await Promise.allSettled(
-        allIds.map(id => fetch(`${config.builderApi}/textbuilder/${encodeJobId(id)}`).then(r => r.ok ? r.json() : null))
+    // For jobs only in localStorage (not returned by the list), fetch individually.
+    const localOnlyIds = stored.map(j => j.id).filter(id => !apiJobMap.has(id));
+    const localStatuses = await Promise.allSettled(
+        localOnlyIds.map(id =>
+            fetch(`${config.builderApi}/textbuilder/${encodeJobId(id)}`)
+                .then(r => r.ok ? r.json() : null)
+        )
+    );
+    const localJobMap = new Map(
+        localOnlyIds.map((id, i) => {
+            const r = localStatuses[i];
+            return [id, r.status === 'fulfilled' ? r.value : null];
+        })
     );
 
-    const rows = allIds.map((id, i) => {
-        const result = statuses[i];
-        const job = result.status === 'fulfilled' ? result.value : null;
+    const allIds = [...new Set([...stored.map(j => j.id), ...apiJobs.map(j => j.id)])];
+    const rows = allIds.map(id => {
+        const job = apiJobMap.get(id) ?? localJobMap.get(id) ?? null;
         const stored_ = stored.find(s => s.id === id);
         return { id, sourceUri: job?.sourceUri ?? stored_?.sourceUri ?? '', job };
     });
@@ -220,10 +232,10 @@ function renderProgress(job) {
     if (job.status === 'Completed' || job.status === 'Failed') {
         return `${job.pagesCompleted}/${job.totalPages}`;
     }
-    if (job.status === 'Running' && job.totalPages > 0) {
+    if (job.status === 'Processing' && job.totalPages > 0) {
         return `<progress value="${job.pagesCompleted}" max="${job.totalPages}"></progress> ${job.pagesCompleted}/${job.totalPages}`;
     }
-    return job.status === 'Waiting' ? 'queued' : '—';
+    return job.status === 'Waiting' || job.status === 'Processing' ? 'queued' : '—';
 }
 
 // ---- Polling -----------------------------------------------------------------

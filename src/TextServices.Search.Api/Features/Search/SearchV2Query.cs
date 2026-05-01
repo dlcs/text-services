@@ -3,6 +3,7 @@ using MediatR;
 using TextServices.Core.Models;
 using TextServices.Search.Api.Models;
 using TextServices.Search.Api.Services;
+using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.Search;
 
@@ -12,6 +13,7 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
 {
     public async Task<SearchAnnotationPageV2?> Handle(SearchV2Request request, CancellationToken ct)
     {
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.Search, ct)) return null;
         var text = await cache.GetTextAsync(request.Id, ct);
         if (text == null) return null;
 

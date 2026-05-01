@@ -88,4 +88,17 @@ public interface ITextStore
     /// for the given key; <see langword="false"/> otherwise.
     /// </summary>
     Task<bool> Exists(string key);
+
+    /// <summary>
+    /// Persists the <see cref="JobServices"/> capability flags for the given key as a
+    /// plain integer. Only written when the flags differ from the default (all services
+    /// enabled); callers that read <see langword="null"/> should treat all services as enabled.
+    /// </summary>
+    Task SaveCapabilities(string key, int services);
+
+    /// <summary>
+    /// Loads the capability flags for the given key, or <see langword="null"/> if no
+    /// capabilities file exists (caller should assume all services are enabled).
+    /// </summary>
+    Task<int?> LoadCapabilities(string key);
 }

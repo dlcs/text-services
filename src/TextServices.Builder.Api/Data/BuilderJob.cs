@@ -36,4 +36,10 @@ public class BuilderJob
 
     /// <summary>Hangfire background job ID, stored to allow cancellation.</summary>
     public string? HangfireJobId { get; set; }
+
+    /// <summary>
+    /// Bitmask of <see cref="TextServices.Storage.JobServices"/> flags controlling which
+    /// derivatives are built and which endpoints are exposed. -1 means all services enabled.
+    /// </summary>
+    public int Services { get; set; } = -1;
 }

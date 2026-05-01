@@ -793,3 +793,145 @@ When `hyphenPending` is true at the start of a new `TextLine`, the HypPart2 stri
 After the fix, the generated line annotation for a hyphenated line end shows the **merged** form in its body (e.g. "schwarzweiß"), while the source annotation shows only the raw first fragment ("schwarz¬"). This is correct and consistent with the existing design: the text index stores the merged form as a single word; no separate entry exists for the second fragment.
 
 A side-effect is that the following line's annotation starts at the word **after** the HypPart2 fragment (e.g. "gemischt..."), not at the HypPart2 position ("weiß gemischt..."). The bounding box for that line correctly starts at the first remaining word. The source annotation, which is built from raw ALTO, includes "weiß" as the first word on the continuation line. This divergence between source and generated is **expected and not a bug** — it is a direct consequence of the word-merging design shared with both reference implementations.
+
+---
+
+## 2026-05-01 — imageUri semantics; /proxy/image endpoint; ManifestSynthesiser simplification
+
+### imageUri is an already-resolved URL, not a IIIF Image API service root
+
+The `imageUri` field in a `sourceData` page instruction is the `body.id` of the painting annotation
+in the source Manifest — an already-resolved image URL chosen by the publisher. It is not assumed to
+be a IIIF Image API service root. Concretely:
+
+- **For `sourceUri` jobs**: `ManifestReducer` extracts `body.id` from the painting annotation and
+  stores it as `imageUri`. The publisher has already chosen a display size (e.g. `656,1024` for the
+  Wellcome b2888193x manifest) and we use it unchanged.
+- **For `sourceData` jobs**: the caller supplies `imageUri` directly; it may be any fetchable image
+  URL, a `file://` path, or an `s3://` URI.
+
+**Why not construct IIIF Image API requests from the service root?** For `sourceUri` jobs we use
+what the publisher has already chosen. For `sourceData` jobs we do not know whether the URI is a
+service root or a direct image, and we have no reliable way to tell from the URI alone (a URL ending
+in `.jp2` could be either). The correct approach is to treat every `imageUri` as a concrete URL and
+pass it through unchanged. If the publisher wants a particular display size they express that in the
+`imageUri` value they submit.
+
+### ManifestSynthesiser — simplified URL resolution
+
+The previous `BuildImageUrl` implementation attempted to construct a IIIF Image API request from
+`imageUri` by computing a display size capped at 1024 px on the longer axis. This was removed.
+
+`ResolveImageUrl` now has two cases only:
+
+| Scheme | Result |
+|---|---|
+| `http` / `https` | Return `imageUri` unchanged |
+| `file://` / `s3://` | Construct a `/proxy/image?uri=…` URL (requires `BuilderApiBaseUrl`) or return as-is |
+
+### /proxy/image endpoint
+
+`GET /proxy/image?uri={uri}` on the **Search API** allows IIIF viewers to load images from
+synthesised Manifests when the `imageUri` is a `file://` path (local development fixtures).
+The proxy lives on the Search API — not the Builder API — because the Search API is always running
+when a viewer needs images; the Builder API may be shut down after jobs are processed. The endpoint:
+
+- Accepts `file://` URIs → reads the file from disk via `IResourceFetcher` and streams it with the
+  appropriate `Content-Type`.
+- Accepts `s3://` URIs → returns a 1×1 transparent PNG placeholder (the S3 object is not fetched;
+  this keeps the manifest structurally valid without requiring AWS credentials in the serving layer).
+- Rejects all other schemes with `400 Bad Request`.
+
+This is a local-dev tool. In production, `file://` and `s3://` `imageUri` values would not be used.
+
+### SearchApiBaseUrl reused for proxy URL construction
+
+`ManifestSynthesiser` uses the existing `SearchApiBaseUrl` (already in `TextServicesOptions` for
+populating job response URLs) to construct proxy URLs for non-HTTP `imageUri` values. No new config
+key is needed. When `SearchApiBaseUrl` is empty, non-HTTP URIs are stored as-is in the synthesised
+Manifest (they will not load in a viewer but the text index is unaffected).
+
+### AllowFileImageProxy security setting
+
+A `bool AllowFileImageProxy` (default `false`) was added to both `TextServicesOptions` (Builder API)
+and `SearchApiOptions` (Search API). It controls two things:
+
+1. **ManifestSynthesiser**: when `false`, a `file://` imageUri causes the painting annotation to be
+   omitted entirely from the synthesised manifest — no file path is embedded. When `true` and
+   `SearchApiBaseUrl` is set, the annotation is present with a `/proxy/image` URL.
+2. **Proxy endpoint**: when `false`, the Search API's `/proxy/image` endpoint returns the 1×1
+   transparent PNG placeholder for `file://` URIs rather than serving the file contents — even if a
+   proxy URL somehow ends up in a manifest on a deployment where proxying is disabled.
+
+The default is `false` so that `file://` paths from local development are never accidentally embedded
+in manifests or served from a production deployment. Both `appsettings.Development.json` files set
+it to `true` to enable the full local-dev workflow. The S3 placeholder is unconditional: s3:// URIs
+always return the placeholder regardless of this setting (S3 images are not proxied).
+
+### Demo fixture paths computed server-side
+
+The `sourcedata.js` demo page previously hardcoded `FIXTURE_ALTO` and `FIXTURE_IMAGES` as
+`file:///C:/git/tomcrane/...` constants — checkout-specific and broken for anyone else. These are
+now computed by the Demo app's `/demo-config` endpoint using `IWebHostEnvironment.ContentRootPath`
+(the Demo project directory) and navigating up one level to `TextServices.Tests.E2E/Fixtures/b2888193x`.
+The computed `file://` URIs are returned as `fixtureAlto` and `fixtureImages` in the config JSON.
+If the fixture directory doesn't exist (e.g. a production deployment), both fields are `null` and
+the JS template falls back to empty strings. No checkout-specific path is left in any source file.
+
+---
+
+## 2026-05-01 — Service bitmask, sourceData skeleton manifest, JobResponse URL fields
+
+### Service bitmask (JobServices enum / capabilities.json)
+
+A `services` integer field was added to the job request, job database record, and job response.
+It is a bitmask of `JobServices` flags (defined in `TextServices.Storage`):
+
+| Flag | Value | Controls |
+|---|---|---|
+| `Search` | 1 | IIIF Search v1/v2 endpoints |
+| `Autocomplete` | 2 | Autocomplete endpoints |
+| `FullText` | 4 | Plain-text endpoint |
+| `Annotations` | 8 | Line/word and manifest annotation endpoints |
+| `Pdf` | 16 | PDF endpoint |
+| `TextAugmented` | 32 | Text-augmented manifest endpoint |
+| `Figures` | 64 | Identified figures endpoint |
+
+Default is `JobServices.All` (`-1` over the wire) so existing callers are unaffected.
+
+**Build time**: `TextBuildJob` respects the flags when deciding which derivatives to build and store.
+`Text` and `AutoComplete` are only written when their respective flags are set; similarly for
+`RawText`, `Figures`, `Manifest`, and `AnnotationPage`. This avoids writing artefacts that will
+never be served and lets callers express intent (e.g. "I only need search and autocomplete").
+
+**Serve time**: when `services != All`, the Builder API writes a `capabilities.json` file containing
+the integer bitmask. The Search API reads this via `ITextStore.LoadCapabilities` / `ITextCache.GetCapabilitiesAsync`
+and returns `404 Not Found` for any endpoint whose flag is absent. Jobs with no `capabilities.json`
+(pre-existing jobs, or jobs submitted with the default `All`) treat every service as enabled —
+backward-compatible by design.
+
+`CapabilitiesExtensions.IsEnabledAsync` is the single call site in every Search API handler; it
+returns `true` when capabilities are null (no file = all enabled).
+
+### sourceData skeleton manifest synthesis (ManifestSynthesiser)
+
+When a job is submitted with `sourceData`, the Builder API synthesises a skeleton IIIF Presentation 3
+Manifest from the page sequence and stores it alongside the text artefacts. This lets the
+text-augmented, PDF, and annotation endpoints work identically for `sourceData` jobs and `sourceUri`
+jobs — the same serving code reads the stored manifest in both cases.
+
+**Why synthesise at build time, not serve time?** The synthesised manifest is stable: it is derived
+entirely from the submitted page sequence. Synthesising it once at build time and serving it from
+storage is simpler and cheaper than regenerating it on every text-augmented request.
+
+`ManifestSynthesiser` uses iiif-net (`IIIF.Presentation`) to build the manifest as a typed object
+and serialise it. This is the one place where iiif-net is used; the rest of the codebase continues
+to treat manifests as plain JSON.
+
+### JobResponse URL fields expanded
+
+`JobResponse` previously exposed only `SearchV1`, `AutocompleteV1`, `SearchV2`, `AutocompleteV2`.
+The following were added: `FullText`, `Pdf`, `TextAugmented`, `Annotations`, `Figures`. All are
+populated from `SearchApiBaseUrl` when the job is `Completed` and the corresponding `JobServices`
+flag is set. This gives callers a single document that describes every derivative endpoint without
+them having to construct URLs themselves.

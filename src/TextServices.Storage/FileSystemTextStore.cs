@@ -20,6 +20,7 @@ public class FileSystemTextStore : ITextStore
     private const string PdfFileName          = "book.pdf";
     private const string FiguresFileName      = "figures.json";
     private const string AnnotationsFileName  = "annotations.json";
+    private const string CapabilitiesFileName = "capabilities.json";
 
     private readonly string _rootPath;
 
@@ -154,6 +155,23 @@ public class FileSystemTextStore : ITextStore
     {
         var path = GetPath(key, TextFileName);
         return Task.FromResult(File.Exists(path));
+    }
+
+    /// <inheritdoc/>
+    public async Task SaveCapabilities(string key, int services)
+    {
+        var path = GetPath(key, CapabilitiesFileName);
+        EnsureDirectory(path);
+        await File.WriteAllTextAsync(path, services.ToString());
+    }
+
+    /// <inheritdoc/>
+    public async Task<int?> LoadCapabilities(string key)
+    {
+        var path = GetPath(key, CapabilitiesFileName);
+        if (!File.Exists(path)) return null;
+        var text = await File.ReadAllTextAsync(path);
+        return int.TryParse(text.Trim(), out var value) ? value : null;
     }
 
     // -------------------------------------------------------------------------

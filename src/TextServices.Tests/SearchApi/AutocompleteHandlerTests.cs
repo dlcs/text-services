@@ -2,6 +2,7 @@ using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Search.Api.Features.Autocomplete;
 using TextServices.Search.Api.Services;
+using TextServices.Storage;
 
 namespace TextServices.Tests.SearchApi;
 
@@ -106,5 +107,7 @@ public class AutocompleteHandlerTests
 
         public Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
             => Task.FromResult(ac);
+        public Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<JobServices?>(null);
     }
 }

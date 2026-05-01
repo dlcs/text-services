@@ -1,6 +1,7 @@
 using MediatR;
 using TextServices.Search.Api.Models;
 using TextServices.Search.Api.Services;
+using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.Autocomplete;
 
@@ -10,6 +11,7 @@ public class AutocompleteV2Handler(ITextCache cache) : IRequestHandler<Autocompl
 {
     public async Task<TermPageV2?> Handle(AutocompleteV2Request request, CancellationToken ct)
     {
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.Autocomplete, ct)) return null;
         if (request.Query.Trim().Length < 3)
             return new TermPageV2 { Id = request.SelfUrl };
 

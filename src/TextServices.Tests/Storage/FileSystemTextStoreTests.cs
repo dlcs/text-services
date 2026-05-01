@@ -215,6 +215,48 @@ public sealed class FileSystemTextStoreTests : IDisposable
     }
 
     // -------------------------------------------------------------------------
+    // Capabilities round-trip
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task LoadCapabilities_BeforeSave_ReturnsNull()
+    {
+        var result = await _store.LoadCapabilities("missing/key");
+        result.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SaveAndLoad_Capabilities_RoundTrips()
+    {
+        const int services = 0b00000011; // Search | Autocomplete
+
+        await _store.SaveCapabilities("caps/test", services);
+        var loaded = await _store.LoadCapabilities("caps/test");
+
+        loaded.ShouldBe(services);
+    }
+
+    [Fact]
+    public async Task SaveAndLoad_Capabilities_AllBitsSet()
+    {
+        // -1 (all bits) is the default stored value for JobServices.All.
+        await _store.SaveCapabilities("caps/all", -1);
+        var loaded = await _store.LoadCapabilities("caps/all");
+
+        loaded.ShouldBe(-1);
+    }
+
+    [Fact]
+    public async Task SaveCapabilities_OverwritesExisting()
+    {
+        await _store.SaveCapabilities("caps/overwrite", 1);
+        await _store.SaveCapabilities("caps/overwrite", 3);
+
+        var loaded = await _store.LoadCapabilities("caps/overwrite");
+        loaded.ShouldBe(3);
+    }
+
+    // -------------------------------------------------------------------------
     // Key isolation
     // -------------------------------------------------------------------------
 

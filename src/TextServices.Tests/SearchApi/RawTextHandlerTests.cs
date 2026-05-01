@@ -1,6 +1,7 @@
 using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Search.Api.Features.PlainText;
+using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
 namespace TextServices.Tests.SearchApi;
@@ -10,7 +11,7 @@ public class RawTextHandlerTests
     [Fact]
     public async Task Handle_RawTextExists_ReturnsText()
     {
-        var handler = new RawTextHandler(new StubTextStore("hello world"));
+        var handler = new RawTextHandler(new StubTextStore("hello world"), new StubTextCache());
 
         var result = await handler.Handle(new RawTextRequest("some/book"), CancellationToken.None);
 
@@ -20,7 +21,7 @@ public class RawTextHandlerTests
     [Fact]
     public async Task Handle_NoRawText_ReturnsNull()
     {
-        var handler = new RawTextHandler(new StubTextStore(null));
+        var handler = new RawTextHandler(new StubTextStore(null), new StubTextCache());
 
         var result = await handler.Handle(new RawTextRequest("missing/book"), CancellationToken.None);
 
@@ -46,5 +47,17 @@ public class RawTextHandlerTests
         public Task SaveAnnotations(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadAnnotations(string key) => Task.FromResult<string?>(null);
         public Task<bool> Exists(string key) => Task.FromResult(false);
+        public Task SaveCapabilities(string key, int services) => Task.CompletedTask;
+        public Task<int?> LoadCapabilities(string key) => Task.FromResult<int?>(null);
+    }
+
+    private sealed class StubTextCache : ITextCache
+    {
+        public Task<Text?> GetTextAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<Text?>(null);
+        public Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<AutoComplete?>(null);
+        public Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<JobServices?>(null);
     }
 }

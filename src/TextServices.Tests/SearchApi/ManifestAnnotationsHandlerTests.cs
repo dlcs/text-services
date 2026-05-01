@@ -2,6 +2,7 @@ using System.Text.Json.Nodes;
 using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Search.Api.Features.Annotations;
+using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
 namespace TextServices.Tests.SearchApi;
@@ -13,7 +14,7 @@ public class ManifestAnnotationsHandlerTests
     [Fact]
     public async Task Handle_NotFound_ReturnsNull()
     {
-        var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(null));
+        var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(null), new StubTextCache());
 
         var result = await handler.Handle(
             new ManifestAnnotationsRequest("missing/book", SelfUrl), CancellationToken.None);
@@ -25,7 +26,7 @@ public class ManifestAnnotationsHandlerTests
     public async Task Handle_PatchesSelfUrl()
     {
         var json    = StoredPage("anno/0", "Hello world", "https://example.org/canvas/1#xywh=0,0,100,20");
-        var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(json));
+        var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(json), new StubTextCache());
 
         var result = await handler.Handle(
             new ManifestAnnotationsRequest("test/book", SelfUrl), CancellationToken.None);
@@ -38,7 +39,7 @@ public class ManifestAnnotationsHandlerTests
     public async Task Handle_PrefixesAnnotationIds()
     {
         var json    = StoredPage("anno/0", "Hello world", "https://example.org/canvas/1#xywh=0,0,100,20");
-        var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(json));
+        var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(json), new StubTextCache());
 
         var result = await handler.Handle(
             new ManifestAnnotationsRequest("test/book", SelfUrl), CancellationToken.None);
@@ -52,7 +53,7 @@ public class ManifestAnnotationsHandlerTests
     {
         const string target = "https://example.org/canvas/1#xywh=10,20,300,50";
         var json    = StoredPage("anno/0", "Some line text", target);
-        var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(json));
+        var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(json), new StubTextCache());
 
         var result = await handler.Handle(
             new ManifestAnnotationsRequest("test/book", SelfUrl), CancellationToken.None);
@@ -102,5 +103,17 @@ public class ManifestAnnotationsHandlerTests
         public Task SaveFigures(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadFigures(string key) => Task.FromResult<string?>(null);
         public Task<bool> Exists(string key) => Task.FromResult(false);
+        public Task SaveCapabilities(string key, int services) => Task.CompletedTask;
+        public Task<int?> LoadCapabilities(string key) => Task.FromResult<int?>(null);
+    }
+
+    private sealed class StubTextCache : ITextCache
+    {
+        public Task<Text?> GetTextAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<Text?>(null);
+        public Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<AutoComplete?>(null);
+        public Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<JobServices?>(null);
     }
 }

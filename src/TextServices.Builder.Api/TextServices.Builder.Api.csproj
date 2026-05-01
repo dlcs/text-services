@@ -4,11 +4,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Only audit direct package references; iiif-net carries a transitive HtmlSanitizer advisory -->
+    <NuGetAuditMode>direct</NuGetAuditMode>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.23" />
     <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
+    <PackageReference Include="iiif-net" Version="0.3.13" />
     <PackageReference Include="MediatR" Version="14.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">

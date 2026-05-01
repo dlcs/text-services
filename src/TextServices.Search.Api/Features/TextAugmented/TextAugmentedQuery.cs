@@ -20,6 +20,7 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
 {
     public async Task<JsonNode?> Handle(TextAugmentedRequest request, CancellationToken ct)
     {
+        if (!await textCache.IsEnabledAsync(request.Id, JobServices.TextAugmented, ct)) return null;
         var json = await textStore.LoadManifest(request.Id);
         if (json == null) return null;
 

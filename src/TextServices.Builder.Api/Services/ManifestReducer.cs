@@ -33,10 +33,11 @@ public class ManifestReducer : IManifestReducer
             var id     = idEl.GetString() ?? string.Empty;
             var source = FindTextSource(canvas);
 
-            canvas.TryGetProperty("width",  out var w);
-            canvas.TryGetProperty("height", out var h);
+            canvas.TryGetProperty("width",    out var w);
+            canvas.TryGetProperty("height",   out var h);
             bool hasDimensions = w.ValueKind == JsonValueKind.Number && h.ValueKind == JsonValueKind.Number;
-            bool hasDuration   = canvas.TryGetProperty("duration", out _);
+            bool hasDuration   = canvas.TryGetProperty("duration", out var durationEl) &&
+                                 durationEl.ValueKind == JsonValueKind.Number;
 
             if (!hasDimensions)
             {
@@ -51,13 +52,15 @@ public class ManifestReducer : IManifestReducer
 
             pages.Add(new PageInstruction
             {
-                Id      = id,
-                Width   = hasDimensions ? w.GetInt32() : 0,
-                Height  = hasDimensions ? h.GetInt32() : 0,
-                Text    = source?.Uri,
-                Profile = source?.Profile,
-                Format  = source?.Format,
-                Label   = source?.Label,
+                Id       = id,
+                Width    = hasDimensions ? w.GetInt32() : 0,
+                Height   = hasDimensions ? h.GetInt32() : 0,
+                Duration = hasDuration ? durationEl.GetDouble() : null,
+                TextUri  = source?.Uri,
+                Profile  = source?.Profile,
+                Format   = source?.Format,
+                Label    = source?.Label,
+                ImageUri = ExtractImageUri(canvas),
             });
         }
 
@@ -94,6 +97,57 @@ public class ManifestReducer : IManifestReducer
 
     private static bool IsV3Context(string? ctx) =>
         ctx != null && ctx.Contains("presentation/3", StringComparison.OrdinalIgnoreCase);
+
+    // -------------------------------------------------------------------------
+    // Image URI extraction (painting annotation body)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Returns the <c>id</c> of the first painting annotation body on the canvas,
+    /// or <see langword="null"/> if the canvas has no painting content.
+    /// </summary>
+    private static string? ExtractImageUri(JsonElement canvas)
+    {
+        if (!canvas.TryGetProperty("items", out var annotPages) ||
+            annotPages.ValueKind != JsonValueKind.Array)
+            return null;
+
+        foreach (var annotPage in annotPages.EnumerateArray())
+        {
+            if (!annotPage.TryGetProperty("items", out var annotations) ||
+                annotations.ValueKind != JsonValueKind.Array) continue;
+
+            foreach (var annotation in annotations.EnumerateArray())
+            {
+                if (!HasPaintingMotivation(annotation)) continue;
+                if (!annotation.TryGetProperty("body", out var bodyEl)) continue;
+
+                var body = bodyEl.ValueKind == JsonValueKind.Array
+                    ? bodyEl.EnumerateArray().FirstOrDefault()
+                    : bodyEl;
+
+                if (body.ValueKind != JsonValueKind.Object) continue;
+
+                var uri = body.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
+                if (!string.IsNullOrEmpty(uri)) return uri;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool HasPaintingMotivation(JsonElement annotation)
+    {
+        if (!annotation.TryGetProperty("motivation", out var motivation)) return false;
+        return motivation.ValueKind switch
+        {
+            JsonValueKind.String => motivation.GetString()?.Equals("painting", StringComparison.OrdinalIgnoreCase) ?? false,
+            JsonValueKind.Array  => motivation.EnumerateArray()
+                .Any(m => m.ValueKind == JsonValueKind.String &&
+                          m.GetString()?.Equals("painting", StringComparison.OrdinalIgnoreCase) == true),
+            _ => false,
+        };
+    }
 
     // -------------------------------------------------------------------------
     // Text-source seeAlso detection (ALTO, hOCR, …)

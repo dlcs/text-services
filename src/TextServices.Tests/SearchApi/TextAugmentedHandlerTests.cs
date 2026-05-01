@@ -354,6 +354,8 @@ public class TextAugmentedHandlerTests
         public Task SaveAnnotations(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadAnnotations(string key) => Task.FromResult(annotationsJson);
         public Task<bool> Exists(string key) => Task.FromResult(false);
+        public Task SaveCapabilities(string key, int services) => Task.CompletedTask;
+        public Task<int?> LoadCapabilities(string key) => Task.FromResult<int?>(null);
     }
 
     private sealed class StubTextCache(Text? text) : ITextCache
@@ -362,5 +364,7 @@ public class TextAugmentedHandlerTests
             => Task.FromResult(text);
         public Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
             => Task.FromResult<AutoComplete?>(null);
+        public Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<JobServices?>(null);
     }
 }

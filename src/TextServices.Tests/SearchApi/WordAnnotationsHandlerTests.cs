@@ -3,6 +3,7 @@ using TextServices.Core.Models;
 using TextServices.Core.Providers;
 using TextServices.Search.Api.Features.Annotations;
 using TextServices.Search.Api.Services;
+using TextServices.Storage;
 
 namespace TextServices.Tests.SearchApi;
 
@@ -196,5 +197,7 @@ public class WordAnnotationsHandlerTests
             => Task.FromResult(text);
         public Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
             => Task.FromResult<AutoComplete?>(null);
+        public Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
+            => Task.FromResult<JobServices?>(null);
     }
 }

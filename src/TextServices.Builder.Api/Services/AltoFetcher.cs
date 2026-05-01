@@ -1,21 +1,16 @@
-using System.Net;
 using System.Xml.Linq;
 
 namespace TextServices.Builder.Api.Services;
 
-public class AltoFetcher(IHttpClientFactory httpClientFactory) : IAltoFetcher
+public sealed class AltoFetcher(IResourceFetcher fetcher) : IAltoFetcher
 {
     public async Task<XElement?> FetchAsync(string uri, CancellationToken ct = default)
     {
-        var client = httpClientFactory.CreateClient("Alto");
-        var response = await client.GetAsync(uri, ct);
+        await using var stream = await fetcher.FetchAsync(uri, ct);
+        if (stream is null) return null;
 
-        if (response.StatusCode == HttpStatusCode.NotFound)
-            return null;
-
-        response.EnsureSuccessStatusCode();
-
-        var xml = await response.Content.ReadAsStringAsync(ct);
+        using var reader = new StreamReader(stream);
+        var xml = await reader.ReadToEndAsync(ct);
         return string.IsNullOrWhiteSpace(xml) ? null : XElement.Parse(xml);
     }
 }

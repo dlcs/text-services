@@ -26,6 +26,7 @@ namespace TextServices.Builder.Api.Jobs;
 public class TextBuildJob(
     BuilderDbContext db,
     IManifestFetcher manifestFetcher,
+    IManifestSynthesiser manifestSynthesiser,
     IAltoFetcher altoFetcher,
     IVttFetcher vttFetcher,
     IAnnotationPageFetcher annotationPageFetcher,
@@ -88,13 +89,20 @@ public class TextBuildJob(
     private async Task<IReadOnlyList<PageInstruction>> GetPages(
         BuilderJob job, CancellationToken ct)
     {
+        var services = (JobServices)job.Services;
+        bool needsManifest = services.HasFlag(JobServices.TextAugmented) ||
+                             services.HasFlag(JobServices.Pdf);
+
         if (job.SourceUri != null)
         {
             logger.LogInformation(
                 "Fetching manifest for job {JobId} from {Uri}", job.Id, job.SourceUri);
 
             var result = await manifestFetcher.FetchAndReduce(job.SourceUri, ct);
-            await textStore.SaveManifest(job.Id, result.Json);
+
+            if (needsManifest)
+                await textStore.SaveManifest(job.Id, result.Json);
+
             job.SourceDataJson = JsonSerializer.Serialize(result.Pages);
 
             logger.LogInformation(
@@ -103,9 +111,21 @@ public class TextBuildJob(
             return result.Pages;
         }
 
-        return job.SourceDataJson != null
+        // sourceData path: deserialise inline pages, then synthesise a skeleton manifest
+        // so text-augmented and PDF work identically regardless of how the job was submitted.
+        IReadOnlyList<PageInstruction> pages = job.SourceDataJson != null
             ? JsonSerializer.Deserialize<List<PageInstruction>>(job.SourceDataJson) ?? []
             : [];
+
+        if (needsManifest && pages.Count > 0)
+        {
+            var syntheticJson = manifestSynthesiser.Synthesise(pages);
+            await textStore.SaveManifest(job.Id, syntheticJson);
+            logger.LogDebug(
+                "Synthetic manifest saved for {JobId} ({PageCount} canvases)", job.Id, pages.Count);
+        }
+
+        return pages;
     }
 
     private async Task<(int WordCount, int ImageCount, List<string> Errors)> ProcessPages(
@@ -163,24 +183,43 @@ public class TextBuildJob(
                 await db.SaveChangesAsync();
         }
 
-        var result = textBuilder.Build();
+        var result   = textBuilder.Build();
+        var services = (JobServices)job.Services;
 
         if (!result.IsEmpty)
         {
-            await textStore.SaveText(job.Id, result.Text);
-            await textStore.SaveAutoComplete(job.Id, result.AutoComplete);
+            // Text artefact is needed by the Search endpoint and by PDF generation.
+            bool needsText = services.HasFlag(JobServices.Search) ||
+                             services.HasFlag(JobServices.Pdf);
+            if (needsText)
+                await textStore.SaveText(job.Id, result.Text);
 
-            if (!string.IsNullOrEmpty(result.Text.RawFullText))
+            if (services.HasFlag(JobServices.Autocomplete))
+                await textStore.SaveAutoComplete(job.Id, result.AutoComplete);
+
+            if (services.HasFlag(JobServices.FullText) &&
+                !string.IsNullOrEmpty(result.Text.RawFullText))
                 await textStore.SaveRawText(job.Id, result.Text.RawFullText);
 
-            var figuresJson = BuildFiguresJson(result.Text);
-            if (figuresJson != null)
-                await textStore.SaveFigures(job.Id, figuresJson);
+            if (services.HasFlag(JobServices.Figures))
+            {
+                var figuresJson = BuildFiguresJson(result.Text);
+                if (figuresJson != null)
+                    await textStore.SaveFigures(job.Id, figuresJson);
+            }
 
-            var annotationsJson = BuildManifestAnnotationsJson(result.Text);
-            if (annotationsJson != null)
-                await textStore.SaveAnnotations(job.Id, annotationsJson);
+            if (services.HasFlag(JobServices.Annotations))
+            {
+                var annotationsJson = BuildManifestAnnotationsJson(result.Text);
+                if (annotationsJson != null)
+                    await textStore.SaveAnnotations(job.Id, annotationsJson);
+            }
         }
+
+        // Write capabilities file only when services are restricted; the Search API
+        // treats absence of the file as "all services enabled".
+        if (services != JobServices.All)
+            await textStore.SaveCapabilities(job.Id, (int)services);
 
         return (result.Text.Words.Count, result.Text.Images.Length, errors);
     }
@@ -347,18 +386,18 @@ public class TextBuildJob(
         SemaphoreSlim semaphore,
         CancellationToken ct)
     {
-        if (page.Text == null)
+        if (page.TextUri == null)
             return new FetchedPage(page, null, null, null);
 
         await semaphore.WaitAsync(ct);
         try
         {
-            var xml = await altoFetcher.FetchAsync(page.Text, ct);
+            var xml = await altoFetcher.FetchAsync(page.TextUri, ct);
 
             if (xml == null)
                 logger.LogDebug(
                     "No ALTO content at {AltoUri} for canvas {CanvasId} — skipping",
-                    page.Text, page.Id);
+                    page.TextUri, page.Id);
 
             return new FetchedPage(page, xml, null, null);
         }
@@ -366,7 +405,7 @@ public class TextBuildJob(
         {
             logger.LogWarning(ex,
                 "Failed to fetch or parse ALTO for canvas {CanvasId} ({AltoUri})",
-                page.Id, page.Text);
+                page.Id, page.TextUri);
             return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
         }
         finally
@@ -380,21 +419,21 @@ public class TextBuildJob(
         SemaphoreSlim semaphore,
         CancellationToken cancellationToken)
     {
-        if (page.Text == null) return new FetchedPage(page, null, null, null);
+        if (page.TextUri == null) return new FetchedPage(page, null, null, null);
 
         await semaphore.WaitAsync(cancellationToken);
         try
         {
-            var vtt = await vttFetcher.FetchAsync(page.Text, cancellationToken);
+            var vtt = await vttFetcher.FetchAsync(page.TextUri, cancellationToken);
             if (vtt == null)
-                logger.LogDebug("VTT not found for canvas {CanvasId}: {Url}", page.Id, page.Text);
+                logger.LogDebug("VTT not found for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
             else
-                logger.LogDebug("VTT fetched for canvas {CanvasId}: {Url}", page.Id, page.Text);
+                logger.LogDebug("VTT fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
             return new FetchedPage(page, null, vtt, null);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to fetch VTT for canvas {CanvasId} from {Url}", page.Id, page.Text);
+            logger.LogWarning(ex, "Failed to fetch VTT for canvas {CanvasId} from {Url}", page.Id, page.TextUri);
             return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
         }
         finally
@@ -408,21 +447,21 @@ public class TextBuildJob(
         SemaphoreSlim semaphore,
         CancellationToken cancellationToken)
     {
-        if (page.Text == null) return new FetchedPage(page, null, null, null);
+        if (page.TextUri == null) return new FetchedPage(page, null, null, null);
 
         await semaphore.WaitAsync(cancellationToken);
         try
         {
-            var json = await annotationPageFetcher.FetchAsync(page.Text, cancellationToken);
+            var json = await annotationPageFetcher.FetchAsync(page.TextUri, cancellationToken);
             if (json == null)
-                logger.LogDebug("Annotation page not found for canvas {CanvasId}: {Url}", page.Id, page.Text);
+                logger.LogDebug("Annotation page not found for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
             else
-                logger.LogDebug("Annotation page fetched for canvas {CanvasId}: {Url}", page.Id, page.Text);
+                logger.LogDebug("Annotation page fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
             return new FetchedPage(page, null, json, null);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to fetch annotation page for canvas {CanvasId} from {Url}", page.Id, page.Text);
+            logger.LogWarning(ex, "Failed to fetch annotation page for canvas {CanvasId} from {Url}", page.Id, page.TextUri);
             return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
         }
         finally

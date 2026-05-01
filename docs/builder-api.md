@@ -30,8 +30,9 @@ Enqueues a new text-building job.
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `id` | string | yes | Storage key and URL segment for all derived services. May contain `/`. |
-| `sourceUri` | string | one of | URI of a IIIF Presentation 3 Manifest. The Builder API fetches and reduces it automatically. |
-| `sourceData` | array | one of | Inline page sequence (see [sourceData format](#sourcedata-format)). |
+| `sourceUri` | string | one of | URI of a IIIF Presentation 3 Manifest. The Builder API fetches the Manifest, stores an unmodified copy, then reduces it to extract the page sequence for text building. The stored copy is what the `/text-augmented/v3/{id}` endpoint serves, with search services and annotation links injected on-the-fly. All original canvas metadata, labels, thumbnails, and services are preserved. |
+| `sourceData` | array | one of | Inline page sequence (see [sourceData format](#sourcedata-format)). No source Manifest exists; the Builder API synthesises a minimal skeleton Manifest from the page list. |
+| `services` | integer | no | Bitmask of services to build and expose. Default: `-1` (all enabled). See [Service flags](#service-flags). |
 
 Exactly one of `sourceUri` or `sourceData` must be provided.
 
@@ -59,10 +60,16 @@ Exactly one of `sourceUri` or `sourceData` must be provided.
   "totalWordCount": 0,
   "totalImageCount": 0,
   "errors": null,
+  "services": -1,
   "searchV1": null,
   "autocompleteV1": null,
   "searchV2": null,
-  "autocompleteV2": null
+  "autocompleteV2": null,
+  "fullText": null,
+  "pdf": null,
+  "textAugmented": null,
+  "annotations": null,
+  "figures": null
 }
 ```
 
@@ -152,10 +159,16 @@ Removes the job record from the database. Does **not** delete the stored text ar
 | `totalWordCount` | int | Words indexed (populated on completion). |
 | `totalImageCount` | int | Figures / tables / illustrations identified (populated on completion). |
 | `errors` | string\|null | Error message if `status` is `Failed`. |
-| `searchV1` | string\|null | URL of the IIIF Search v1 endpoint (populated on completion). |
-| `autocompleteV1` | string\|null | URL of the IIIF Autocomplete v1 endpoint (populated on completion). |
-| `searchV2` | string\|null | URL of the IIIF Search v2 endpoint (populated on completion). |
-| `autocompleteV2` | string\|null | URL of the IIIF Autocomplete v2 endpoint (populated on completion). |
+| `services` | int | Bitmask of enabled services (see [Service flags](#service-flags)). `-1` means all enabled. |
+| `searchV1` | string\|null | URL of the IIIF Search v1 endpoint (populated on completion, when `Search` flag is set). |
+| `autocompleteV1` | string\|null | URL of the IIIF Autocomplete v1 endpoint (populated on completion, when `Autocomplete` flag is set). |
+| `searchV2` | string\|null | URL of the IIIF Search v2 endpoint (populated on completion, when `Search` flag is set). |
+| `autocompleteV2` | string\|null | URL of the IIIF Autocomplete v2 endpoint (populated on completion, when `Autocomplete` flag is set). |
+| `fullText` | string\|null | URL of the plain-text endpoint (populated on completion, when `FullText` flag is set). |
+| `pdf` | string\|null | URL of the PDF endpoint (populated on completion, when `Pdf` flag is set). |
+| `textAugmented` | string\|null | URL of the text-augmented Manifest endpoint (populated on completion, when `TextAugmented` flag is set). |
+| `annotations` | string\|null | URL of the manifest-level line annotations endpoint (populated on completion, when `Annotations` flag is set). |
+| `figures` | string\|null | URL of the figures annotation page (populated on completion, when `Figures` flag is set). |
 
 ---
 
@@ -172,7 +185,8 @@ Builder API to fetch and reduce a Manifest.
       "id": "https://example.org/canvas/1",
       "width": 3000,
       "height": 4000,
-      "text": "https://example.org/alto/page-1.xml",
+      "textUri": "https://example.org/alto/page-1.xml",
+      "imageUri": "https://example.org/iiif/image/page-1",
       "profile": "http://www.loc.gov/standards/alto/v3/alto.xsd",
       "format": null,
       "label": null
@@ -181,7 +195,7 @@ Builder API to fetch and reduce a Manifest.
       "id": "https://example.org/canvas/2",
       "width": 3000,
       "height": 4000,
-      "text": null
+      "textUri": null
     }
   ]
 }
@@ -192,10 +206,60 @@ Builder API to fetch and reduce a Manifest.
 | `id` | Canvas identifier URI. Used as the canvas reference in search results. |
 | `width` | Canvas width in pixels. Used to rescale ALTO coordinates when ALTO and canvas dimensions differ. |
 | `height` | Canvas height in pixels. |
-| `text` | URI of the text file for this canvas. `null` for canvases without text (sparse pages are normal). |
+| `textUri` | URI of the text file for this canvas. `null` for canvases without text (sparse pages are normal). |
+| `imageUri` | URL of the image for this canvas. Used as the `body.id` of the painting annotation in the synthesised Manifest, and as the image source when generating PDFs. For `sourceUri` jobs this value comes from the `body.id` of the source Manifest's own painting annotation — it is an already-resolved image URL and is not assumed to be a IIIF Image API service root. `http`/`https` URLs are used as-is; `file://` URIs are proxied via `GET /proxy/image` on the Search API (requires `SearchApiBaseUrl` — see [Configuration](#configuration)); `s3://` URIs return a placeholder image. Omit for temporal (audio/video) canvases. |
+| `duration` | Canvas duration in seconds (double). Required for temporal (audio/video) canvases; omit for image-based pages. |
 | `profile` | IIIF `seeAlso` profile URI — used alongside `format` to select the correct text-format provider. |
 | `format` | MIME type (e.g. `text/vtt`). |
 | `label` | Fallback display label; used for provider selection when `profile` is absent. |
+
+### Stored Manifest — the two paths
+
+The stored Manifest is the foundation for the `/text-augmented/v3/{id}`, `/pdf/v1/{id}`, and
+annotation endpoints. How it is produced depends on which source was supplied:
+
+**`sourceUri`** — the original Manifest is fetched once, stored unmodified, and never changed
+again. When the text-augmented endpoint is called it loads this stored copy and injects search
+services, annotation links, and rendering links on-the-fly, then returns the result. The Manifest
+returned to the caller contains everything the publisher put in it — labels, thumbnails, metadata,
+rights statements, existing services — plus the new augmentations.
+
+**`sourceData`** — there is no source Manifest. The Builder API synthesises a minimal skeleton
+containing only the content derivable from the page sequence: one canvas per page instruction,
+with the canvas `id`, `width`, `height`, `duration`, and (if supplied) a painting annotation
+whose `body.id` is the `imageUri`. Nothing else. The skeleton has no labels, no thumbnails, no
+metadata, and no rights information. The text-augmented endpoint serves this skeleton with the
+same on-the-fly augmentations applied.
+
+Both paths store a JSON file. The difference is entirely in what that file contains.
+
+### Synthetic Manifest for sourceData jobs
+
+When a job is submitted with `sourceData`, the Builder API synthesises a skeleton IIIF
+Presentation 3 Manifest from the page sequence and stores it alongside the text artefacts. This
+means the text-augmented, PDF, and annotation endpoints work for `sourceData` jobs in exactly the
+same way as for `sourceUri` jobs. The synthesised Manifest has an empty `id` (patched to the
+`/text-augmented/v3/{id}` URL at serve time) and one canvas per page instruction.
+
+**Painting annotations and `imageUri`**: When a page includes an `imageUri`, the synthesised canvas
+carries a painting annotation with that URI as the `body.id`. The canvas dimensions (`width` /
+`height`) reflect the canvas size as supplied — they are not the pixel dimensions of the image
+itself, which are unknown. The annotation body is therefore emitted without `width` or `height`
+properties.
+
+URI scheme handling for `imageUri` in synthesised Manifests:
+
+| Scheme | `AllowFileImageProxy: false` (default) | `AllowFileImageProxy: true` |
+|---|---|---|
+| `http` / `https` | Echoed back unchanged | Echoed back unchanged |
+| `file://` | **Painting annotation omitted** — no file path in manifest | Proxy URL: `{SearchApiBaseUrl}/proxy/image?uri=…` |
+| `s3://` | **Painting annotation omitted** | Proxy URL (returns placeholder PNG) |
+
+`AllowFileImageProxy` defaults to `false` to prevent `file://` paths from being embedded in stored
+Manifests and potentially exposing access-controlled images. Only enable it in trusted environments
+such as local development.
+
+---
 
 ---
 
@@ -211,7 +275,7 @@ to a `PageInstruction` using the following priority order:
 3. **External `AnnotationPage`** — a canvas-level `annotations` entry that has an `id` but no
    `items`, meaning the page must be fetched separately.
 
-Canvases that match none of these are included as sparse pages (`text: null`) and contribute no
+Canvases that match none of these are included as sparse pages (`textUri: null`) and contribute no
 words to the index.
 
 ### Recognised text formats
@@ -222,6 +286,39 @@ words to the index.
 | hOCR | `seeAlso` profile contains `hocr` or label contains `hOCR` |
 | WebVTT | `seeAlso` / `annotations` format `text/vtt`, profile contains `vtt`, or label contains `vtt` / `webvtt` / `transcript` |
 | W3C Annotations | External `AnnotationPage` (detected automatically as described above) |
+
+---
+
+## Service flags
+
+The `services` field on a job request is an integer bitmask that controls which derivatives the
+Builder API builds and which Search API endpoints respond. Submit the bitwise OR of the flags you
+want enabled. Omitting `services` (or supplying `-1`) enables everything.
+
+| Flag name | Value | What it controls |
+|---|---|---|
+| `Search` | `1` | IIIF Content Search v1 and v2 endpoints |
+| `Autocomplete` | `2` | Autocomplete v1 and v2 endpoints |
+| `FullText` | `4` | Plain-text endpoint (`/text/v1/`) |
+| `Pdf` | `8` | PDF endpoint (`/pdf/v1/`) |
+| `TextAugmented` | `16` | Text-augmented Manifest endpoint (`/text-augmented/v3/`) |
+| `Annotations` | `32` | Line/word annotation pages and manifest-level annotations endpoint |
+| `Figures` | `64` | Identified figures endpoint (`/identified/figures/`) |
+
+**Example** — Search and Autocomplete only (`1 | 2 = 3`):
+
+```json
+{
+  "id": "my-collection/my-book",
+  "sourceUri": "https://example.org/iiif/my-book/manifest",
+  "services": 3
+}
+```
+
+When `services` is anything other than `-1`, the Builder API writes a `capabilities.json` file to
+storage. The Search API reads this file and returns `404 Not Found` for any endpoint whose flag is
+absent. Jobs that have no `capabilities.json` (pre-existing jobs or jobs submitted with the default)
+treat all services as enabled — backward compatible by design.
 
 ---
 
@@ -248,7 +345,7 @@ Builder API configuration lives under the `TextServices` key in `appsettings.jso
 | Setting | Default | Description |
 |---|---|---|
 | `ConnectionStrings:BuilderDb` | _(required)_ | PostgreSQL connection string. Used for both EF Core (job state) and Hangfire (job queue). |
-| `SearchApiBaseUrl` | `""` | Public base URL of the Search API. Used to populate the `searchV1` / `searchV2` fields in completed job responses. Leave empty if the Search API is not yet deployed. |
+| `SearchApiBaseUrl` | `""` | Public base URL of the Search API. Used to populate the `searchV1` / `searchV2` fields in completed job responses, and to construct `/proxy/image` URLs in synthesised Manifests when `sourceData` pages supply `file://` or `s3://` imageUri values. Leave empty if the Search API is not yet deployed. |
 | `MaxConcurrentAltoFetches` | `8` | Maximum number of text files fetched in parallel within a single job. Increase for internal or S3 sources; keep low (4–8) for third-party HTTP hosts. |
 | `Storage:RootPath` | `textservices-data` | Root directory for stored text artefacts. Must be readable by the Search API. |
 | `CorsAllowedOrigins` | `[]` | Allowed CORS origins. Empty array disables CORS. |

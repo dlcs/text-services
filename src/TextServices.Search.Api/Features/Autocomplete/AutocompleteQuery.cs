@@ -1,6 +1,7 @@
 using MediatR;
 using TextServices.Search.Api.Models;
 using TextServices.Search.Api.Services;
+using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.Autocomplete;
 
@@ -10,6 +11,8 @@ public class AutocompleteHandler(ITextCache cache) : IRequestHandler<Autocomplet
 {
     public async Task<AutocompleteTermList?> Handle(AutocompleteRequest request, CancellationToken ct)
     {
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.Autocomplete, ct)) return null;
+
         // Queries shorter than 3 characters cannot match any bucket prefix —
         // return an empty term list (not a 404) as the resource exists.
         if (request.Query.Trim().Length < 3)
