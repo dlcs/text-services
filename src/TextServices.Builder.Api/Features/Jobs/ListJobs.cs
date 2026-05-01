@@ -28,12 +28,13 @@ public class ListJobsHandler(BuilderDbContext db, TextServicesOptions options)
 
         var total = await query.CountAsync(ct);
 
-        var items = await query
+        var entities = await query
             .OrderByDescending(j => j.Created)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(j => JobResponse.From(j, options))
             .ToListAsync(ct);
+
+        var items = entities.Select(j => JobResponse.From(j, options)).ToList();
 
         return new PagedResult<JobResponse>(page, pageSize, total, items);
     }

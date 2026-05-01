@@ -125,7 +125,7 @@ public class Text
             int wordPos = matchPos;
             while (matchLength < s.Length + padding)
             {
-                var word = Words[wordPos];
+                if (!Words.TryGetValue(wordPos, out var word)) break;
                 wordResults.Add(word);
                 int lengthInText = word.LenNorm + 1; // word length + trailing space
                 matchLength += lengthInText;

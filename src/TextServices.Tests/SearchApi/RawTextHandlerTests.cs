@@ -51,6 +51,7 @@ public class RawTextHandlerTests
         public Task<int?> LoadCapabilities(string key) => Task.FromResult<int?>(null);
         public Task SavePageSequence(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadPageSequence(string key) => Task.FromResult<string?>(null);
+        public Task DeleteArtefacts(string key) => Task.CompletedTask;
     }
 
     private sealed class StubTextCache : ITextCache
@@ -61,5 +62,6 @@ public class RawTextHandlerTests
             => Task.FromResult<AutoComplete?>(null);
         public Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
             => Task.FromResult<JobServices?>(null);
+        public void Invalidate(string key) { }
     }
 }

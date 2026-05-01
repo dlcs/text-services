@@ -97,6 +97,15 @@ app.UseHttpsRedirection();
 
 // ---- Endpoints --------------------------------------------------------------
 
+// DELETE /cache/v1/{**id}  — invalidates the in-process cache for a job key.
+// Called by the Builder API (fire-and-forget) after reprocess or delete so the
+// Search API serves fresh artefacts rather than stale cached data.
+app.MapDelete("/cache/v1/{**id}", (string id, ITextCache textCache) =>
+{
+    textCache.Invalidate(id);
+    return Results.NoContent();
+});
+
 // GET /search/v2/{**id}?q={term}
 app.MapGet("/search/v2/{**id}", async (
     string id, string? q,
@@ -109,7 +118,7 @@ app.MapGet("/search/v2/{**id}", async (
     if (result == null) return Results.NotFound();
 
     result.Ignored = GetIgnoredParams(ctx);
-    return Results.Json(result);
+    return Results.Json(result, contentType: "application/ld+json");
 });
 
 // GET /autocomplete/v2/{**id}?q={term}
@@ -123,7 +132,7 @@ app.MapGet("/autocomplete/v2/{**id}", async (
     var result = await sender.Send(new AutocompleteV2Request(id, q ?? string.Empty, selfUrl));
     if (result == null) return Results.NotFound();
 
-    return Results.Json(result);
+    return Results.Json(result, contentType: "application/ld+json");
 });
 
 // GET /search/v1/{**id}?q={term}
@@ -138,7 +147,7 @@ app.MapGet("/search/v1/{**id}", async (
     if (result == null) return Results.NotFound();
 
     result.Ignored = GetIgnoredParams(ctx);
-    return Results.Json(result);
+    return Results.Json(result, contentType: "application/ld+json");
 });
 
 // GET /autocomplete/v1/{**id}?q={term}
@@ -152,7 +161,7 @@ app.MapGet("/autocomplete/v1/{**id}", async (
     var result = await sender.Send(new AutocompleteRequest(id, q ?? string.Empty, selfUrl));
     if (result == null) return Results.NotFound();
 
-    return Results.Json(result);
+    return Results.Json(result, contentType: "application/ld+json");
 });
 
 // GET /text/v1/{**id}
@@ -206,7 +215,7 @@ app.MapGet("/identified/figures/{**id}", async (
     var result  = await sender.Send(new FiguresRequest(id, selfUrl));
     if (result == null) return Results.NotFound();
 
-    return Results.Json(result);
+    return Results.Json(result, contentType: "application/ld+json");
 });
 
 // GET /annotations/manifest/v1/{**id}  — manifest-level line annotations (stored at build time)
@@ -218,7 +227,7 @@ app.MapGet("/annotations/manifest/v1/{**id}", async (
     var selfUrl = BuildSelfUrl(options, ctx, $"annotations/manifest/v1/{id}", null);
     var result  = await sender.Send(new ManifestAnnotationsRequest(id, selfUrl));
     if (result == null) return Results.NotFound();
-    return Results.Json(result);
+    return Results.Json(result, contentType: "application/ld+json");
 });
 
 // GET /annotations/lines/v1/{n}/{**id}  — line-level annotation page for canvas n
@@ -230,7 +239,7 @@ app.MapGet("/annotations/lines/v1/{n:int}/{**id}", async (
     var selfUrl = BuildSelfUrl(options, ctx, $"annotations/lines/v1/{n}/{id}", null);
     var result  = await sender.Send(new LineAnnotationsRequest(id, n, selfUrl));
     if (result == null) return Results.NotFound();
-    return Results.Json(result);
+    return Results.Json(result, contentType: "application/ld+json");
 });
 
 // GET /annotations/words/v1/{n}/{**id}  — word-level annotation page for canvas n
@@ -242,7 +251,7 @@ app.MapGet("/annotations/words/v1/{n:int}/{**id}", async (
     var selfUrl = BuildSelfUrl(options, ctx, $"annotations/words/v1/{n}/{id}", null);
     var result  = await sender.Send(new WordAnnotationsRequest(id, n, selfUrl));
     if (result == null) return Results.NotFound();
-    return Results.Json(result);
+    return Results.Json(result, contentType: "application/ld+json");
 });
 
 // GET /proxy/image?uri={uri}
@@ -299,7 +308,7 @@ app.MapGet("/text-augmented/v3/{**id}", async (
     var result = await sender.Send(new TextAugmentedRequest(id, selfUrl, searchBase));
     if (result == null) return Results.NotFound();
 
-    return Results.Json(result);
+    return Results.Json(result, contentType: "application/ld+json");
 });
 
 app.Run();
