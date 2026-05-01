@@ -935,3 +935,142 @@ The following were added: `FullText`, `Pdf`, `TextAugmented`, `Annotations`, `Fi
 populated from `SearchApiBaseUrl` when the job is `Completed` and the corresponding `JobServices`
 flag is set. This gives callers a single document that describes every derivative endpoint without
 them having to construct URLs themselves.
+
+---
+
+## 2026-05-01 — Fireball alignment: page types, PDF assembly, page sequence storage
+
+### Context
+
+Tom asked to align the `sourceData` page model with the
+[Fireball](https://github.com/dlcs/fireball) PDF-assembly service payload format, adding
+support for embedded PDFs and custom generated-text pages.
+
+### Page types (`PageInstruction.Type`)
+
+Three page types are now recognised:
+
+| `type` value | Manifest canvas? | PDF page | Text indexed? |
+|---|---|---|---|
+| `null` / absent | Yes (with painting annotation if `imageUri` set) | Image + invisible text layer | Yes |
+| `"pdf"` | **No** | Existing PDF embedded via iText `CopyPagesTo` | No |
+| any other string | Yes (no painting annotation) | Centred message text | No |
+
+> **Why allow pdf-type anywhere?** Fireball allows pdf embeds at any position. Restricting to
+> first-only would have been an artificial constraint with no implementation benefit.
+
+### `input` field
+
+`input` serves dual purpose (matching Fireball):
+- On `"pdf"`-type pages: the URI of the PDF to embed.
+- On normal pages: an alias for `imageUri`. `imageUri` takes precedence when both are set.
+
+No `method` field was needed (unlike Fireball's `method: "s3"/"download"`) because the existing
+`IResourceFetcher` already dispatches on URI scheme.
+
+### `title` and `customTypes` at job level
+
+`title` is stored on the `BuilderJob` entity and used as PDF metadata / `Content-Disposition`
+filename. `customTypes` is a `Dictionary<string, CustomPageType>` serialised to a JSON column
+(`CustomTypesJson`). `CustomPageType.Message` is the centred text rendered on that page type in
+the PDF.
+
+An EF Core migration (`20260501120000_AddTitleAndCustomTypesColumns`) adds both nullable `text`
+columns to the `Jobs` table.
+
+### Page sequence storage artefact (`pagesequence.json`)
+
+A `pagesequence.json` file is written to storage for `sourceData` jobs when the `Pdf` service
+flag is set. It contains the full ordered sequence including pdf-embed entries (which have no
+canvas in the synthesised Manifest) with messages inlined from `customTypes`. The PDF builder
+reads this to reconstruct assembly order; the synthesised manifest alone is insufficient because
+pdf-type pages are excluded from it.
+
+```json
+{
+  "title": "My Book",
+  "pages": [
+    { "type": "pdf", "input": "file:///path/cover.pdf" },
+    { "canvasId": "https://example.org/canvas/1" },
+    { "type": "redacted", "canvasId": "https://example.org/canvas/2",
+      "width": 3000, "height": 4000, "message": "This page has been redacted." },
+    { "canvasId": "https://example.org/canvas/3" }
+  ]
+}
+```
+
+### PdfBuilder changes
+
+`PdfBuilder.BuildAsync` now accepts an optional `pageSequenceJson` parameter. When supplied it
+drives the full assembly loop; when null it falls back to the original `text.Images`-order loop
+(sourceUri jobs). Three new helpers:
+
+- `EmbedPdfAsync` — fetches the source PDF (`http/https` or `file://`) and copies all its pages
+  into the output document.
+- `AddTextPage` — adds a page with centred message text at A4 size (falls back to A4 if canvas
+  dimensions are zero).
+- `BuildCanvasIndexMap` — maps canvas IDs to their index in `text.Images` so words can be placed
+  correctly even when the page sequence order differs from the text index order.
+
+`textIndex == -1` (canvas present in manifest but absent from the text index, e.g. custom-type
+pages) is handled gracefully — the image layer renders normally and the invisible text layer is
+simply omitted.
+
+### Demo UI update
+
+The `sourcedata.js` template was updated to demonstrate all three page types: a pdf-type initial
+page (embedding a `cover.pdf` from the fixture directory), two normal image pages, a redacted
+custom-type page one before the end, and a final normal image page. `title` and `customTypes` were
+added at the job level.
+
+---
+
+## 2026-05-01 — PDF page sizing: non-image pages now match image pages
+
+### Problem
+
+Custom-type pages (centred message text) and embedded PDF pages were sized from the canvas
+dimensions recorded in `pagesequence.json` (e.g. 2495×4067 px at 150 dpi ≈ 1197×1952 pt). The
+actual image pages, however, are sized from the pixel dimensions of the *fetched image*, which
+for sourceData jobs is often a fixed-size URL (e.g. `full/656,1024/...` ≈ 315×492 pt). The
+non-image pages were therefore roughly 2–4× too large.
+
+The canvas dimensions and the fetched image dimensions can differ significantly because:
+- `imageUri` is an already-resolved URL at a publisher-chosen display size, not the full-resolution asset.
+- The synthesised manifest stores no `width`/`height` on the image body, so `pageInfo.ImageWidth`
+  falls back to the canvas dimensions — which are always the full-resolution canvas size.
+
+### Fix — image pages
+
+`AddPageAsync` now returns `(float widthPt, float heightPt)` — the actual PDF page dimensions
+computed from the fetched image's pixel dimensions. The caller tracks this as `refWidthPt /
+refHeightPt` and updates it after every image page.
+
+### Fix — custom-type pages
+
+`AddTextPage` was changed to accept `float widthPt, float heightPt` directly (not canvas
+dimensions). It receives the current `refWidthPt / refHeightPt`, so it always matches the most
+recently rendered image page exactly.
+
+### Fix — embedded PDF pages
+
+`EmbedPdfAsync` was changed to accept `float targetWidthPt, float targetHeightPt` and now:
+1. Imports each source page as a `PdfFormXObject` via `CopyAsFormXObject` (replaces `CopyPagesTo`).
+2. Creates a new output page at the target size.
+3. Scales the XObject to fit within that page, preserving aspect ratio (letterbox/pillarbox if
+   aspect ratios differ), and centres it with `AddXObjectWithTransformationMatrix`.
+
+### Pre-scan for reference size
+
+Embedded PDFs can appear before any image page (the demo cover page is position 0). At that
+point `refWidthPt / refHeightPt` is unknown. `DetermineReferenceSizeAsync` solves this:
+
+- Only called when the page sequence contains at least one `"pdf"`-type entry.
+- Walks entries, finds the first normal canvas, fetches its image, and returns the actual pt
+  dimensions derived from the image's pixel dimensions.
+- Used to initialise `refWidthPt / refHeightPt` before the main assembly loop.
+- The first image is fetched twice (once in pre-scan, once in the main loop) — acceptable for a
+  non-hot PDF generation path.
+
+Falls back to A4 if no image page exists (edge case: a PDF consisting entirely of pdf-type and
+custom-type pages).

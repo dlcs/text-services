@@ -46,12 +46,27 @@ function newJobId() {
 //
 // Fixture paths are computed by the server (relative to its ContentRootPath) and
 // returned via /demo-config — no checkout-specific paths in this file.
+//
+// The template also demonstrates Fireball-compatible page types:
+//   - An initial "pdf" page embeds an existing PDF at the front of the output PDF.
+//     Replace cover.pdf with an actual file to exercise PDF embedding.
+//   - A "redacted" custom-type page one before the end renders a centred message
+//     in the PDF and produces a canvas with no painting annotation in the manifest.
 function buildTemplate(id) {
     const FIXTURE_ALTO   = config.fixtureAlto   ?? '';
     const FIXTURE_IMAGES = config.fixtureImages ?? '';
     return {
         id,
+        title: 'Demo: b2888193x (source data)',
+        customTypes: {
+            redacted: { message: 'This page has been redacted.' },
+        },
         sourceData: [
+            {
+                // Initial PDF embed — replace with a real file:// or https:// path.
+                type:  'pdf',
+                input: `${FIXTURE_IMAGES}/cover.pdf`,
+            },
             {
                 id:       'https://iiif.wellcomecollection.org/presentation/b2888193x/canvases/b2888193x_0001.jp2',
                 width:    2679,
@@ -67,6 +82,13 @@ function buildTemplate(id) {
                 textUri:  `${FIXTURE_ALTO}/b2888193x_0002.jp2.xml`,
                 imageUri: 'https://iiif.wellcomecollection.org/image/b2888193x_0002.jp2/full/656,1024/0/default.jpg',
                 profile:  'http://www.loc.gov/standards/alto/v3/alto.xsd',
+            },
+            {
+                // Custom-type page: no image, no text — PDF renders the "redacted" message.
+                type:   'redacted',
+                id:     'https://iiif.wellcomecollection.org/presentation/b2888193x/canvases/redacted-1',
+                width:  2495,
+                height: 4067,
             },
             {
                 // Page 3: imageUri is a file:// path to the locally saved body.id JPEG

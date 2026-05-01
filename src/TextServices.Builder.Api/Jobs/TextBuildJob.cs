@@ -151,6 +151,9 @@ public class TextBuildJob(
         var semaphore = new SemaphoreSlim(options.MaxConcurrentAltoFetches);
 
         var fetchTasks = pages
+            // pdf-type pages embed an existing PDF; they have no text to build.
+            // Custom-type pages are generated at PDF render time; no text to fetch.
+            .Where(page => page.Type == null)
             .Select(page => IsAnnotationPage(page)
                 ? FetchAnnotationPageWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken)
                 : IsVttPage(page)
@@ -171,9 +174,9 @@ public class TextBuildJob(
 
             var page = fetchedPage.Page;
             if (fetchedPage.Xml != null)
-                textBuilder.AddPage(page.Id, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Label);
+                textBuilder.AddPage(page.Id!, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Label);
             else if (fetchedPage.StringContent != null)
-                textBuilder.AddTranscriptPage(page.Id, page.Width, page.Height, fetchedPage.StringContent,
+                textBuilder.AddTranscriptPage(page.Id!, page.Width, page.Height, fetchedPage.StringContent,
                     profile: page.Profile, format: page.Format, label: page.Label);
 
             completed++;
@@ -221,7 +224,51 @@ public class TextBuildJob(
         if (services != JobServices.All)
             await textStore.SaveCapabilities(job.Id, (int)services);
 
+        // For sourceData jobs, persist the full page sequence (including pdf-embed entries
+        // that have no canvas in the synthesised manifest) so the PDF builder can
+        // reconstruct the complete assembly order, including embedded PDFs.
+        if (job.SourceUri == null && services.HasFlag(JobServices.Pdf))
+        {
+            var pageSequenceJson = BuildPageSequenceJson(job, pages);
+            await textStore.SavePageSequence(job.Id, pageSequenceJson);
+        }
+
         return (result.Text.Words.Count, result.Text.Images.Length, errors);
+    }
+
+    private static string BuildPageSequenceJson(BuilderJob job, IReadOnlyList<PageInstruction> pages)
+    {
+        Dictionary<string, CustomPageType>? customTypes = null;
+        if (job.CustomTypesJson != null)
+            customTypes = JsonSerializer.Deserialize<Dictionary<string, CustomPageType>>(job.CustomTypesJson);
+
+        var pageArray = new JsonArray();
+        foreach (var page in pages)
+        {
+            JsonObject entry;
+            if (string.Equals(page.Type, "pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                entry = new JsonObject { ["type"] = "pdf", ["input"] = page.Input };
+            }
+            else if (page.Type != null)
+            {
+                CustomPageType? cpt = null;
+                customTypes?.TryGetValue(page.Type, out cpt);
+                entry = new JsonObject { ["type"] = page.Type, ["canvasId"] = page.Id };
+                if (page.Width  > 0)      entry["width"]   = page.Width;
+                if (page.Height > 0)      entry["height"]  = page.Height;
+                if (cpt?.Message != null) entry["message"] = cpt.Message;
+            }
+            else
+            {
+                entry = new JsonObject { ["canvasId"] = page.Id };
+            }
+            pageArray.Add(entry);
+        }
+
+        var root = new JsonObject { ["pages"] = pageArray };
+        if (job.Title != null) root["title"] = job.Title;
+        return root.ToJsonString();
     }
 
     /// <summary>

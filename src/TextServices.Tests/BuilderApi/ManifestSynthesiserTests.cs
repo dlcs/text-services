@@ -326,4 +326,132 @@ public class ManifestSynthesiserTests
         canvases[0]!["items"].ShouldNotBeNull();
         canvases[1]!["items"].ShouldBeNull();
     }
+
+    // -------------------------------------------------------------------------
+    // pdf-type pages
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Synthesise_PdfTypePage_IsExcludedFromManifest()
+    {
+        // pdf-type pages embed an existing PDF — they produce no canvas.
+        var pages = new List<PageInstruction>
+        {
+            new() { Type = "pdf", Input = "file:///path/to/cover.pdf" },
+            new() { Id = "https://example.org/c/1", Width = 100, Height = 200 },
+        };
+
+        var result = JsonNode.Parse(Sut().Synthesise(pages))!;
+
+        // Only the normal page becomes a canvas.
+        result["items"]!.AsArray().Count.ShouldBe(1);
+        result["items"]![0]!["id"]!.GetValue<string>().ShouldBe("https://example.org/c/1");
+    }
+
+    [Fact]
+    public void Synthesise_AllPdfTypePages_ProducesNoCanvases()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Type = "pdf", Input = "file:///path/to/a.pdf" },
+            new() { Type = "PDF", Input = "file:///path/to/b.pdf" }, // case-insensitive
+        };
+
+        var result = JsonNode.Parse(Sut().Synthesise(pages))!;
+
+        // iiif-net omits the items key entirely when the canvas list is empty.
+        var items = result["items"] as JsonArray;
+        (items?.Count ?? 0).ShouldBe(0);
+    }
+
+    // -------------------------------------------------------------------------
+    // Custom-type pages
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Synthesise_CustomTypePage_HasCanvasButNoPaintingAnnotation()
+    {
+        // Custom-type pages (e.g. "redacted") get a canvas but no painting annotation
+        // — the PDF renders a centred message instead.
+        var pages = new List<PageInstruction>
+        {
+            new() { Type = "redacted", Id = "https://example.org/c/r1",
+                    Width = 1000, Height = 1500 },
+        };
+
+        var result   = JsonNode.Parse(Sut().Synthesise(pages))!;
+        var canvases = result["items"]!.AsArray();
+
+        canvases.Count.ShouldBe(1);
+        var canvas = canvases[0]!;
+        canvas["id"]!.GetValue<string>().ShouldBe("https://example.org/c/r1");
+        canvas["width"]!.GetValue<int>().ShouldBe(1000);
+        canvas["height"]!.GetValue<int>().ShouldBe(1500);
+        // No painting annotation.
+        canvas["items"].ShouldBeNull();
+    }
+
+    [Fact]
+    public void Synthesise_MixedSequence_PdfExcluded_CustomAndNormalIncluded()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Type = "pdf",      Input  = "file:///cover.pdf" },
+            new() { Id = "https://example.org/c/1", Width = 100, Height = 200,
+                    ImageUri = "https://example.org/img/1.jpg" },
+            new() { Type = "redacted", Id     = "https://example.org/c/r1",
+                    Width = 100, Height = 200 },
+        };
+
+        var result   = JsonNode.Parse(Sut().Synthesise(pages))!;
+        var canvases = result["items"]!.AsArray();
+
+        // pdf-type excluded; normal + custom = 2 canvases.
+        canvases.Count.ShouldBe(2);
+        canvases[0]!["id"]!.GetValue<string>().ShouldBe("https://example.org/c/1");
+        canvases[0]!["items"].ShouldNotBeNull(); // has painting annotation
+        canvases[1]!["id"]!.GetValue<string>().ShouldBe("https://example.org/c/r1");
+        canvases[1]!["items"].ShouldBeNull();    // custom type: no painting annotation
+    }
+
+    // -------------------------------------------------------------------------
+    // Input alias for normal pages
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Synthesise_NormalPage_InputUsedAsImageUriAlias()
+    {
+        // When ImageUri is absent, Input is treated as the image URI for normal pages.
+        const string imageUri = "https://example.org/images/page1.jpg";
+
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 100, Height = 200,
+                    Input = imageUri },
+        };
+
+        var result = JsonNode.Parse(Sut().Synthesise(pages))!;
+        var anno   = result["items"]![0]!["items"]![0]!["items"]![0]!;
+
+        anno["body"]!["id"]!.GetValue<string>().ShouldBe(imageUri);
+    }
+
+    [Fact]
+    public void Synthesise_NormalPage_ImageUriTakesPrecedenceOverInput()
+    {
+        // ImageUri wins when both are set.
+        const string imageUri = "https://example.org/images/correct.jpg";
+        const string input    = "https://example.org/images/wrong.jpg";
+
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 100, Height = 200,
+                    ImageUri = imageUri, Input = input },
+        };
+
+        var result = JsonNode.Parse(Sut().Synthesise(pages))!;
+        var anno   = result["items"]![0]!["items"]![0]!["items"]![0]!;
+
+        anno["body"]!["id"]!.GetValue<string>().ShouldBe(imageUri);
+    }
 }

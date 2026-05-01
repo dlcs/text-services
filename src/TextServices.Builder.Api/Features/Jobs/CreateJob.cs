@@ -41,6 +41,10 @@ public class CreateJobHandler(
             Status         = JobStatus.Waiting,
             Created        = DateTimeOffset.UtcNow,
             Services       = (int)instruction.Services,
+            Title          = instruction.Title,
+            CustomTypesJson = instruction.CustomTypes != null
+                ? System.Text.Json.JsonSerializer.Serialize(instruction.CustomTypes)
+                : null,
         };
 
         db.Jobs.Add(job);

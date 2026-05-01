@@ -25,7 +25,11 @@ public class ManifestSynthesiser(TextServicesOptions options) : IManifestSynthes
         var manifest = new Manifest
         {
             Id    = string.Empty,
-            Items = pages.Select(BuildCanvas).ToList(),
+            // pdf-type pages embed an existing PDF — they produce no canvas.
+            Items = pages
+                .Where(p => !string.Equals(p.Type, "pdf", StringComparison.OrdinalIgnoreCase))
+                .Select(BuildCanvas)
+                .ToList(),
         };
 
         manifest.EnsurePresentation3Context();
@@ -34,30 +38,36 @@ public class ManifestSynthesiser(TextServicesOptions options) : IManifestSynthes
 
     private Canvas BuildCanvas(PageInstruction page)
     {
-        var canvas = new Canvas { Id = page.Id };
+        // Use supplied id, or synthesise a stable placeholder from the input URI.
+        // Non-pdf pages should always have an id (validated at submission time).
+        var canvasId = !string.IsNullOrEmpty(page.Id) ? page.Id : string.Empty;
+        var canvas   = new Canvas { Id = canvasId };
 
         if (page.Width > 0)  canvas.Width  = page.Width;
         if (page.Height > 0) canvas.Height = page.Height;
         if (page.Duration.HasValue) canvas.Duration = page.Duration.Value;
 
-        if (page.ImageUri != null)
+        // Custom-type pages (non-null type other than "pdf") intentionally carry no
+        // painting annotation — they render as generated text pages in the PDF.
+        // Normal pages (null type) get a painting annotation when an image URI is available.
+        if (page.Type == null)
         {
-            var imageUrl = ResolveImageUrl(page.ImageUri);
-
-            if (imageUrl != null)
+            // input is accepted as an alias for imageUri on normal image pages.
+            var rawImageUri = page.ImageUri ?? page.Input;
+            if (rawImageUri != null && ResolveImageUrl(rawImageUri) is { } imageUrl)
             {
                 canvas.Items =
                 [
                     new AnnotationPage
                     {
-                        Id    = $"{page.Id}/painting",
+                        Id    = $"{canvasId}/painting",
                         Items =
                         [
                             new PaintingAnnotation
                             {
-                                Id     = $"{page.Id}/painting/anno",
+                                Id     = $"{canvasId}/painting/anno",
                                 Body   = new Image { Id = imageUrl, Format = "image/jpeg" },
-                                Target = new Canvas { Id = page.Id },
+                                Target = new Canvas { Id = canvasId },
                             }
                         ]
                     }

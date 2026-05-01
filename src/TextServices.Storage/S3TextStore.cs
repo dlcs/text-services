@@ -21,7 +21,8 @@ public class S3TextStore : ITextStore, IDisposable
     private const string PdfFileName          = "book.pdf";
     private const string FiguresFileName      = "figures.json";
     private const string AnnotationsFileName  = "annotations.json";
-    private const string CapabilitiesFileName = "capabilities.json";
+    private const string CapabilitiesFileName  = "capabilities.json";
+    private const string PageSequenceFileName  = "pagesequence.json";
 
     private readonly IAmazonS3 _s3;
     private readonly string _bucket;
@@ -179,6 +180,22 @@ public class S3TextStore : ITextStore, IDisposable
         using var reader = new StreamReader(stream);
         var text = await reader.ReadToEndAsync();
         return int.TryParse(text.Trim(), out var value) ? value : null;
+    }
+
+    /// <inheritdoc/>
+    public async Task SavePageSequence(string key, string json)
+    {
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json));
+        await PutObjectAsync(GetS3Key(key, PageSequenceFileName), stream, "application/json");
+    }
+
+    /// <inheritdoc/>
+    public async Task<string?> LoadPageSequence(string key)
+    {
+        var stream = await GetObjectStreamAsync(GetS3Key(key, PageSequenceFileName));
+        if (stream == null) return null;
+        using var reader = new StreamReader(stream);
+        return await reader.ReadToEndAsync();
     }
 
     public void Dispose() => _s3.Dispose();

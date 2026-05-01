@@ -356,6 +356,8 @@ public class TextAugmentedHandlerTests
         public Task<bool> Exists(string key) => Task.FromResult(false);
         public Task SaveCapabilities(string key, int services) => Task.CompletedTask;
         public Task<int?> LoadCapabilities(string key) => Task.FromResult<int?>(null);
+        public Task SavePageSequence(string key, string json) => Task.CompletedTask;
+        public Task<string?> LoadPageSequence(string key) => Task.FromResult<string?>(null);
     }
 
     private sealed class StubTextCache(Text? text) : ITextCache

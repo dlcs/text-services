@@ -272,6 +272,114 @@ Search. The Manifest returned already has `SearchService2` and `SearchService1` 
 
 ---
 
+## Local development setup
+
+### Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- PostgreSQL 14 or later (used by the Builder API for job state and the Hangfire queue)
+
+### Ports (Development profile)
+
+| Application | URL |
+|---|---|
+| Builder API | http://localhost:5283 |
+| Search API | http://localhost:5294 |
+| Demo UI | http://localhost:5100 |
+
+The Builder API and Search API share a storage directory (`C:/textservices-data` by default on
+Windows). Both must point at the same path.
+
+### 1 — Configure the Builder API
+
+Create `src/TextServices.Builder.Api/appsettings.Development.json` (not committed — add your own
+credentials):
+
+```json
+{
+  "ConnectionStrings": {
+    "BuilderDb": "Host=localhost;Database=textservices_builder;Username=postgres;Password=your-password"
+  },
+  "TextServices": {
+    "SearchApiBaseUrl": "http://localhost:5294",
+    "AllowFileImageProxy": true
+  }
+}
+```
+
+`AllowFileImageProxy: true` lets the Demo UI serve locally stored images through the Search API's
+`/proxy/image` endpoint — only enable this in local development.
+
+### 2 — Run the EF Core migrations
+
+The Builder API manages its own database schema. Run the migrations once (and again after any
+future schema changes):
+
+```bash
+cd src/TextServices.Builder.Api
+dotnet ef database update
+```
+
+If `dotnet ef` is not installed: `dotnet tool install -g dotnet-ef`
+
+### 3 — Configure the Search API (optional)
+
+The Search API has no database and works out of the box for local development. If you need to
+override defaults, create `src/TextServices.Search.Api/appsettings.Development.json`:
+
+```json
+{
+  "TextServices": {
+    "BaseUrl": "http://localhost:5294",
+    "AllowFileImageProxy": true
+  }
+}
+```
+
+### 4 — Start the applications
+
+Open three terminals and run each application:
+
+```bash
+# Terminal 1 — Builder API
+cd src/TextServices.Builder.Api
+dotnet run
+```
+
+```bash
+# Terminal 2 — Search API
+cd src/TextServices.Search.Api
+dotnet run
+```
+
+```bash
+# Terminal 3 — Demo UI
+cd src/TextServices.Demo
+dotnet run
+```
+
+Then open http://localhost:5100 in a browser.
+
+### 5 — Run the tests
+
+```bash
+cd src
+dotnet test TextServices.Tests/TextServices.Tests.csproj
+```
+
+The unit/integration tests run entirely in-process and do not require a running database or
+either API to be up.
+
+### Storage directory
+
+The default storage root is `C:/textservices-data`. The Builder API creates subdirectories
+automatically as jobs complete. On Linux/macOS, change `Storage:RootPath` in
+`appsettings.Development.json` to a writable path (e.g. `/tmp/textservices-data`).
+
+The Search API must be configured with the same path via `StorageRootPath`.
+
+---
+
 ## Documentation
 
 - [Builder API reference](docs/builder-api.md)
