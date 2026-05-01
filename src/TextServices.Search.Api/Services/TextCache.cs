@@ -57,6 +57,13 @@ public class TextCache(
         }
     }
 
+    public void Invalidate(string key)
+    {
+        memoryCache.Remove($"text:{key}");
+        memoryCache.Remove($"ac:{key}");
+        memoryCache.Remove($"caps:{key}");
+    }
+
     private async Task<T?> GetOrLoadAsync<T>(
         string cacheKey,
         Func<Task<T?>> loadAsync,

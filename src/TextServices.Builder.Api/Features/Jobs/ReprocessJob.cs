@@ -3,6 +3,7 @@ using MediatR;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Jobs;
+using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Features.Jobs;
 
@@ -22,7 +23,10 @@ public record ReprocessJobResult(ReprocessStatus Status, JobResponse? Response);
 public class ReprocessJobHandler(
     BuilderDbContext db,
     IBackgroundJobClient hangfire,
-    TextServicesOptions options)
+    ITextStore textStore,
+    IHttpClientFactory httpClientFactory,
+    TextServicesOptions options,
+    ILogger<ReprocessJobHandler> logger)
     : IRequestHandler<ReprocessJobRequest, ReprocessJobResult>
 {
     public async Task<ReprocessJobResult> Handle(ReprocessJobRequest request, CancellationToken ct)
@@ -39,6 +43,12 @@ public class ReprocessJobHandler(
         // already finished — Delete is a no-op if the job no longer exists).
         if (job.HangfireJobId != null)
             hangfire.Delete(job.HangfireJobId);
+
+        // Delete all stored artefacts so stale derivatives don't survive the rebuild.
+        await textStore.DeleteArtefacts(job.Id);
+
+        // Notify the Search API to evict its in-process cache for this key.
+        _ = InvalidateCacheAsync(job.Id);
 
         // Reset all transient fields.
         job.Status          = JobStatus.Waiting;
@@ -58,5 +68,20 @@ public class ReprocessJobHandler(
         await db.SaveChangesAsync(ct);
 
         return new ReprocessJobResult(ReprocessStatus.Ok, JobResponse.From(job, options));
+    }
+
+    private async Task InvalidateCacheAsync(string id)
+    {
+        if (string.IsNullOrEmpty(options.SearchApiBaseUrl)) return;
+        try
+        {
+            var http = httpClientFactory.CreateClient();
+            var url  = $"{options.SearchApiBaseUrl.TrimEnd('/')}/cache/v1/{id}";
+            await http.DeleteAsync(url);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to invalidate Search API cache for key {Id}", id);
+        }
     }
 }

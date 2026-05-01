@@ -40,6 +40,7 @@ public class TextBuildJob(
     private record FetchedPage(PageInstruction Page, XElement? Xml, string? StringContent, string? Error);
 
     [JobDisplayName("TextBuild: {0}")]
+    [AutomaticRetry(Attempts = 3)]
     public async Task ExecuteAsync(string jobId, IJobCancellationToken cancellationToken)
     {
         var job = await db.Jobs.FindAsync(jobId);

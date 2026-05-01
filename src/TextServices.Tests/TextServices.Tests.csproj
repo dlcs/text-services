@@ -29,6 +29,7 @@
     <ProjectReference Include="..\TextServices.Storage\TextServices.Storage.csproj" />
     <ProjectReference Include="..\TextServices.Builder.Api\TextServices.Builder.Api.csproj" />
     <ProjectReference Include="..\TextServices.Search.Api\TextServices.Search.Api.csproj" />
+    <ProjectReference Include="..\TextServices.Pdf\TextServices.Pdf.csproj" />
   </ItemGroup>
 
 </Project>

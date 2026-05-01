@@ -198,6 +198,28 @@ public class S3TextStore : ITextStore, IDisposable
         return await reader.ReadToEndAsync();
     }
 
+    /// <inheritdoc/>
+    public async Task DeleteArtefacts(string key)
+    {
+        string[] fileNames =
+        [
+            TextFileName, AutoCompleteFileName, ManifestFileName, RawTextFileName,
+            PdfFileName, FiguresFileName, AnnotationsFileName, CapabilitiesFileName,
+            PageSequenceFileName,
+        ];
+        foreach (var fileName in fileNames)
+        {
+            try
+            {
+                await _s3.DeleteObjectAsync(_bucket, GetS3Key(key, fileName));
+            }
+            catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Idempotent — object not found is not an error
+            }
+        }
+    }
+
     public void Dispose() => _s3.Dispose();
 
     // -------------------------------------------------------------------------

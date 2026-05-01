@@ -109,5 +109,6 @@ public class AutocompleteHandlerTests
             => Task.FromResult(ac);
         public Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
             => Task.FromResult<JobServices?>(null);
+        public void Invalidate(string key) { }
     }
 }

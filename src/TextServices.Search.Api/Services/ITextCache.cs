@@ -28,4 +28,10 @@ public interface ITextCache
     /// capabilities file exists — callers should treat all services as enabled in that case.
     /// </summary>
     Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default);
+
+    /// <summary>
+    /// Removes all cached entries for <paramref name="key"/> (text, autocomplete, capabilities).
+    /// Called when artefacts are deleted or reprocessed so the next request loads fresh data.
+    /// </summary>
+    void Invalidate(string key);
 }

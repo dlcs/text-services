@@ -191,6 +191,23 @@ public class FileSystemTextStore : ITextStore
         return File.ReadAllTextAsync(path)!;
     }
 
+    /// <inheritdoc/>
+    public Task DeleteArtefacts(string key)
+    {
+        string[] fileNames =
+        [
+            TextFileName, AutoCompleteFileName, ManifestFileName, RawTextFileName,
+            PdfFileName, FiguresFileName, AnnotationsFileName, CapabilitiesFileName,
+            PageSequenceFileName,
+        ];
+        foreach (var fileName in fileNames)
+        {
+            var path = GetPath(key, fileName);
+            if (File.Exists(path)) File.Delete(path);
+        }
+        return Task.CompletedTask;
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------

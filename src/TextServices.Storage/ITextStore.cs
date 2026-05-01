@@ -118,4 +118,13 @@ public interface ITextStore
     /// manifest-based path.
     /// </summary>
     Task<string?> LoadPageSequence(string key);
+
+    /// <summary>
+    /// Deletes all stored artefacts for the given key (text index, autocomplete, manifest,
+    /// raw text, PDF, figures, annotations, capabilities, page sequence).
+    /// Missing artefacts are silently ignored — the operation is idempotent.
+    /// Call before re-running a job to prevent stale derivatives from a previous build
+    /// from persisting when the new build produces different outputs.
+    /// </summary>
+    Task DeleteArtefacts(string key);
 }
