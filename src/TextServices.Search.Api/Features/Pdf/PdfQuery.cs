@@ -1,6 +1,7 @@
 using AsyncKeyedLock;
 using MediatR;
 using TextServices.Pdf;
+using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.Pdf;
@@ -21,6 +22,7 @@ public record PdfTriggerRequest(string Id) : IRequest<bool>;
 
 public class PdfHandler(
     ITextStore               textStore,
+    ITextCache               cache,
     PdfBuilder               pdfBuilder,
     AsyncKeyedLocker<string> locker,
     ILogger<PdfHandler>      logger)
@@ -33,6 +35,8 @@ public class PdfHandler(
 
     public async Task<Stream?> Handle(PdfRequest request, CancellationToken ct)
     {
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.Pdf, ct)) return null;
+
         // Fast path — PDF already exists
         var existing = await textStore.LoadPdf(request.Id);
         if (existing != null) return existing;
@@ -58,6 +62,8 @@ public class PdfHandler(
 
     public async Task<bool> Handle(PdfTriggerRequest request, CancellationToken ct)
     {
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.Pdf, ct)) return false;
+
         // Already done
         var existing = await textStore.LoadPdf(request.Id);
         if (existing != null)

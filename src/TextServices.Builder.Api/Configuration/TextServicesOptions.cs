@@ -9,6 +9,25 @@ public class TextServicesOptions
     /// </summary>
     public string SearchApiBaseUrl { get; set; } = string.Empty;
 
+
+    /// <summary>
+    /// Allow the Search API's <c>/proxy/image</c> endpoint to serve <c>file://</c> image URIs
+    /// supplied in <c>sourceData</c> pages.
+    /// <para>
+    /// When <c>false</c> (the default): painting annotations for <c>file://</c> and <c>s3://</c>
+    /// imageUris are omitted from synthesised Manifests entirely — no file path is embedded in
+    /// the manifest and no image is served.  The text index and all other endpoints are unaffected.
+    /// </para>
+    /// <para>
+    /// When <c>true</c>: the synthesised Manifest includes a painting annotation whose
+    /// <c>body.id</c> is a <c>/proxy/image?uri=…</c> URL on the Search API.  The Search API must
+    /// also have <c>AllowFileImageProxy: true</c> for that URL to return real file content.
+    /// Only enable this in trusted environments (e.g. local development) where the files
+    /// referenced by <c>imageUri</c> are not access-controlled.
+    /// </para>
+    /// </summary>
+    public bool AllowFileImageProxy { get; set; } = false;
+
     /// <summary>
     /// Maximum number of ALTO files fetched concurrently within a single job.
     /// The right value depends on the source:

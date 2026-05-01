@@ -96,10 +96,11 @@ tr:hover td { background: #f9f9f9; }
   font-size: 0.78rem;
   font-weight: 600;
 }
-.status-Completed  { background: #d4edda; color: #155724; }
-.status-Failed     { background: #f8d7da; color: #721c24; }
-.status-Running    { background: #fff3cd; color: #856404; }
-.status-Waiting    { background: #e2e3e5; color: #383d41; }
+.status-Completed   { background: #d4edda; color: #155724; }
+.status-Failed      { background: #f8d7da; color: #721c24; }
+.status-Processing  { background: #fff3cd; color: #856404; }
+.status-Waiting     { background: #e2e3e5; color: #383d41; }
+.status-Unknown     { background: #e2e3e5; color: #888; }
 
 progress { width: 80px; height: 10px; }
 

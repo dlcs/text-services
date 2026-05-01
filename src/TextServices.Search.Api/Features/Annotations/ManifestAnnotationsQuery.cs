@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using MediatR;
+using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.Annotations;
@@ -11,11 +12,12 @@ namespace TextServices.Search.Api.Features.Annotations;
 /// </summary>
 public record ManifestAnnotationsRequest(string Id, string SelfUrl) : IRequest<JsonNode?>;
 
-public class ManifestAnnotationsHandler(ITextStore textStore)
+public class ManifestAnnotationsHandler(ITextStore textStore, ITextCache cache)
     : IRequestHandler<ManifestAnnotationsRequest, JsonNode?>
 {
     public async Task<JsonNode?> Handle(ManifestAnnotationsRequest request, CancellationToken ct)
     {
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.Annotations, ct)) return null;
         var json = await textStore.LoadAnnotations(request.Id);
         if (json == null) return null;
 

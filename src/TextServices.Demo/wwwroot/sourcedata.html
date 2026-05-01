@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Source Data Editor — TextServices Demo</title>
+  <link rel="stylesheet" href="/demo.css">
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">TextServices Demo</a>
+  <a href="/builder.html">Builder</a>
+  <a href="/sourcedata.html">Source Data</a>
+  <a href="/viewer.html">Viewer</a>
+  <a href="/compare.html">Compare</a>
+  <a href="/figures.html">Figures</a>
+  <a href="/annotations.html">Annotations</a>
+</nav>
+<main>
+  <h1>Source Data Job Editor</h1>
+
+  <div id="error-area"></div>
+  <div id="config-info" class="info-box" style="display:none"></div>
+
+  <p style="font-size:0.88rem;color:#555;margin:0 0 0.8rem">
+    Edit the JSON below and submit it as a <code>sourceData</code> job directly to the Builder API.
+    The pre-populated example points to the local E2E fixture ALTO files using <code>file://</code> URIs —
+    adjust the paths to suit your setup. Submitted jobs appear in the
+    <a href="/builder.html">Builder jobs list</a>.
+  </p>
+
+  <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;flex-wrap:wrap">
+    <button id="new-id-btn" class="secondary" title="Replace the job ID with a new random value">New ID</button>
+    <button id="format-btn" class="secondary" title="Re-format JSON with 2-space indentation">Format JSON</button>
+    <span id="validation-msg" style="font-size:0.82rem;color:#555"></span>
+    <span style="flex:1"></span>
+    <button id="submit-btn">Submit Job</button>
+  </div>
+
+  <textarea id="json-editor"
+    rows="32"
+    spellcheck="false"
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="off"
+    style="width:100%;font-family:monospace;font-size:0.82rem;border:1px solid #ccc;border-radius:4px;padding:0.6rem;resize:vertical;background:#fafafa"
+  ></textarea>
+
+  <div id="result-area" style="margin-top:0.6rem"></div>
+</main>
+<script type="module" src="/js/sourcedata.js"></script>
+</body>
+</html>

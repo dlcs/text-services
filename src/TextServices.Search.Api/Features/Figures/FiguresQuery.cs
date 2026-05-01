@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using MediatR;
+using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.Figures;
@@ -11,11 +12,12 @@ namespace TextServices.Search.Api.Features.Figures;
 /// </summary>
 public record FiguresRequest(string Id, string SelfUrl) : IRequest<JsonNode?>;
 
-public class FiguresHandler(ITextStore textStore)
+public class FiguresHandler(ITextStore textStore, ITextCache cache)
     : IRequestHandler<FiguresRequest, JsonNode?>
 {
     public async Task<JsonNode?> Handle(FiguresRequest request, CancellationToken ct)
     {
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.Figures, ct)) return null;
         var json = await textStore.LoadFigures(request.Id);
         if (json == null) return null;
 

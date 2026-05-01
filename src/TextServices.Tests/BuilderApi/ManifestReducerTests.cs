@@ -116,7 +116,7 @@ public class ManifestReducerTests
             label: null)]);
 
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBe("https://example.org/alto/1.xml");
+        pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
     [Fact]
@@ -129,7 +129,7 @@ public class ManifestReducerTests
             label: null)]);
 
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBe("https://example.org/alto/1.xml");
+        pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public class ManifestReducerTests
             labelValue: "METS-ALTO")]);
 
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBe("https://example.org/alto/1.xml");
+        pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
     [Fact]
@@ -155,7 +155,7 @@ public class ManifestReducerTests
             labelValue: "alto xml")]);
 
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBe("https://example.org/alto/1.xml");
+        pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public class ManifestReducerTests
             label: "TEI")]);
 
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBeNull();
+        pages[0].TextUri.ShouldBeNull();
     }
 
     [Fact]
@@ -176,7 +176,7 @@ public class ManifestReducerTests
     {
         var json = Manifest(canvases: [Canvas("https://example.org/c/1", 100, 200)]);
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBeNull();
+        pages[0].TextUri.ShouldBeNull();
     }
 
     [Fact]
@@ -199,7 +199,7 @@ public class ManifestReducerTests
         ]);
 
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBe("https://example.org/alto/1.xml");
+        pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public class ManifestReducerTests
         ]);
 
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBe("https://example.org/alto/1.xml");
+        pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
     // -------------------------------------------------------------------------
@@ -239,7 +239,7 @@ public class ManifestReducerTests
             label: null)]);
 
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBe("https://example.org/ocr/1.html");
+        pages[0].TextUri.ShouldBe("https://example.org/ocr/1.html");
         pages[0].Profile.ShouldBe("text/vnd.hocr+html");
     }
 
@@ -253,7 +253,7 @@ public class ManifestReducerTests
             labelValue: "Tesseract hOCR output")]);
 
         var pages = _reducer.Reduce(json);
-        pages[0].Text.ShouldBe("https://example.org/ocr/1.html");
+        pages[0].TextUri.ShouldBe("https://example.org/ocr/1.html");
     }
 
     [Fact]
@@ -299,9 +299,9 @@ public class ManifestReducerTests
         var pages = _reducer.Reduce(json);
 
         pages.Count.ShouldBe(3);
-        pages[0].Text.ShouldBeNull();
-        pages[1].Text.ShouldBe("https://example.org/alto/2.xml");
-        pages[2].Text.ShouldBeNull();
+        pages[0].TextUri.ShouldBeNull();
+        pages[1].TextUri.ShouldBe("https://example.org/alto/2.xml");
+        pages[2].TextUri.ShouldBeNull();
     }
 
     // -------------------------------------------------------------------------
@@ -396,7 +396,7 @@ public class ManifestReducerTests
 
         pages.Count.ShouldBe(1);
         pages[0].Id.ShouldBe("https://example.org/c/audio");
-        pages[0].Text.ShouldBe("https://example.org/transcript.vtt");
+        pages[0].TextUri.ShouldBe("https://example.org/transcript.vtt");
         pages[0].Format.ShouldBe("text/vtt");
     }
 
@@ -422,7 +422,7 @@ public class ManifestReducerTests
 
         pages.Count.ShouldBe(1);
         pages[0].Id.ShouldBe("https://example.org/c/audio");
-        pages[0].Text.ShouldBe("https://example.org/transcript.vtt");
+        pages[0].TextUri.ShouldBe("https://example.org/transcript.vtt");
     }
 
     [Fact]
@@ -455,7 +455,7 @@ public class ManifestReducerTests
 
         pages.Count.ShouldBe(1);
         pages[0].Id.ShouldBe("https://example.org/c/audio");
-        pages[0].Text.ShouldBe("https://example.org/transcript.vtt");
+        pages[0].TextUri.ShouldBe("https://example.org/transcript.vtt");
         pages[0].Format.ShouldBe("text/vtt");
     }
 
@@ -488,7 +488,7 @@ public class ManifestReducerTests
         var pages = _reducer.Reduce(json);
 
         pages.Count.ShouldBe(1);
-        pages[0].Text.ShouldBe("https://example.org/transcript.vtt");
+        pages[0].TextUri.ShouldBe("https://example.org/transcript.vtt");
     }
 
     [Fact]

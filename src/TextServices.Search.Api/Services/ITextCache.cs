@@ -1,9 +1,11 @@
 using TextServices.Core.Models;
+using TextServices.Storage;
 
 namespace TextServices.Search.Api.Services;
 
 /// <summary>
-/// Memory-cached access to <see cref="Text"/> and <see cref="AutoComplete"/> artefacts.
+/// Memory-cached access to <see cref="Text"/>, <see cref="AutoComplete"/>, and
+/// <see cref="JobServices"/> capability artefacts.
 /// Abstracts the storage + cache + thundering-herd protection layers.
 /// </summary>
 public interface ITextCache
@@ -19,4 +21,11 @@ public interface ITextCache
     /// caching it on first access. Returns <see langword="null"/> if no artefact exists.
     /// </summary>
     Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the <see cref="JobServices"/> capabilities for <paramref name="key"/>,
+    /// loading and caching on first access. Returns <see langword="null"/> when no
+    /// capabilities file exists — callers should treat all services as enabled in that case.
+    /// </summary>
+    Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default);
 }

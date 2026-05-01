@@ -68,7 +68,7 @@ Produced artefacts:
 | Text index (word positions + search) | Yes | — |
 | AutoComplete index | Yes | — |
 | Plain text | Yes | — |
-| PDF | Yes | Requires image services in the Manifest |
+| PDF | Yes | Requires at least one canvas with an image URL in the Manifest's painting annotations |
 | Manifest-level line annotations | Yes | — |
 | Figures / tables / illustrations | **Only if present in source** | ALTO `<ComposedBlock>` elements with non-zero dimensions |
 
@@ -82,7 +82,7 @@ figures are never extracted.
 | Text index (word positions + search) | Yes |
 | AutoComplete index | Yes |
 | Plain text | Yes |
-| PDF | Yes (requires image services) |
+| PDF | Yes (requires image URLs in painting annotations) |
 | Manifest-level line annotations | Yes |
 | Figures / tables / illustrations | **Never** |
 
@@ -124,9 +124,22 @@ them, even if the original source did not provide a search service.
 
 ## Augmentations made to `/text-augmented/v3/{id}`
 
-The `/text-augmented/v3/{id}` endpoint returns the original Manifest JSON with the following
-augmentations applied. Each augmentation has a condition — if the condition is not met (e.g.
-no words were indexed, or no image services were found), that augmentation is silently omitted.
+The `/text-augmented/v3/{id}` endpoint loads the Manifest stored by the Builder API and injects
+search services, annotation links, and rendering links on-the-fly, then returns the result.
+
+What is stored — and therefore what the caller receives — depends on the job source:
+
+- **`sourceUri` jobs**: the original Manifest is fetched once, stored unmodified, and served as
+  the base. The caller gets back the publisher's full Manifest — labels, thumbnails, metadata,
+  rights, existing services — with the new augmentations added. Nothing in the original is
+  changed or removed.
+- **`sourceData` jobs**: no source Manifest exists. The Builder API synthesises a minimal skeleton
+  at build time containing only one canvas per page (with canvas id, dimensions, and optional
+  painting annotation). The caller gets this skeleton plus the augmentations. Labels, thumbnails,
+  and other descriptive metadata are absent.
+
+Each augmentation below has a condition — if the condition is not met (e.g. no words were indexed,
+or no canvases have painting annotations), that augmentation is silently omitted.
 
 ### `service` array — search services
 
@@ -155,8 +168,10 @@ backward-compatible viewers. Any pre-existing `service` entries in the Manifest 
 **Plain text link** — added when: any words were indexed.
 
 **PDF link** — added when: at least one image-based (non-temporal) canvas has words indexed
-and the Manifest contains IIIF Image API services that the PDF renderer can use. Temporal-only
-sources (audio/video with WebVTT) never produce a PDF.
+and the stored Manifest has painting annotations with image URLs the PDF renderer can fetch.
+For `sourceUri` jobs these come from the source Manifest's own painting annotations; for
+`sourceData` jobs they are the `imageUri` values echoed into the synthesised Manifest.
+Temporal-only sources (audio/video with WebVTT) never produce a PDF.
 
 ### Per-canvas `annotations` — line and word annotation pages
 
@@ -230,6 +245,9 @@ Content-Type: application/json
   "sourceUri": "https://example.org/iiif/my-book/manifest"
 }
 ```
+
+Add a `"services"` integer field to restrict which endpoints are built (omit for all). See
+[Service flags](docs/builder-api.md#service-flags) for the flag values.
 
 The response is `202 Accepted` with a `Location` header. Poll until `status` is `Completed`:
 

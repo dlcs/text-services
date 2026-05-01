@@ -35,11 +35,12 @@ public class CreateJobHandler(
 
         var job = new BuilderJob
         {
-            Id           = instruction.Id,
-            SourceUri    = instruction.SourceUri,
+            Id             = instruction.Id,
+            SourceUri      = instruction.SourceUri,
             SourceDataJson = sourceDataJson,
-            Status       = JobStatus.Waiting,
-            Created      = DateTimeOffset.UtcNow,
+            Status         = JobStatus.Waiting,
+            Created        = DateTimeOffset.UtcNow,
+            Services       = (int)instruction.Services,
         };
 
         db.Jobs.Add(job);

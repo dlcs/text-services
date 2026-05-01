@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using MediatR;
 using TextServices.Search.Api.Services;
+using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.Annotations;
 
@@ -17,6 +18,7 @@ public class LineAnnotationsHandler(ITextCache cache)
 {
     public async Task<JsonObject?> Handle(LineAnnotationsRequest request, CancellationToken ct)
     {
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.Annotations, ct)) return null;
         var text = await cache.GetTextAsync(request.Id, ct);
         if (text == null) return null;
 

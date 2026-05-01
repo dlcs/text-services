@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Features.Jobs;
 
@@ -25,6 +26,12 @@ public class JobInstruction : IValidatableObject
     /// Inline page sequence. Mutually exclusive with <see cref="SourceUri"/>.
     /// </summary>
     public List<PageInstruction>? SourceData { get; set; }
+
+    /// <summary>
+    /// Bitmask of services/derivatives the job should produce and expose.
+    /// Defaults to <see cref="JobServices.All"/> so existing callers are unaffected.
+    /// </summary>
+    public JobServices Services { get; set; } = JobServices.All;
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

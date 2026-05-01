@@ -53,7 +53,7 @@ public sealed class TextBuildJobTests : IDisposable
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
-                    Text = "https://example.org/alto/1.xml" },
+                    TextUri = "https://example.org/alto/1.xml" },
         };
 
         var job = await CreateJob("test/inline",
@@ -84,9 +84,9 @@ public sealed class TextBuildJobTests : IDisposable
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
-                    Text = "https://example.org/alto/1.xml" },
+                    TextUri = "https://example.org/alto/1.xml" },
             new() { Id = "https://example.org/c/2", Width = 1000, Height = 1500,
-                    Text = "https://example.org/alto/2.xml" },
+                    TextUri = "https://example.org/alto/2.xml" },
         };
 
         var job = await CreateJob("test/multipage",
@@ -120,7 +120,7 @@ public sealed class TextBuildJobTests : IDisposable
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
-                    Text = "https://example.org/alto/1.xml" },
+                    TextUri = "https://example.org/alto/1.xml" },
         };
 
         var manifestFetcher = new FakeManifestFetcher(
@@ -155,7 +155,7 @@ public sealed class TextBuildJobTests : IDisposable
     {
         var pages = new List<PageInstruction>
         {
-            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500, Text = null },
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500, TextUri = null },
         };
 
         var job = await CreateJob("test/sparse",
@@ -180,7 +180,7 @@ public sealed class TextBuildJobTests : IDisposable
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
-                    Text = "https://example.org/alto/missing.xml" },
+                    TextUri = "https://example.org/alto/missing.xml" },
         };
 
         var job = await CreateJob("test/null-alto",
@@ -208,9 +208,9 @@ public sealed class TextBuildJobTests : IDisposable
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
-                    Text = "https://example.org/alto/bad.xml" },
+                    TextUri = "https://example.org/alto/bad.xml" },
             new() { Id = "https://example.org/c/2", Width = 1000, Height = 1500,
-                    Text = "https://example.org/alto/2.xml" },
+                    TextUri = "https://example.org/alto/2.xml" },
         };
 
         var job = await CreateJob("test/partial-error",
@@ -261,7 +261,7 @@ public sealed class TextBuildJobTests : IDisposable
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/audio", Width = 0, Height = 0,
-                    Text = "https://example.org/transcript.vtt", Format = "text/vtt" },
+                    TextUri = "https://example.org/transcript.vtt", Format = "text/vtt" },
         };
 
         var job = await CreateJob("test/vtt-canvas",
@@ -286,7 +286,7 @@ public sealed class TextBuildJobTests : IDisposable
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/audio", Width = 0, Height = 0,
-                    Text = "https://example.org/transcript.vtt", Format = "text/vtt" },
+                    TextUri = "https://example.org/transcript.vtt", Format = "text/vtt" },
         };
 
         var job = await CreateJob("test/vtt-null",
@@ -309,9 +309,9 @@ public sealed class TextBuildJobTests : IDisposable
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
-                    Text = "https://example.org/alto/1.xml" },
+                    TextUri = "https://example.org/alto/1.xml" },
             new() { Id = "https://example.org/c/audio", Width = 0, Height = 0,
-                    Text = "https://example.org/transcript.vtt", Format = "text/vtt" },
+                    TextUri = "https://example.org/transcript.vtt", Format = "text/vtt" },
         };
 
         var job = await CreateJob("test/mixed-alto-vtt",
@@ -334,6 +334,145 @@ public sealed class TextBuildJobTests : IDisposable
         updated.Errors.ShouldBeNull();
     }
 
+    // -------------------------------------------------------------------------
+    // Synthetic manifest (sourceData path)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ExecuteAsync_InlineSourceData_SyntheticManifestSaved()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        var job = await CreateJob("test/sd-manifest",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+        });
+
+        // Use the real synthesiser so the manifest contains the canvas ids.
+        var sut = MakeJob(manifestSynthesiser: new ManifestSynthesiser(new TextServices.Builder.Api.Configuration.TextServicesOptions()), altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var storedManifest = await _textStore.LoadManifest(job.Id);
+        storedManifest.ShouldNotBeNull();
+        storedManifest.ShouldContain("Manifest");
+        storedManifest.ShouldContain("https://example.org/c/1");
+    }
+
+    // -------------------------------------------------------------------------
+    // Service-flag gating — what gets saved when Services is restricted
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ExecuteAsync_SearchOnly_SavesTextButNotAutocomplete()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        var job = await CreateJob("test/search-only",
+            sourceDataJson: JsonSerializer.Serialize(pages),
+            services: JobServices.Search);
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+        });
+
+        var sut = MakeJob(altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        (await _textStore.LoadText(job.Id)).ShouldNotBeNull();
+        (await _textStore.LoadAutoComplete(job.Id)).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AutocompleteOnly_SavesAutocompleteButNotText()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        var job = await CreateJob("test/ac-only",
+            sourceDataJson: JsonSerializer.Serialize(pages),
+            services: JobServices.Autocomplete);
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+        });
+
+        var sut = MakeJob(altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        (await _textStore.LoadText(job.Id)).ShouldBeNull();
+        (await _textStore.LoadAutoComplete(job.Id)).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RestrictedServices_SavesCapabilitiesFile()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        var job = await CreateJob("test/caps-saved",
+            sourceDataJson: JsonSerializer.Serialize(pages),
+            services: JobServices.Search | JobServices.Autocomplete);
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+        });
+
+        var sut = MakeJob(altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var caps = await _textStore.LoadCapabilities(job.Id);
+        caps.ShouldNotBeNull();
+        var saved = (JobServices)caps.Value;
+        saved.HasFlag(JobServices.Search).ShouldBeTrue();
+        saved.HasFlag(JobServices.Autocomplete).ShouldBeTrue();
+        saved.HasFlag(JobServices.Pdf).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_AllServices_DoesNotSaveCapabilitiesFile()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        // Default services = All
+        var job = await CreateJob("test/caps-not-saved",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+        });
+
+        var sut = MakeJob(altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        // No capabilities file means "all enabled" — backward-compatible default.
+        (await _textStore.LoadCapabilities(job.Id)).ShouldBeNull();
+    }
+
     private static string SimpleVtt() =>
         """
         WEBVTT
@@ -351,13 +490,15 @@ public sealed class TextBuildJobTests : IDisposable
     // -------------------------------------------------------------------------
 
     private async Task<BuilderJob> CreateJob(string id,
-        string? sourceUri = null, string? sourceDataJson = null)
+        string? sourceUri = null, string? sourceDataJson = null,
+        JobServices services = JobServices.All)
     {
         var job = new BuilderJob
         {
             Id             = id,
             SourceUri      = sourceUri,
             SourceDataJson = sourceDataJson,
+            Services       = (int)services,
         };
         _db.Jobs.Add(job);
         await _db.SaveChangesAsync();
@@ -365,20 +506,28 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     private TextBuildJob MakeJob(
-        IManifestFetcher?      manifestFetcher      = null,
-        IAltoFetcher?          altoFetcher          = null,
-        IVttFetcher?           vttFetcher           = null,
+        IManifestFetcher?       manifestFetcher       = null,
+        IManifestSynthesiser?   manifestSynthesiser   = null,
+        IAltoFetcher?           altoFetcher           = null,
+        IVttFetcher?            vttFetcher            = null,
         IAnnotationPageFetcher? annotationPageFetcher = null)
     {
         return new TextBuildJob(
             _db,
             manifestFetcher      ?? new FakeManifestFetcher(_ => throw new InvalidOperationException("Unexpected manifest fetch")),
+            manifestSynthesiser  ?? new FakeManifestSynthesiser(),
             altoFetcher          ?? new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null)),
             vttFetcher           ?? new FakeVttFetcher(_ => Task.FromResult<string?>(null)),
             annotationPageFetcher ?? new FakeAnnotationPageFetcher(_ => Task.FromResult<string?>(null)),
             _textStore,
             new TextServicesOptions(),
             NullLogger<TextBuildJob>.Instance);
+    }
+
+    private sealed class FakeManifestSynthesiser : IManifestSynthesiser
+    {
+        public string Synthesise(IReadOnlyList<PageInstruction> pages) =>
+            """{"type":"Manifest","id":""}""";
     }
 
     private static IAltoFetcher FakeAlto(Dictionary<string, XElement> map) =>

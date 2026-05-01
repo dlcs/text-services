@@ -322,7 +322,33 @@ Manifest. Load the URL directly in any IIIF v3 viewer that supports content sear
 | Status | Meaning |
 |---|---|
 | `200 OK` | Augmented Manifest JSON. |
-| `404 Not Found` | No stored Manifest for this `id` (only available when the job was submitted with `sourceUri`). |
+| `404 Not Found` | No stored Manifest for this `id`, or the `TextAugmented` service flag is disabled for this job. A Manifest is always stored for completed jobs — fetched from `sourceUri` or synthesised from `sourceData`. |
+
+---
+
+### GET /proxy/image?uri={uri}
+
+Proxies a local `file://` image URI to an HTTP response, so IIIF viewers can load painting
+annotation bodies from synthesised Manifests (those built from `sourceData` jobs). Also accepts
+`s3://` URIs, returning a 1×1 transparent PNG placeholder so the Manifest remains structurally
+valid without requiring S3 credentials in the serving layer.
+
+The proxy lives on the Search API — not the Builder API — because the Search API is always running
+when a viewer needs to load images from a stored Manifest. The Builder API may be shut down after
+jobs are processed.
+
+The proxy URL is constructed by the Builder API at job-processing time using `SearchApiBaseUrl`. It
+is stored inside the synthesised Manifest as the painting annotation `body.id` for any canvas whose
+`imageUri` is a `file://` or `s3://` URI.
+
+| Scheme | Response |
+|---|---|
+| `file://` | File content with inferred `Content-Type` (`image/jpeg`, `image/png`, etc.) |
+| `s3://` | 1×1 transparent PNG placeholder (`image/png`) |
+| anything else | `400 Bad Request` |
+
+**Note:** This endpoint is intended for local development and testing. In production, `sourceData`
+jobs should supply `http`/`https` imageUri values so no proxying is needed.
 
 ---
 
@@ -436,6 +462,30 @@ For older viewers also add the v1 service:
   ]
 }
 ```
+
+---
+
+## Capability gating
+
+Each endpoint checks whether its corresponding service flag is enabled before responding. The
+flags are set at job creation time via the `services` field on the Builder API POST request (see
+[Service flags](builder-api.md#service-flags)).
+
+When a job was built with a restricted `services` value, the Builder API writes a
+`capabilities.json` file to storage. The Search API reads this file and returns `404 Not Found`
+for any endpoint whose flag is absent. When no capabilities file is present — the case for all
+jobs submitted with the default `-1` (all services), and for jobs created before this feature was
+introduced — all endpoints are considered enabled.
+
+| Endpoint(s) | Required flag |
+|---|---|
+| `/search/v1/` and `/search/v2/` | `Search` (value `1`) |
+| `/autocomplete/v1/` and `/autocomplete/v2/` | `Autocomplete` (value `2`) |
+| `/text/v1/` | `FullText` (value `4`) |
+| `/pdf/v1/` | `Pdf` (value `8`) |
+| `/text-augmented/v3/` | `TextAugmented` (value `16`) |
+| `/annotations/lines/v1/`, `/annotations/words/v1/`, `/annotations/manifest/v1/` | `Annotations` (value `32`) |
+| `/identified/figures/` | `Figures` (value `64`) |
 
 ---
 

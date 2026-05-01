@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net.Http.Headers;
+using Amazon.S3;
 using Hangfire;
 using Hangfire.PostgreSql;
 using MediatR;
@@ -52,50 +53,37 @@ builder.Services.AddHangfireServer();
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
+// ---- Fetching ---------------------------------------------------------------
+
+// Single named HttpClient used by ResourceFetcher for http/https URIs.
+// Accept prefers JSON (for manifests/annotation pages) and falls back to */*
+// (for ALTO XML, VTT, or anything else). Servers return the right content type
+// regardless of negotiation in practice, but the preference is a courtesy.
+builder.Services.AddHttpClient("Resource", client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0");
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*", 0.8));
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// IAmazonS3 is optional — register it here when S3 support is needed.
+// ResourceFetcher receives null when it is absent and throws only if an s3:// URI is actually used.
+// builder.Services.AddSingleton<IAmazonS3>(new AmazonS3Client());
+
+builder.Services.AddScoped<IResourceFetcher>(sp => new ResourceFetcher(
+    sp.GetRequiredService<IHttpClientFactory>(),
+    sp.GetService<IAmazonS3>()));
+
 // ---- Manifest services ------------------------------------------------------
 
 builder.Services.AddSingleton<IManifestReducer, ManifestReducer>();
+builder.Services.AddSingleton<IManifestSynthesiser, ManifestSynthesiser>();
 builder.Services.AddScoped<IManifestFetcher, ManifestFetcher>();
 builder.Services.AddScoped<IAltoFetcher, AltoFetcher>();
 builder.Services.AddScoped<IVttFetcher, VttFetcher>();
 builder.Services.AddScoped<IAnnotationPageFetcher, AnnotationPageFetcher>();
-
-builder.Services.AddHttpClient("Manifest", client =>
-{
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0");
-    client.DefaultRequestHeaders.Accept.Add(
-        new MediaTypeWithQualityHeaderValue("application/json"));
-    client.DefaultRequestHeaders.Accept.Add(
-        new MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
-
-builder.Services.AddHttpClient("Alto", client =>
-{
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0");
-    // Accept anything — IIIF implementations vary widely in the Content-Type
-    // they set on ALTO files (application/xml, text/xml, text/plain,
-    // application/octet-stream, or nothing). We parse whatever comes back as XML.
-    client.DefaultRequestHeaders.Accept.Add(
-        new MediaTypeWithQualityHeaderValue("*/*"));
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
-
-builder.Services.AddHttpClient("Vtt", client =>
-{
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0 (+https://github.com/tomcrane/TextServices)");
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
-
-builder.Services.AddHttpClient("AnnotationPage", client =>
-{
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0 (+https://github.com/tomcrane/TextServices)");
-    client.DefaultRequestHeaders.Accept.Add(
-        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-    client.DefaultRequestHeaders.Accept.Add(
-        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
 
 // ---- Storage ----------------------------------------------------------------
 

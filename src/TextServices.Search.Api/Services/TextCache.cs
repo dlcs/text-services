@@ -6,6 +6,9 @@ using TextServices.Storage;
 
 namespace TextServices.Search.Api.Services;
 
+// Wrapper to cache nullable ints without confusing the IMemoryCache null-miss logic.
+file sealed record CapabilitiesEntry(int? Value);
+
 /// <summary>
 /// <see cref="ITextCache"/> implementation using <see cref="IMemoryCache"/> with sliding
 /// expiration, and <see cref="AsyncKeyedLocker{TKey}"/> to prevent thundering-herd on
@@ -28,6 +31,31 @@ public class TextCache(
             cacheKey:  $"ac:{key}",
             loadAsync: () => textStore.LoadAutoComplete(key),
             ct);
+
+    public async Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
+    {
+        var cacheKey = $"caps:{key}";
+
+        if (memoryCache.TryGetValue(cacheKey, out CapabilitiesEntry? cached))
+            return cached!.Value.HasValue ? (JobServices)cached.Value.Value : null;
+
+        using (await locker.LockAsync(cacheKey, ct, continueOnCapturedContext: false))
+        {
+            if (memoryCache.TryGetValue(cacheKey, out cached))
+                return cached!.Value.HasValue ? (JobServices)cached.Value.Value : null;
+
+            var raw = await textStore.LoadCapabilities(key);
+            var entry = new CapabilitiesEntry(raw);
+
+            memoryCache.Set(cacheKey, entry,
+                new MemoryCacheEntryOptions()
+                    .SetSlidingExpiration(TimeSpan.FromMinutes(options.CacheSlidingExpirationMinutes))
+                    .SetAbsoluteExpiration(TimeSpan.FromHours(options.CacheAbsoluteExpirationHours))
+                    .SetSize(1));
+
+            return raw.HasValue ? (JobServices)raw.Value : null;
+        }
+    }
 
     private async Task<T?> GetOrLoadAsync<T>(
         string cacheKey,

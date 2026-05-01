@@ -284,7 +284,7 @@ public class W3cAnnotationParsingTests
         var pages = new ManifestReducer().Reduce(manifest);
 
         pages.Count.ShouldBe(1);
-        pages[0].Text.ShouldBe("https://example.org/annotations/1");
+        pages[0].TextUri.ShouldBe("https://example.org/annotations/1");
         pages[0].Format.ShouldBe(W3cAnnotationTextFormatProvider.FormatSentinel);
     }
 
@@ -311,7 +311,7 @@ public class W3cAnnotationParsingTests
 
         var pages = new ManifestReducer().Reduce(manifest);
 
-        pages[0].Text.ShouldBe("https://example.org/alto/1.xml");
+        pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
         pages[0].Format.ShouldNotBe(W3cAnnotationTextFormatProvider.FormatSentinel);
     }
 
@@ -349,7 +349,7 @@ public class W3cAnnotationParsingTests
         var pages = new ManifestReducer().Reduce(manifest);
 
         pages.Count.ShouldBe(1);
-        pages[0].Text.ShouldBeNull();
+        pages[0].TextUri.ShouldBeNull();
     }
 
     // -------------------------------------------------------------------------

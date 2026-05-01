@@ -31,4 +31,21 @@ public class SearchApiOptions
 
     /// <summary>Root path of the filesystem text store (must match the Builder API's storage path).</summary>
     public string StorageRootPath { get; set; } = "textservices-data";
+
+    /// <summary>
+    /// Allow <c>GET /proxy/image</c> to serve <c>file://</c> image URIs.
+    /// <para>
+    /// When <c>false</c> (the default): requests for <c>file://</c> URIs return a 1×1
+    /// placeholder PNG — the file is never read, regardless of what <c>uri=</c> contains.
+    /// This is the safe default; it prevents the proxy from exposing access-controlled images
+    /// even if a proxy URL somehow ends up in an untrusted manifest.
+    /// </para>
+    /// <para>
+    /// When <c>true</c>: the proxy reads and streams the local file.  Only enable in trusted
+    /// environments (e.g. local development) where the referenced files are not access-controlled.
+    /// The Builder API's <c>AllowFileImageProxy</c> must also be <c>true</c> for proxy URLs to
+    /// be emitted in synthesised Manifests in the first place.
+    /// </para>
+    /// </summary>
+    public bool AllowFileImageProxy { get; set; } = false;
 }
