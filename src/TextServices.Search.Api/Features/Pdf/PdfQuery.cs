@@ -121,10 +121,12 @@ public class PdfHandler(
             return;
         }
 
+        var pageSequenceJson = await textStore.LoadPageSequence(id);
+
         logger.LogInformation("Generating PDF for {Id}", id);
 
         using var ms = new MemoryStream();
-        await pdfBuilder.BuildAsync(text, manifestJson, ms, ct);
+        await pdfBuilder.BuildAsync(text, manifestJson, pageSequenceJson, ms, ct);
         ms.Position = 0;
         await textStore.SavePdf(id, ms);
 

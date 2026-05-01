@@ -175,25 +175,39 @@ Removes the job record from the database. Does **not** delete the stored text ar
 ## sourceData format
 
 Use `sourceData` when you already know the page sequence and text file URLs and do not want the
-Builder API to fetch and reduce a Manifest.
+Builder API to fetch and reduce a Manifest. The format aligns with the
+[Fireball](https://github.com/dlcs/fireball) PDF assembly service payload.
 
 ```json
 {
   "id": "my-collection/my-book",
+  "title": "My Book Title",
+  "customTypes": {
+    "redacted": { "message": "This page has been redacted." },
+    "missing":  { "message": "Page missing from source." }
+  },
   "sourceData": [
     {
-      "id": "https://example.org/canvas/1",
-      "width": 3000,
-      "height": 4000,
-      "textUri": "https://example.org/alto/page-1.xml",
-      "imageUri": "https://example.org/iiif/image/page-1",
-      "profile": "http://www.loc.gov/standards/alto/v3/alto.xsd",
-      "format": null,
-      "label": null
+      "type":  "pdf",
+      "input": "https://example.org/files/cover.pdf"
     },
     {
-      "id": "https://example.org/canvas/2",
-      "width": 3000,
+      "id":       "https://example.org/canvas/1",
+      "width":    3000,
+      "height":   4000,
+      "textUri":  "https://example.org/alto/page-1.xml",
+      "imageUri": "https://example.org/iiif/image/page-1/full/max/0/default.jpg",
+      "profile":  "http://www.loc.gov/standards/alto/v3/alto.xsd"
+    },
+    {
+      "type":   "redacted",
+      "id":     "https://example.org/canvas/2",
+      "width":  3000,
+      "height": 4000
+    },
+    {
+      "id":     "https://example.org/canvas/3",
+      "width":  3000,
       "height": 4000,
       "textUri": null
     }
@@ -201,17 +215,60 @@ Builder API to fetch and reduce a Manifest.
 }
 ```
 
-| Field | Description |
-|---|---|
-| `id` | Canvas identifier URI. Used as the canvas reference in search results. |
-| `width` | Canvas width in pixels. Used to rescale ALTO coordinates when ALTO and canvas dimensions differ. |
-| `height` | Canvas height in pixels. |
-| `textUri` | URI of the text file for this canvas. `null` for canvases without text (sparse pages are normal). |
-| `imageUri` | URL of the image for this canvas. Used as the `body.id` of the painting annotation in the synthesised Manifest, and as the image source when generating PDFs. For `sourceUri` jobs this value comes from the `body.id` of the source Manifest's own painting annotation — it is an already-resolved image URL and is not assumed to be a IIIF Image API service root. `http`/`https` URLs are used as-is; `file://` URIs are proxied via `GET /proxy/image` on the Search API (requires `SearchApiBaseUrl` — see [Configuration](#configuration)); `s3://` URIs return a placeholder image. Omit for temporal (audio/video) canvases. |
-| `duration` | Canvas duration in seconds (double). Required for temporal (audio/video) canvases; omit for image-based pages. |
-| `profile` | IIIF `seeAlso` profile URI — used alongside `format` to select the correct text-format provider. |
-| `format` | MIME type (e.g. `text/vtt`). |
-| `label` | Fallback display label; used for provider selection when `profile` is absent. |
+### Job-level fields
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Storage key (required). |
+| `title` | string\|null | Document title. Used as PDF metadata and `Content-Disposition` filename. |
+| `customTypes` | object\|null | Dictionary of named custom page types (see [Custom page types](#custom-page-types)). |
+| `sourceData` | array | Page sequence (required for `sourceData` jobs). |
+
+### Page fields
+
+| Field | Type | Description |
+|---|---|---|
+| `type` | string\|null | Page type. `null`/absent = normal image or temporal canvas. `"pdf"` = embed an existing PDF at this position (see below). Any other string = a custom page type whose name must match a key in `customTypes`. |
+| `id` | string | Canvas identifier URI. Required for all page types except `"pdf"`. Used as the canvas `id` in the synthesised Manifest and as the canvas reference in search results. |
+| `width` | int | Canvas width in pixels. Used to rescale ALTO coordinates when ALTO and canvas dimensions differ. |
+| `height` | int | Canvas height in pixels. |
+| `textUri` | string\|null | URI of the text file for this canvas. `null` for canvases without text (sparse pages are normal). |
+| `imageUri` | string\|null | URL of the source image. Used as the painting annotation `body.id` in the synthesised Manifest and as the image source when generating PDFs. `http`/`https` URLs are used as-is; `file://` URIs are proxied via `GET /proxy/image` on the Search API; `s3://` URIs return a placeholder image. Omit for temporal (audio/video) canvases. |
+| `input` | string\|null | For `"pdf"`-type pages: URI of the PDF to embed (supports `http/https` and `file://`). For normal pages: alias for `imageUri` (Fireball compatibility — `imageUri` takes precedence when both are set). |
+| `duration` | double\|null | Canvas duration in seconds. Required for temporal (audio/video) canvases; omit for image-based pages. |
+| `profile` | string\|null | IIIF `seeAlso` profile URI — used alongside `format` to select the text-format provider. |
+| `format` | string\|null | MIME type (e.g. `text/vtt`). |
+| `label` | string\|null | Fallback label; used for provider selection when `profile` is absent. |
+
+### pdf-type pages
+
+A page with `"type": "pdf"` embeds an existing PDF at that position in the output PDF. It
+produces **no canvas** in the synthesised Manifest — pdf-type pages are invisible to IIIF viewers
+and to the text index. They exist only in the PDF output.
+
+Each page of the embedded PDF is scaled to fit the reference page size (derived from the actual
+pixel dimensions of the first image-based canvas in the job), preserving aspect ratio. If the
+embedded PDF's aspect ratio differs from the image pages, it is letterboxed or pillarboxed and
+centred on the page.
+
+The `input` URI must be a fetchable PDF: `http/https` (fetched via HTTP) or `file://` (read
+from disk). S3 URIs are not yet supported for pdf-type embedding.
+
+### Custom page types
+
+A page whose `type` is any string other than `"pdf"` is a custom page type. It **does** produce
+a canvas in the synthesised Manifest (with no painting annotation), and in the output PDF it
+renders a page containing the centred message defined in `customTypes`. The page is sized to
+match the image pages (same reference size as embedded PDFs above).
+
+
+```json
+"customTypes": {
+  "redacted": { "message": "This page has been redacted." }
+}
+```
+
+If the page type does not appear in `customTypes`, the type string itself is used as the message.
 
 ### Stored Manifest — the two paths
 

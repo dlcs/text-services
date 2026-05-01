@@ -9,6 +9,7 @@ const STORAGE_KEY = 'textservices_demo_jobs';  // localStorage key
 // ---- DOM refs ----------------------------------------------------------------
 const errorArea    = document.getElementById('error-area');
 const configInfo   = document.getElementById('config-info');
+const apiError     = document.getElementById('api-error');
 const submitForm   = document.getElementById('submit-form');
 const jobIdInput   = document.getElementById('job-id');
 const manifestInput= document.getElementById('manifest-url');
@@ -93,6 +94,7 @@ async function refreshJobs() {
 
     // Pull the full job list from the API — this gives us status without extra requests.
     let apiJobs = [];
+    let apiReachable = true;
     try {
         // TODO: add paging controls — pageSize=100 is a temporary workaround
         const res = await fetch(`${config.builderApi}/textbuilder?pageSize=100`);
@@ -106,8 +108,23 @@ async function refreshJobs() {
                 }
             }
             localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+        } else {
+            apiReachable = false;
+            console.warn(`Builder API returned ${res.status} for GET /textbuilder`);
         }
-    } catch { /* API may not be running */ }
+    } catch (err) {
+        apiReachable = false;
+        console.warn(`Builder API not reachable at ${config.builderApi}: ${err.message}`);
+    }
+
+    if (apiError) {
+        if (apiReachable) {
+            apiError.style.display = 'none';
+        } else {
+            apiError.textContent = `⚠ Cannot reach Builder API at ${config.builderApi} — showing locally tracked jobs only.`;
+            apiError.style.display = 'block';
+        }
+    }
 
     // Use the list response as the primary source of job data.
     const apiJobMap = new Map(apiJobs.map(j => [j.id, j]));
@@ -127,7 +144,8 @@ async function refreshJobs() {
         })
     );
 
-    const allIds = [...new Set([...stored.map(j => j.id), ...apiJobs.map(j => j.id)])];
+    // API jobs are already newest-first; local-only jobs follow in localStorage order.
+    const allIds = [...apiJobs.map(j => j.id), ...localOnlyIds];
     const rows = allIds.map(id => {
         const job = apiJobMap.get(id) ?? localJobMap.get(id) ?? null;
         const stored_ = stored.find(s => s.id === id);
@@ -232,10 +250,10 @@ function renderProgress(job) {
     if (job.status === 'Completed' || job.status === 'Failed') {
         return `${job.pagesCompleted}/${job.totalPages}`;
     }
-    if (job.status === 'Processing' && job.totalPages > 0) {
+    if (job.status === 'Running' && job.totalPages > 0) {
         return `<progress value="${job.pagesCompleted}" max="${job.totalPages}"></progress> ${job.pagesCompleted}/${job.totalPages}`;
     }
-    return job.status === 'Waiting' || job.status === 'Processing' ? 'queued' : '—';
+    return job.status === 'Waiting' || job.status === 'Running' ? 'queued' : '—';
 }
 
 // ---- Polling -----------------------------------------------------------------

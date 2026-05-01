@@ -42,4 +42,13 @@ public class BuilderJob
     /// derivatives are built and which endpoints are exposed. -1 means all services enabled.
     /// </summary>
     public int Services { get; set; } = -1;
+
+    /// <summary>Optional document title (PDF metadata / Content-Disposition).</summary>
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// JSON-serialised <c>Dictionary&lt;string, CustomPageType&gt;</c> from the original
+    /// job instruction. Null when no custom page types were supplied.
+    /// </summary>
+    public string? CustomTypesJson { get; set; }
 }

@@ -57,6 +57,15 @@ h2 { font-size: 1.1rem; margin: 1rem 0 0.5rem; }
   margin-bottom: 0.8rem;
   color: #900;
 }
+.warning-box {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.8rem;
+  color: #7a5500;
+}
 
 button, input[type=submit] {
   cursor: pointer;

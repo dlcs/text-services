@@ -33,6 +33,17 @@ public class JobInstruction : IValidatableObject
     /// </summary>
     public JobServices Services { get; set; } = JobServices.All;
 
+    /// <summary>
+    /// Optional document title used as PDF metadata and Content-Disposition filename.
+    /// </summary>
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// Named custom page types referenced by <see cref="PageInstruction.Type"/>.
+    /// Each entry defines the message rendered centred on the generated PDF page.
+    /// </summary>
+    public Dictionary<string, CustomPageType>? CustomTypes { get; set; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         var hasUri  = !string.IsNullOrWhiteSpace(SourceUri);
@@ -47,5 +58,17 @@ public class JobInstruction : IValidatableObject
             yield return new ValidationResult(
                 "Provide sourceUri or sourceData, not both.",
                 [nameof(SourceUri), nameof(SourceData)]);
+
+        if (SourceData != null)
+        {
+            foreach (var page in SourceData)
+            {
+                if (!string.Equals(page.Type, "pdf", StringComparison.OrdinalIgnoreCase)
+                    && string.IsNullOrEmpty(page.Id))
+                    yield return new ValidationResult(
+                        "Each non-pdf page in sourceData must supply an 'id' (canvas identifier URI).",
+                        [nameof(SourceData)]);
+            }
+        }
     }
 }

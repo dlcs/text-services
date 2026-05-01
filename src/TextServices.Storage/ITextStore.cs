@@ -101,4 +101,21 @@ public interface ITextStore
     /// capabilities file exists (caller should assume all services are enabled).
     /// </summary>
     Task<int?> LoadCapabilities(string key);
+
+    /// <summary>
+    /// Persists the page-sequence JSON for a <c>sourceData</c> job.
+    /// Stores the ordered list of page entries (including <c>pdf</c>-embed and
+    /// custom-type pages) together with the document title and resolved custom-type
+    /// messages. Used by the PDF builder to reconstruct the full page sequence,
+    /// including pages that have no canvas in the synthesised Manifest.
+    /// </summary>
+    Task SavePageSequence(string key, string json);
+
+    /// <summary>
+    /// Loads the page-sequence JSON for the given key, or <see langword="null"/> when
+    /// none exists. A null result means the job was submitted with <c>sourceUri</c>
+    /// (or pre-dates this feature) and the PDF builder should fall back to the
+    /// manifest-based path.
+    /// </summary>
+    Task<string?> LoadPageSequence(string key);
 }
