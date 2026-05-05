@@ -14,14 +14,14 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
     public async Task<SearchAnnotationPageV2?> Handle(SearchV2Request request, CancellationToken ct)
     {
         if (!await cache.IsEnabledAsync(request.Id, JobServices.Search, ct)) return null;
+
+        if (string.IsNullOrWhiteSpace(request.Query))
+            return new SearchAnnotationPageV2 { Id = request.SelfUrl, Items = [], Annotations = null };
+
         var text = await cache.GetTextAsync(request.Id, ct);
         if (text == null) return null;
 
-        var rects = string.IsNullOrWhiteSpace(request.Query)
-            ? []
-            : text.Search(request.Query);
-
-        return BuildResponse(text, rects, request.SelfUrl);
+        return BuildResponse(text, text.Search(request.Query), request.SelfUrl);
     }
 
     private static SearchAnnotationPageV2 BuildResponse(

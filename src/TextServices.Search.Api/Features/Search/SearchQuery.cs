@@ -13,14 +13,14 @@ public class SearchHandler(ITextCache cache) : IRequestHandler<SearchRequest, Se
     public async Task<SearchAnnotationList?> Handle(SearchRequest request, CancellationToken ct)
     {
         if (!await cache.IsEnabledAsync(request.Id, JobServices.Search, ct)) return null;
+
+        if (string.IsNullOrWhiteSpace(request.Query))
+            return new SearchAnnotationList { Id = request.SelfUrl, Within = new SearchLayer { Total = 0 }, Resources = [], Hits = [] };
+
         var text = await cache.GetTextAsync(request.Id, ct);
         if (text == null) return null;
 
-        var rects = string.IsNullOrWhiteSpace(request.Query)
-            ? []
-            : text.Search(request.Query);
-
-        return BuildResponse(text, rects, request.SelfUrl);
+        return BuildResponse(text, text.Search(request.Query), request.SelfUrl);
     }
 
     private static SearchAnnotationList BuildResponse(
