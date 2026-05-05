@@ -131,7 +131,7 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SearchServiceV1_HasCorrectTypeAndId()
+    public async Task Handle_SearchServiceV1_HasCorrectTypeProfileAndId()
     {
         var handler = MakeHandler(V3Manifest());
 
@@ -141,6 +141,7 @@ public class TextAugmentedHandlerTests
         var searchServiceV1 = result!["service"]![1]!;
         searchServiceV1["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV1);
         searchServiceV1["type"]!.GetValue<string>().ShouldBe("SearchService1");
+        searchServiceV1["profile"]!.GetValue<string>().ShouldBe("http://iiif.io/api/search/1/search");
     }
 
     [Fact]
@@ -167,6 +168,7 @@ public class TextAugmentedHandlerTests
         var autocomplete = result!["service"]![1]!["service"]![0]!;
         autocomplete["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV1);
         autocomplete["type"]!.GetValue<string>().ShouldBe("AutoCompleteService1");
+        autocomplete["profile"]!.GetValue<string>().ShouldBe("http://iiif.io/api/search/1/autocomplete");
     }
 
     // -------------------------------------------------------------------------

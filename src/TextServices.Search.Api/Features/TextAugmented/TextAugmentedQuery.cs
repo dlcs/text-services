@@ -53,10 +53,12 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         {
             ["id"]   = $"{base_}/search/v1/{id}",
             ["type"] = "SearchService1",
+            ["profile"] = "http://iiif.io/api/search/1/search",
             ["service"] = new JsonArray(new JsonObject
             {
                 ["id"]   = $"{base_}/autocomplete/v1/{id}",
                 ["type"] = "AutoCompleteService1",
+                ["profile"] = "http://iiif.io/api/search/1/autocomplete",
             }),
         };
 
