@@ -33,4 +33,4 @@ jobs:
         run: dotnet build src/TextServices.sln --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test src/TextServices.Tests/TextServices.Tests.csproj --no-build --configuration Release
+        run: dotnet test src/TextServices.sln --no-build --configuration Release
