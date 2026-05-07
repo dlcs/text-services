@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY src/Directory.Build.props .
+COPY src/TextServices.Demo/TextServices.Demo.csproj TextServices.Demo/
+RUN dotnet restore TextServices.Demo/TextServices.Demo.csproj
+
+COPY src/TextServices.Demo/ TextServices.Demo/
+RUN dotnet publish TextServices.Demo/TextServices.Demo.csproj \
+    -c Release -o /app/publish --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "TextServices.Demo.dll"]

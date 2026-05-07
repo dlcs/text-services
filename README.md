@@ -382,32 +382,45 @@ The Search API must be configured with the same path via `StorageRootPath`.
 
 ## Docker
 
-Two Dockerfiles are provided at the repo root, one per API. Both use a multi-stage build and must
-be run with the **repo root** as the build context:
+Three Dockerfiles are provided at the repo root — one per application — all using a two-stage
+build (SDK for compile, ASP.NET runtime for the final image). The build context is always the
+**repo root**.
+
+### docker-compose (recommended for local dev)
+
+`docker-compose.yml` brings up the full stack with a single command:
 
 ```bash
-# Builder API
-docker build -f Dockerfile.Builder -t textservices-builder:local .
-
-# Search API
-docker build -f Dockerfile.Search -t textservices-search:local .
+docker compose up --build
 ```
 
-Each image exposes port `8080`. Pass configuration via environment variables at runtime:
+| Service | Host port | Description |
+|---|---|---|
+| `postgres` | 5452 | PostgreSQL 14 (job state + Hangfire queue) |
+| `builder` | 5283 | Builder API |
+| `search` | 5294 | Search API |
+| `demo` | 5100 | Demo UI |
+
+The Builder and Search APIs share a named Docker volume (`txt_textservices_data`) for text
+artefacts. The Builder API applies EF Core migrations automatically on startup
+(`RunMigrations=true`).
+
+Both APIs run with `ASPNETCORE_ENVIRONMENT=Development`, which enables the OpenAPI docs
+(`/openapi/v1.json`) and the Hangfire dashboard (`http://localhost:5283/hangfire`).
+
+After startup, open http://localhost:5100.
+
+### Building images individually
 
 ```bash
-docker run -p 8080:8080 \
-  -e ConnectionStrings__BuilderDb="Host=postgres;Database=textservices_builder;Username=postgres;Password=secret" \
-  -e RunMigrations=true \
-  textservices-builder:local
+docker build -f Dockerfile.Builder -t textservices-builder .
+docker build -f Dockerfile.Search  -t textservices-search .
+docker build -f Dockerfile.Demo    -t textservices-demo .
 ```
 
-```bash
-docker run -p 8081:8080 \
-  -e TextServices__Storage__RootPath=/data \
-  -v /host/textservices-data:/data \
-  textservices-search:local
-```
+Each image exposes port `8080`. Configuration is supplied via environment variables using the
+standard .NET double-underscore separator for nested keys (e.g.
+`TextServices__Storage__RootPath=/data`).
 
 ---
 
