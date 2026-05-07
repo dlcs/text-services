@@ -5,13 +5,24 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
+using TextServices.Infrastructure.Http;
 using TextServices.Builder.Api.Services;
 using TextServices.Storage;
 
+Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
+Log.Information("Application starting...");
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((hostContext, loggerConfig) =>
+    loggerConfig
+        .ReadFrom.Configuration(hostContext.Configuration)
+        .Enrich.FromLogContext()
+        .Enrich.WithCorrelationId());
 
 // ---- CORS -------------------------------------------------------------------
 
@@ -95,7 +106,9 @@ builder.Services.AddSingleton<ITextStore>(_ =>
 
 // ---- HTTP -------------------------------------------------------------------
 
-builder.Services.AddControllers();
+builder.Services
+    .AddHttpContextAccessor()
+    .AddCorrelationIdHeaderPropagation();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
@@ -106,6 +119,7 @@ if (app.Environment.IsDevelopment())
     app.UseHangfireDashboard("/hangfire");
 }
 
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseCors();
 app.UseHttpsRedirection();
 
