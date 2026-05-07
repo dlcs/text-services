@@ -46,8 +46,7 @@ builder.Services.AddSingleton(tsOptions);
 var connectionString = builder.Configuration.GetConnectionString("BuilderDb")
     ?? throw new InvalidOperationException("ConnectionStrings:BuilderDb is required.");
 
-builder.Services.AddDbContext<BuilderDbContext>(o =>
-    o.UseNpgsql(connectionString));
+builder.Services.AddDbContext<BuilderDbContext>(o => o.UseNpgsql(connectionString).UseSnakeCaseNamingConvention());
 
 // ---- Hangfire ---------------------------------------------------------------
 
