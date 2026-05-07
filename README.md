@@ -380,6 +380,37 @@ The Search API must be configured with the same path via `StorageRootPath`.
 
 ---
 
+## Docker
+
+Two Dockerfiles are provided at the repo root, one per API. Both use a multi-stage build and must
+be run with the **repo root** as the build context:
+
+```bash
+# Builder API
+docker build -f Dockerfile.Builder -t textservices-builder:local .
+
+# Search API
+docker build -f Dockerfile.Search -t textservices-search:local .
+```
+
+Each image exposes port `8080`. Pass configuration via environment variables at runtime:
+
+```bash
+docker run -p 8080:8080 \
+  -e ConnectionStrings__BuilderDb="Host=postgres;Database=textservices_builder;Username=postgres;Password=secret" \
+  -e RunMigrations=true \
+  textservices-builder:local
+```
+
+```bash
+docker run -p 8081:8080 \
+  -e TextServices__Storage__RootPath=/data \
+  -v /host/textservices-data:/data \
+  textservices-search:local
+```
+
+---
+
 ## Documentation
 
 - [Builder API reference](docs/builder-api.md)
