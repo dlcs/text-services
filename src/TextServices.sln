@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextServices.Demo", "TextSe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextServices.Pdf", "TextServices.Pdf\TextServices.Pdf.csproj", "{7994FB5F-08E7-401D-B6F4-5488541877BC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextServices.Infrastructure", "TextServices.Infrastructure\TextServices.Infrastructure.csproj", "{209A6FAD-0476-42F5-92CC-624C677D661A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -125,6 +127,18 @@ Global
 		{7994FB5F-08E7-401D-B6F4-5488541877BC}.Release|x64.Build.0 = Release|Any CPU
 		{7994FB5F-08E7-401D-B6F4-5488541877BC}.Release|x86.ActiveCfg = Release|Any CPU
 		{7994FB5F-08E7-401D-B6F4-5488541877BC}.Release|x86.Build.0 = Release|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Debug|x64.Build.0 = Debug|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Debug|x86.Build.0 = Debug|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Release|x64.ActiveCfg = Release|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Release|x64.Build.0 = Release|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Release|x86.ActiveCfg = Release|Any CPU
+		{209A6FAD-0476-42F5-92CC-624C677D661A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

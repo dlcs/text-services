@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AWSSDK.S3" Version="4.0.19.4" />
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.5" />
@@ -30,6 +34,7 @@
     <ProjectReference Include="..\TextServices.Builder.Api\TextServices.Builder.Api.csproj" />
     <ProjectReference Include="..\TextServices.Search.Api\TextServices.Search.Api.csproj" />
     <ProjectReference Include="..\TextServices.Pdf\TextServices.Pdf.csproj" />
+    <ProjectReference Include="..\TextServices.Infrastructure\TextServices.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

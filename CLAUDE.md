@@ -37,6 +37,7 @@ C:/git/tomcrane/TextServices/
 │   ├── TextServices.sln
 │   ├── TextServices.Core/          # Class library — models, text building, format providers
 │   ├── TextServices.Storage/       # Storage abstraction + filesystem + S3 implementations
+│   ├── TextServices.Infrastructure/ # Shared ASP.NET middleware — Serilog, CorrelationId
 │   ├── TextServices.Builder.Api/   # ASP.NET 10 — async job API for building Text artefacts
 │   ├── TextServices.Search.Api/    # ASP.NET 10 — IIIF Search and Autocomplete API
 │   ├── TextServices.Tests/         # XUnit + FluentAssertions unit/integration tests

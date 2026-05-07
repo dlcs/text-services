@@ -2,8 +2,10 @@ using System.IO.Compression;
 using AsyncKeyedLock;
 using MediatR;
 using Microsoft.AspNetCore.ResponseCompression;
-using Microsoft.Extensions.Caching.Memory;
+using Serilog;
+using Serilog.Events;
 using TextServices.Search.Api.Configuration;
+using TextServices.Infrastructure.Http;
 using TextServices.Pdf;
 using TextServices.Search.Api.Features.Annotations;
 using TextServices.Search.Api.Features.Autocomplete;
@@ -15,7 +17,16 @@ using TextServices.Search.Api.Features.TextAugmented;
 using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
+Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
+Log.Information("Application starting...");
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((hostContext, loggerConfig) =>
+    loggerConfig
+        .ReadFrom.Configuration(hostContext.Configuration)
+        .Enrich.FromLogContext()
+        .Enrich.WithCorrelationId());
 
 // ---- Response compression ---------------------------------------------------
 
@@ -84,13 +95,22 @@ builder.Services.AddMediatR(cfg =>
 
 // ---- HTTP -------------------------------------------------------------------
 
-builder.Services.AddOpenApi();
+builder.Services
+    .AddHttpContextAccessor()
+    .AddCorrelationIdHeaderPropagation()
+    .AddOpenApi();
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseSerilogRequestLogging(opts =>
+    opts.GetLevel = (ctx, _, _) =>
+        ctx.Request.Path.StartsWithSegments("/health")
+            ? LogEventLevel.Verbose
+            : LogEventLevel.Information);
 app.UseResponseCompression();
 app.UseCors();
 app.UseHttpsRedirection();

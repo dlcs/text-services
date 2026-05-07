@@ -1,0 +1,21 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy project files first for restore layer caching
+COPY src/Directory.Build.props .
+COPY src/TextServices.Core/TextServices.Core.csproj TextServices.Core/
+COPY src/TextServices.Storage/TextServices.Storage.csproj TextServices.Storage/
+COPY src/TextServices.Infrastructure/TextServices.Infrastructure.csproj TextServices.Infrastructure/
+COPY src/TextServices.Pdf/TextServices.Pdf.csproj TextServices.Pdf/
+COPY src/TextServices.Search.Api/TextServices.Search.Api.csproj TextServices.Search.Api/
+RUN dotnet restore TextServices.Search.Api/TextServices.Search.Api.csproj
+
+COPY src/ .
+RUN dotnet publish TextServices.Search.Api/TextServices.Search.Api.csproj \
+    -c Release -o /app/publish --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "TextServices.Search.Api.dll"]

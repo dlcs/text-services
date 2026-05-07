@@ -5,13 +5,25 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
+using Serilog.Events;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
+using TextServices.Infrastructure.Http;
 using TextServices.Builder.Api.Services;
 using TextServices.Storage;
 
+Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
+Log.Information("Application starting...");
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((hostContext, loggerConfig) =>
+    loggerConfig
+        .ReadFrom.Configuration(hostContext.Configuration)
+        .Enrich.FromLogContext()
+        .Enrich.WithCorrelationId());
 
 // ---- CORS -------------------------------------------------------------------
 
@@ -35,8 +47,7 @@ builder.Services.AddSingleton(tsOptions);
 var connectionString = builder.Configuration.GetConnectionString("BuilderDb")
     ?? throw new InvalidOperationException("ConnectionStrings:BuilderDb is required.");
 
-builder.Services.AddDbContext<BuilderDbContext>(o =>
-    o.UseNpgsql(connectionString));
+builder.Services.AddDbContext<BuilderDbContext>(o => o.UseNpgsql(connectionString).UseSnakeCaseNamingConvention());
 
 // ---- Hangfire ---------------------------------------------------------------
 
@@ -95,8 +106,12 @@ builder.Services.AddSingleton<ITextStore>(_ =>
 
 // ---- HTTP -------------------------------------------------------------------
 
-builder.Services.AddControllers();
+builder.Services
+    .AddHttpContextAccessor()
+    .AddCorrelationIdHeaderPropagation();
 builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<BuilderDbContext>();
 
 var app = builder.Build();
 
@@ -106,10 +121,18 @@ if (app.Environment.IsDevelopment())
     app.UseHangfireDashboard("/hangfire");
 }
 
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseSerilogRequestLogging(opts =>
+    opts.GetLevel = (ctx, _, _) =>
+        ctx.Request.Path.StartsWithSegments("/health")
+            ? LogEventLevel.Verbose
+            : LogEventLevel.Information);
 app.UseCors();
 app.UseHttpsRedirection();
 
 // ---- Endpoints --------------------------------------------------------------
+
+app.MapHealthChecks("/health");
 
 // POST /textbuilder
 app.MapPost("/textbuilder", async (JobInstruction instruction, ISender sender) =>
@@ -166,6 +189,8 @@ app.MapDelete("/textbuilder/{**id}", async (string id, ISender sender) =>
     var found = await sender.Send(new DeleteJobRequest(id));
     return found ? Results.NoContent() : Results.NotFound();
 });
+
+BuilderDbContextConfiguration.TryRunMigrations(app.Configuration, app.Logger);
 
 app.Run();
 
