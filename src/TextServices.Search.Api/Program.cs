@@ -3,6 +3,7 @@ using AsyncKeyedLock;
 using MediatR;
 using Microsoft.AspNetCore.ResponseCompression;
 using Serilog;
+using Serilog.Events;
 using TextServices.Search.Api.Configuration;
 using TextServices.Infrastructure.Http;
 using TextServices.Pdf;
@@ -105,6 +106,11 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseSerilogRequestLogging(opts =>
+    opts.GetLevel = (ctx, _, _) =>
+        ctx.Request.Path.StartsWithSegments("/health")
+            ? LogEventLevel.Verbose
+            : LogEventLevel.Information);
 app.UseResponseCompression();
 app.UseCors();
 app.UseHttpsRedirection();

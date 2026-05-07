@@ -6,6 +6,7 @@ using Hangfire.PostgreSql;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Serilog.Events;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
@@ -109,6 +110,8 @@ builder.Services
     .AddHttpContextAccessor()
     .AddCorrelationIdHeaderPropagation();
 builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<BuilderDbContext>();
 
 var app = builder.Build();
 
@@ -119,10 +122,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseSerilogRequestLogging(opts =>
+    opts.GetLevel = (ctx, _, _) =>
+        ctx.Request.Path.StartsWithSegments("/health")
+            ? LogEventLevel.Verbose
+            : LogEventLevel.Information);
 app.UseCors();
 app.UseHttpsRedirection();
 
 // ---- Endpoints --------------------------------------------------------------
+
+app.MapHealthChecks("/health");
 
 // POST /textbuilder
 app.MapPost("/textbuilder", async (JobInstruction instruction, ISender sender) =>
