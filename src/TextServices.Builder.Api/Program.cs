@@ -180,6 +180,8 @@ app.MapDelete("/textbuilder/{**id}", async (string id, ISender sender) =>
     return found ? Results.NoContent() : Results.NotFound();
 });
 
+BuilderDbContextConfiguration.TryRunMigrations(app.Configuration, app.Logger);
+
 app.Run();
 
 // Make Program visible to integration test projects
