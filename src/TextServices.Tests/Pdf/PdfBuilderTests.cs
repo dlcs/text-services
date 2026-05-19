@@ -20,8 +20,8 @@ public sealed class PdfBuilderTests
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==");
 
     // At 150 DPI, 1 pixel → 1 * 72 / 150 = 0.48 pt
-    private const float TinyPt  = 1f * 72f / 150f;
-    private const float Delta   = 0.02f;
+    private const float TinyPt = 1f * 72f / 150f;
+    private const float Delta = 0.02f;
 
     // -------------------------------------------------------------------------
     // ChooseImageUrl — tested via HTTP call tracking
@@ -31,17 +31,17 @@ public sealed class PdfBuilderTests
     public async Task BuildAsync_NoService_FetchesStaticImageUrl()
     {
         var requested = new List<string?>();
-        var factory   = CreateFactory(req =>
+        var factory = CreateFactory(req =>
         {
             requested.Add(req.RequestUri?.ToString());
             return OkImage(TinyPng);
         });
-        var sut   = MakeSut(factory);
-        var text  = MakeText(["https://example.org/canvas/1"]);
+        var sut = MakeSut(factory);
+        var text = MakeText(["https://example.org/canvas/1"]);
         var manifest = OneCanvasManifest(
-            canvasId:  "https://example.org/canvas/1",
-            imageId:   "https://example.org/image/1.jpg",
-            canvasW:   2000, canvasH: 3000);
+            canvasId: "https://example.org/canvas/1",
+            imageId: "https://example.org/image/1.jpg",
+            canvasW: 2000, canvasH: 3000);
 
         using var output = new MemoryStream();
         await sut.BuildAsync(text, manifest, null, output, CancellationToken.None);
@@ -53,19 +53,19 @@ public sealed class PdfBuilderTests
     public async Task BuildAsync_WithServiceAndSizes_FetchesBestFitSizeUrl()
     {
         var requested = new List<string?>();
-        var factory   = CreateFactory(req =>
+        var factory = CreateFactory(req =>
         {
             requested.Add(req.RequestUri?.ToString());
             return OkImage(TinyPng);
         });
-        var sut   = MakeSut(factory);
-        var text  = MakeText(["https://example.org/canvas/1"]);
+        var sut = MakeSut(factory);
+        var text = MakeText(["https://example.org/canvas/1"]);
         var manifest = OneCanvasManifest(
-            canvasId:  "https://example.org/canvas/1",
-            imageId:   "https://example.org/image/full/full/0/default.jpg",
-            canvasW:   4000, canvasH: 6000,
+            canvasId: "https://example.org/canvas/1",
+            imageId: "https://example.org/image/full/full/0/default.jpg",
+            canvasW: 4000, canvasH: 6000,
             serviceId: "https://example.org/image",
-            sizes:     [(500, 750), (1000, 1500), (2000, 3000)]);
+            sizes: [(500, 750), (1000, 1500), (2000, 3000)]);
 
         using var output = new MemoryStream();
         await sut.BuildAsync(text, manifest, null, output, CancellationToken.None);
@@ -78,19 +78,19 @@ public sealed class PdfBuilderTests
     public async Task BuildAsync_WithServiceNoSizes_FetchesBangUrl()
     {
         var requested = new List<string?>();
-        var factory   = CreateFactory(req =>
+        var factory = CreateFactory(req =>
         {
             requested.Add(req.RequestUri?.ToString());
             return OkImage(TinyPng);
         });
-        var sut   = MakeSut(factory);
-        var text  = MakeText(["https://example.org/canvas/1"]);
+        var sut = MakeSut(factory);
+        var text = MakeText(["https://example.org/canvas/1"]);
         var manifest = OneCanvasManifest(
-            canvasId:  "https://example.org/canvas/1",
-            imageId:   "https://example.org/image/full/full/0/default.jpg",
-            canvasW:   4000, canvasH: 6000,
+            canvasId: "https://example.org/canvas/1",
+            imageId: "https://example.org/image/full/full/0/default.jpg",
+            canvasW: 4000, canvasH: 6000,
             serviceId: "https://example.org/image",
-            sizes:     []);
+            sizes: []);
 
         using var output = new MemoryStream();
         await sut.BuildAsync(text, manifest, null, output, CancellationToken.None);
@@ -108,8 +108,8 @@ public sealed class PdfBuilderTests
         // Canvas is large (2000×3000) but fetched image is 1×1 (TinyPng).
         // Page should be sized from the fetched image, not the canvas.
         var factory = CreateFactory(_ => OkImage(TinyPng));
-        var sut     = MakeSut(factory);
-        var text    = MakeText(["https://example.org/canvas/1"]);
+        var sut = MakeSut(factory);
+        var text = MakeText(["https://example.org/canvas/1"]);
         var manifest = OneCanvasManifest(
             "https://example.org/canvas/1", "https://example.org/image/1.jpg",
             canvasW: 2000, canvasH: 3000);
@@ -129,7 +129,7 @@ public sealed class PdfBuilderTests
         // 100 * 72 / 150 = 48 pt; 150 * 72 / 150 = 72 pt.
         var factory = CreateFactory(_ =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
-        var sut  = MakeSut(factory);
+        var sut = MakeSut(factory);
         var text = MakeText(["https://example.org/canvas/1"]);
         var manifest = OneCanvasManifest(
             "https://example.org/canvas/1", "https://example.org/image/1.jpg",
@@ -155,13 +155,13 @@ public sealed class PdfBuilderTests
     {
         // Sequence: image canvas → custom "redacted" page.
         // The redacted page must be the same size as the image page (TinyPt × TinyPt).
-        var factory  = CreateFactory(_ => OkImage(TinyPng));
-        var sut      = MakeSut(factory);
-        var text     = MakeText(["https://example.org/canvas/1"]);
+        var factory = CreateFactory(_ => OkImage(TinyPng));
+        var sut = MakeSut(factory);
+        var text = MakeText(["https://example.org/canvas/1"]);
         var manifest = OneCanvasManifest(
             "https://example.org/canvas/1", "https://example.org/image/1.jpg",
             canvasW: 2000, canvasH: 3000);
-        var pageSeq  = """
+        var pageSeq = """
             {
               "pages": [
                 { "canvasId": "https://example.org/canvas/1" },
@@ -176,9 +176,9 @@ public sealed class PdfBuilderTests
         var pdf = ReadPdf(output);
         pdf.GetNumberOfPages().ShouldBe(2);
 
-        var imagePage  = pdf.GetPage(1).GetPageSize();
+        var imagePage = pdf.GetPage(1).GetPageSize();
         var customPage = pdf.GetPage(2).GetPageSize();
-        customPage.GetWidth().ShouldBe(imagePage.GetWidth(),  Delta);
+        customPage.GetWidth().ShouldBe(imagePage.GetWidth(), Delta);
         customPage.GetHeight().ShouldBe(imagePage.GetHeight(), Delta);
     }
 
@@ -188,13 +188,13 @@ public sealed class PdfBuilderTests
         // Sequence: custom page first (before any image), then image canvas.
         // When no pdf-type pages are present, DetermineReferenceSizeAsync is NOT called,
         // so refWidthPt/refHeightPt starts at A4 defaults.
-        var factory  = CreateFactory(_ => OkImage(TinyPng));
-        var sut      = MakeSut(factory);
-        var text     = MakeText(["https://example.org/canvas/1"]);
+        var factory = CreateFactory(_ => OkImage(TinyPng));
+        var sut = MakeSut(factory);
+        var text = MakeText(["https://example.org/canvas/1"]);
         var manifest = OneCanvasManifest(
             "https://example.org/canvas/1", "https://example.org/image/1.jpg",
             canvasW: 2000, canvasH: 3000);
-        var pageSeq  = """
+        var pageSeq = """
             {
               "pages": [
                 { "type": "redacted", "message": "Redacted" },
@@ -211,7 +211,7 @@ public sealed class PdfBuilderTests
 
         // First page is custom before any image: ref not set yet, uses A4 fallback.
         var customPage = pdf.GetPage(1).GetPageSize();
-        customPage.GetWidth().ShouldBe(PageSize.A4.GetWidth(),  Delta);
+        customPage.GetWidth().ShouldBe(PageSize.A4.GetWidth(), Delta);
         customPage.GetHeight().ShouldBe(PageSize.A4.GetHeight(), Delta);
     }
 
@@ -229,12 +229,12 @@ public sealed class PdfBuilderTests
                 ? OkPdf(CreateMinimalPdf())
                 : OkImage(TinyPng);
         });
-        var sut      = MakeSut(factory);
-        var text     = MakeText(["https://example.org/canvas/1"]);
+        var sut = MakeSut(factory);
+        var text = MakeText(["https://example.org/canvas/1"]);
         var manifest = OneCanvasManifest(
             "https://example.org/canvas/1", "https://example.org/image/1.jpg",
             canvasW: 2000, canvasH: 3000);
-        var pageSeq  = """
+        var pageSeq = """
             {
               "pages": [
                 { "type": "pdf", "input": "https://example.org/cover.pdf" },
@@ -250,24 +250,24 @@ public sealed class PdfBuilderTests
         pdf.GetNumberOfPages().ShouldBe(2);
 
         var embeddedPage = pdf.GetPage(1).GetPageSize();
-        var imagePage    = pdf.GetPage(2).GetPageSize();
+        var imagePage = pdf.GetPage(2).GetPageSize();
         // The embedded PDF was scaled to the image page reference size.
-        embeddedPage.GetWidth().ShouldBe(imagePage.GetWidth(),  Delta);
+        embeddedPage.GetWidth().ShouldBe(imagePage.GetWidth(), Delta);
         embeddedPage.GetHeight().ShouldBe(imagePage.GetHeight(), Delta);
     }
 
     [Fact]
     public async Task BuildAsync_MultipleCanvases_EmitsCorrectPageCount()
     {
-        var factory  = CreateFactory(_ => OkImage(TinyPng));
-        var sut      = MakeSut(factory);
+        var factory = CreateFactory(_ => OkImage(TinyPng));
+        var sut = MakeSut(factory);
         var canvasIds = new[]
         {
             "https://example.org/canvas/1",
             "https://example.org/canvas/2",
             "https://example.org/canvas/3",
         };
-        var text     = MakeText(canvasIds);
+        var text = MakeText(canvasIds);
         var manifest = MultiCanvasManifest(canvasIds, "https://example.org/image/{n}.jpg");
 
         using var output = new MemoryStream();
@@ -321,7 +321,7 @@ public sealed class PdfBuilderTests
 
     private static byte[] CreateMinimalPdf()
     {
-        using var ms  = new MemoryStream();
+        using var ms = new MemoryStream();
         using (var doc = new PdfDocument(new PdfWriter(ms)))
             doc.AddNewPage(PageSize.A4);
         return ms.ToArray();
@@ -360,7 +360,7 @@ public sealed class PdfBuilderTests
     {
         output.Position = 0;
         using var reader = new PdfReader(output);
-        using var pdf    = new PdfDocument(reader);
+        using var pdf = new PdfDocument(reader);
         return pdf.GetFirstPage().GetPageSize();
     }
 

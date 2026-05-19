@@ -495,10 +495,10 @@ public sealed class TextBuildJobTests : IDisposable
     {
         var job = new BuilderJob
         {
-            Id             = id,
-            SourceUri      = sourceUri,
+            Id = id,
+            SourceUri = sourceUri,
             SourceDataJson = sourceDataJson,
-            Services       = (int)services,
+            Services = (int)services,
         };
         _db.Jobs.Add(job);
         await _db.SaveChangesAsync();
@@ -506,18 +506,18 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     private TextBuildJob MakeJob(
-        IManifestFetcher?       manifestFetcher       = null,
-        IManifestSynthesiser?   manifestSynthesiser   = null,
-        IAltoFetcher?           altoFetcher           = null,
-        IVttFetcher?            vttFetcher            = null,
+        IManifestFetcher? manifestFetcher = null,
+        IManifestSynthesiser? manifestSynthesiser = null,
+        IAltoFetcher? altoFetcher = null,
+        IVttFetcher? vttFetcher = null,
         IAnnotationPageFetcher? annotationPageFetcher = null)
     {
         return new TextBuildJob(
             _db,
-            manifestFetcher      ?? new FakeManifestFetcher(_ => throw new InvalidOperationException("Unexpected manifest fetch")),
-            manifestSynthesiser  ?? new FakeManifestSynthesiser(),
-            altoFetcher          ?? new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null)),
-            vttFetcher           ?? new FakeVttFetcher(_ => Task.FromResult<string?>(null)),
+            manifestFetcher ?? new FakeManifestFetcher(_ => throw new InvalidOperationException("Unexpected manifest fetch")),
+            manifestSynthesiser ?? new FakeManifestSynthesiser(),
+            altoFetcher ?? new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null)),
+            vttFetcher ?? new FakeVttFetcher(_ => Task.FromResult<string?>(null)),
             annotationPageFetcher ?? new FakeAnnotationPageFetcher(_ => Task.FromResult<string?>(null)),
             _textStore,
             new TextServicesOptions(),

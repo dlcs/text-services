@@ -51,15 +51,15 @@ public class ReprocessJobHandler(
         _ = InvalidateCacheAsync(job.Id);
 
         // Reset all transient fields.
-        job.Status          = JobStatus.Waiting;
-        job.Started         = null;
-        job.Finished        = null;
-        job.TotalPages      = 0;
-        job.PagesCompleted  = 0;
-        job.TotalWordCount  = 0;
+        job.Status = JobStatus.Waiting;
+        job.Started = null;
+        job.Finished = null;
+        job.TotalPages = 0;
+        job.PagesCompleted = 0;
+        job.TotalWordCount = 0;
         job.TotalImageCount = 0;
-        job.Errors          = null;
-        job.HangfireJobId   = null;
+        job.Errors = null;
+        job.HangfireJobId = null;
 
         await db.SaveChangesAsync(ct);
 
@@ -76,7 +76,7 @@ public class ReprocessJobHandler(
         try
         {
             var http = httpClientFactory.CreateClient();
-            var url  = $"{options.SearchApiBaseUrl.TrimEnd('/')}/cache/v1/{id}";
+            var url = $"{options.SearchApiBaseUrl.TrimEnd('/')}/cache/v1/{id}";
             await http.DeleteAsync(url);
         }
         catch (Exception ex)

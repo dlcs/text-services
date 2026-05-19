@@ -177,7 +177,7 @@ public class Text
                 current.H = Math.Max(current.H, next.H);
                 current.W = (next.X + next.W) - current.X;
                 current.StartMs = Math.Min(current.StartMs, next.StartMs);
-                current.EndMs   = Math.Max(current.EndMs,   next.EndMs);
+                current.EndMs = Math.Max(current.EndMs, next.EndMs);
                 current.Wds.Add(next.Wd);
                 current.PosNorms.Add(next.PosNorm);
                 current.Sp = next.Sp;

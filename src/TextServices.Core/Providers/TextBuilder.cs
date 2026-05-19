@@ -30,7 +30,8 @@ public class TextBuilder
     /// </summary>
     public TextBuilder() : this(
         [new AltoTextFormatProvider(), new HocrTextFormatProvider()],
-        [new VttTextFormatProvider(), new W3cAnnotationTextFormatProvider()]) { }
+        [new VttTextFormatProvider(), new W3cAnnotationTextFormatProvider()])
+    { }
 
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with an explicit list of providers,
@@ -74,13 +75,13 @@ public class TextBuilder
     /// Adds one transcript page (VTT or similar plain-text format) to the build.
     /// </summary>
     public void AddTranscriptPage(
-        string  id,
-        int     canvasWidth,
-        int     canvasHeight,
+        string id,
+        int canvasWidth,
+        int canvasHeight,
         string? rawContent,
         string? profile = null,
-        string? format  = null,
-        string? label   = null)
+        string? format = null,
+        string? label = null)
     {
         if (rawContent == null) return;
         var provider = _transcriptProviders.FirstOrDefault(p => p.Supports(profile, format, label));

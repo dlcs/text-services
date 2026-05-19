@@ -25,7 +25,7 @@ public class AutocompleteHandler(ITextCache cache) : IRequestHandler<Autocomplet
 
         return new AutocompleteTermList
         {
-            Id    = request.SelfUrl,
+            Id = request.SelfUrl,
             Terms = suggestions.Select(s => new AutocompleteTerm { Match = s }).ToList(),
         };
     }

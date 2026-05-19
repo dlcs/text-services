@@ -32,7 +32,7 @@ public class SearchApiFactory : WebApplicationFactory<TextCache>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["TextServices:StorageRootPath"] = _storageRoot,
-                ["TextServices:BaseUrl"]         = "http://localhost"
+                ["TextServices:BaseUrl"] = "http://localhost"
             }));
 
         builder.ConfigureTestServices(services =>
@@ -40,7 +40,7 @@ public class SearchApiFactory : WebApplicationFactory<TextCache>
             services.RemoveAll<ITextStore>();
             services.AddSingleton<ITextStore>(_ =>
                 new FileSystemTextStore(new FileSystemTextStoreOptions
-                    { RootPath = _storageRoot }));
+                { RootPath = _storageRoot }));
         });
     }
 }

@@ -232,7 +232,7 @@ app.MapGet("/identified/figures/{**id}", async (
     HttpContext ctx) =>
 {
     var selfUrl = BuildSelfUrl(options, ctx, $"identified/figures/{id}", null);
-    var result  = await sender.Send(new FiguresRequest(id, selfUrl));
+    var result = await sender.Send(new FiguresRequest(id, selfUrl));
     if (result == null) return Results.NotFound();
 
     return Results.Json(result, contentType: "application/ld+json");
@@ -245,7 +245,7 @@ app.MapGet("/annotations/manifest/v1/{**id}", async (
     HttpContext ctx) =>
 {
     var selfUrl = BuildSelfUrl(options, ctx, $"annotations/manifest/v1/{id}", null);
-    var result  = await sender.Send(new ManifestAnnotationsRequest(id, selfUrl));
+    var result = await sender.Send(new ManifestAnnotationsRequest(id, selfUrl));
     if (result == null) return Results.NotFound();
     return Results.Json(result, contentType: "application/ld+json");
 });
@@ -257,7 +257,7 @@ app.MapGet("/annotations/lines/v1/{n:int}/{**id}", async (
     HttpContext ctx) =>
 {
     var selfUrl = BuildSelfUrl(options, ctx, $"annotations/lines/v1/{n}/{id}", null);
-    var result  = await sender.Send(new LineAnnotationsRequest(id, n, selfUrl));
+    var result = await sender.Send(new LineAnnotationsRequest(id, n, selfUrl));
     if (result == null) return Results.NotFound();
     return Results.Json(result, contentType: "application/ld+json");
 });
@@ -269,7 +269,7 @@ app.MapGet("/annotations/words/v1/{n:int}/{**id}", async (
     HttpContext ctx) =>
 {
     var selfUrl = BuildSelfUrl(options, ctx, $"annotations/words/v1/{n}/{id}", null);
-    var result  = await sender.Send(new WordAnnotationsRequest(id, n, selfUrl));
+    var result = await sender.Send(new WordAnnotationsRequest(id, n, selfUrl));
     if (result == null) return Results.NotFound();
     return Results.Json(result, contentType: "application/ld+json");
 });
@@ -300,10 +300,10 @@ app.MapGet("/proxy/image", async (string uri, CancellationToken ct) =>
         var contentType = ext switch
         {
             ".jpg" or ".jpeg" => "image/jpeg",
-            ".png"            => "image/png",
+            ".png" => "image/png",
             ".tif" or ".tiff" => "image/tiff",
-            ".webp"           => "image/webp",
-            _                 => "application/octet-stream",
+            ".webp" => "image/webp",
+            _ => "application/octet-stream",
         };
         return Results.Stream(File.OpenRead(path), contentType);
     }
@@ -320,7 +320,7 @@ app.MapGet("/text-augmented/v3/{**id}", async (
     ISender sender,
     HttpContext ctx) =>
 {
-    var selfUrl    = BuildSelfUrl(options, ctx, $"text-augmented/v3/{id}", null);
+    var selfUrl = BuildSelfUrl(options, ctx, $"text-augmented/v3/{id}", null);
     var searchBase = string.IsNullOrEmpty(options.BaseUrl)
         ? $"{ctx.Request.Scheme}://{ctx.Request.Host}"
         : options.BaseUrl.TrimEnd('/');

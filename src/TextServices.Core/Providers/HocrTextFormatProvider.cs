@@ -44,11 +44,11 @@ public class HocrTextFormatProvider : ITextFormatProvider
         // Derive the coordinate scale from the page-level bbox when present.
         // hOCR bbox coords are x0 y0 x1 y1; for a page starting at 0,0 x1=pageW, y1=pageH.
         var pageBbox = ParseBbox(pageEl.Attribute("title")?.Value);
-        float pageW  = pageBbox.HasValue && pageBbox.Value.W > 0 ? pageBbox.Value.W : canvasWidth;
-        float pageH  = pageBbox.HasValue && pageBbox.Value.H > 0 ? pageBbox.Value.H : canvasHeight;
+        float pageW = pageBbox.HasValue && pageBbox.Value.W > 0 ? pageBbox.Value.W : canvasWidth;
+        float pageH = pageBbox.HasValue && pageBbox.Value.H > 0 ? pageBbox.Value.H : canvasHeight;
 
-        float scaleW = pageW  > 0 ? canvasWidth  / pageW  : 1f;
-        float scaleH = pageH  > 0 ? canvasHeight / pageH  : 1f;
+        float scaleW = pageW > 0 ? canvasWidth / pageW : 1f;
+        float scaleH = pageH > 0 ? canvasHeight / pageH : 1f;
 
         accumulator.BeginPage(imageIdentifier);
 

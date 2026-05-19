@@ -36,27 +36,27 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         // Build service descriptors using Presentation 3 id/type conventions.
         // v2 is listed first; v1 follows for backward-compatible clients.
         var base_ = request.SearchBaseUrl;
-        var id    = request.Id;
+        var id = request.Id;
 
         var searchServiceV2 = new JsonObject
         {
-            ["id"]   = $"{base_}/search/v2/{id}",
+            ["id"] = $"{base_}/search/v2/{id}",
             ["type"] = "SearchService2",
             ["service"] = new JsonArray(new JsonObject
             {
-                ["id"]   = $"{base_}/autocomplete/v2/{id}",
+                ["id"] = $"{base_}/autocomplete/v2/{id}",
                 ["type"] = "AutoCompleteService2",
             }),
         };
 
         var searchServiceV1 = new JsonObject
         {
-            ["id"]   = $"{base_}/search/v1/{id}",
+            ["id"] = $"{base_}/search/v1/{id}",
             ["type"] = "SearchService1",
             ["profile"] = "http://iiif.io/api/search/1/search",
             ["service"] = new JsonArray(new JsonObject
             {
-                ["id"]   = $"{base_}/autocomplete/v1/{id}",
+                ["id"] = $"{base_}/autocomplete/v1/{id}",
                 ["type"] = "AutoCompleteService1",
                 ["profile"] = "http://iiif.io/api/search/1/autocomplete",
             }),
@@ -91,9 +91,9 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
 
             var textRef = new JsonObject
             {
-                ["id"]     = $"{base_}/text/v1/{id}",
-                ["type"]   = "Text",
-                ["label"]  = new JsonObject { ["en"] = new JsonArray("View as plain text") },
+                ["id"] = $"{base_}/text/v1/{id}",
+                ["type"] = "Text",
+                ["label"] = new JsonObject { ["en"] = new JsonArray("View as plain text") },
                 ["format"] = "text/plain",
             };
 
@@ -136,14 +136,14 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
 
                 var linesRef = new JsonObject
                 {
-                    ["id"]    = $"{base_}/annotations/lines/v1/{i}/{id}",
-                    ["type"]  = "AnnotationPage",
+                    ["id"] = $"{base_}/annotations/lines/v1/{i}/{id}",
+                    ["type"] = "AnnotationPage",
                     ["label"] = new JsonObject { ["en"] = new JsonArray("Line-level transcription") },
                 };
                 var wordsRef = new JsonObject
                 {
-                    ["id"]    = $"{base_}/annotations/words/v1/{i}/{id}",
-                    ["type"]  = "AnnotationPage",
+                    ["id"] = $"{base_}/annotations/words/v1/{i}/{id}",
+                    ["type"] = "AnnotationPage",
                     ["label"] = new JsonObject { ["en"] = new JsonArray("Word-level transcription") },
                 };
 
@@ -167,16 +167,16 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         // ---- manifest-level line annotations reference --------------------------
         // If the builder stored an annotations.json (all canvases, line granularity),
         // add a manifest-level annotations reference so clients can discover it.
-        var annotationsUrl  = $"{base_}/annotations/manifest/v1/{id}";
+        var annotationsUrl = $"{base_}/annotations/manifest/v1/{id}";
         var annotationsJson = await textStore.LoadAnnotations(request.Id);
         if (annotationsJson != null)
         {
             var annotationsRef = new JsonObject
             {
-                ["id"]      = annotationsUrl,
-                ["type"]    = "AnnotationPage",
+                ["id"] = annotationsUrl,
+                ["type"] = "AnnotationPage",
                 ["profile"] = "https://dlcs.io/profiles/all-text",
-                ["label"]   = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
+                ["label"] = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
             };
 
             if (manifest["annotations"] is JsonArray existingAnnos)
@@ -190,13 +190,13 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         // ---- figures annotation page reference ----------------------------------
         // If the builder stored a figures.json (ComposedBlocks with non-zero area),
         // add a manifest-level annotations reference so clients can discover it.
-        var figuresUrl  = $"{base_}/identified/figures/{id}";
+        var figuresUrl = $"{base_}/identified/figures/{id}";
         var figuresJson = await textStore.LoadFigures(request.Id);
         if (figuresJson != null)
         {
             var figuresRef = new JsonObject
             {
-                ["id"]   = figuresUrl,
+                ["id"] = figuresUrl,
                 ["type"] = "AnnotationPage",
                 ["label"] = new JsonObject
                 {
@@ -223,9 +223,9 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
 
     private static JsonObject BuildPdfRef(string baseUrl, string id) => new()
     {
-        ["id"]     = $"{baseUrl}/pdf/v1/{id}",
-        ["type"]   = "Text",
-        ["label"]  = new JsonObject { ["en"] = new JsonArray("Download as PDF") },
+        ["id"] = $"{baseUrl}/pdf/v1/{id}",
+        ["type"] = "Text",
+        ["label"] = new JsonObject { ["en"] = new JsonArray("Download as PDF") },
         ["format"] = "application/pdf",
     };
 }

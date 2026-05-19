@@ -22,16 +22,16 @@ public class WordAnnotationsHandlerTests
     public async Task Handle_TextNotFound_ReturnsNull()
     {
         var handler = new WordAnnotationsHandler(new StubTextCache(null));
-        var result  = await handler.Handle(new WordAnnotationsRequest("missing", 0, SelfUrl), default);
+        var result = await handler.Handle(new WordAnnotationsRequest("missing", 0, SelfUrl), default);
         result.ShouldBeNull();
     }
 
     [Fact]
     public async Task Handle_CanvasIndexOutOfRange_ReturnsNull()
     {
-        var text    = BuildText("https://example.org/c/1", ["hello world"]);
+        var text = BuildText("https://example.org/c/1", ["hello world"]);
         var handler = new WordAnnotationsHandler(new StubTextCache(text));
-        var result  = await handler.Handle(new WordAnnotationsRequest("test/book", 99, SelfUrl), default);
+        var result = await handler.Handle(new WordAnnotationsRequest("test/book", 99, SelfUrl), default);
         result.ShouldBeNull();
     }
 
@@ -42,7 +42,7 @@ public class WordAnnotationsHandlerTests
     [Fact]
     public async Task Handle_ReturnsAnnotationPageWithWordGranularity()
     {
-        var text    = BuildText("https://example.org/c/1", ["hello world"]);
+        var text = BuildText("https://example.org/c/1", ["hello world"]);
         var handler = new WordAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new WordAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -55,7 +55,7 @@ public class WordAnnotationsHandlerTests
     [Fact]
     public async Task Handle_OneAnnotationPerWord()
     {
-        var text    = BuildText("https://example.org/c/1", ["hello world foo"]);
+        var text = BuildText("https://example.org/c/1", ["hello world foo"]);
         var handler = new WordAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new WordAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -66,7 +66,7 @@ public class WordAnnotationsHandlerTests
     [Fact]
     public async Task Handle_MultiLine_StillOneAnnotationPerWord()
     {
-        var text    = BuildText("https://example.org/c/1", ["hello world", "foo bar"]);
+        var text = BuildText("https://example.org/c/1", ["hello world", "foo bar"]);
         var handler = new WordAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new WordAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -83,7 +83,7 @@ public class WordAnnotationsHandlerTests
         acc.NextLine();
         acc.AddWord("hello", "hello", 10, 20, 50, 30);
         acc.AddWord("world", "world", 70, 20, 60, 30);
-        var text    = acc.Build().Text;
+        var text = acc.Build().Text;
         var handler = new WordAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new WordAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -100,7 +100,7 @@ public class WordAnnotationsHandlerTests
         acc.BeginPage("https://example.org/c/1");
         acc.NextLine();
         acc.AddWord("Hello,", Text.Normalise("Hello,"), 0, 0, 50, 20);
-        var text    = acc.Build().Text;
+        var text = acc.Build().Text;
         var handler = new WordAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new WordAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -112,7 +112,7 @@ public class WordAnnotationsHandlerTests
     [Fact]
     public async Task Handle_AnnotationIds_AreSequential()
     {
-        var text    = BuildText("https://example.org/c/1", ["a b c"]);
+        var text = BuildText("https://example.org/c/1", ["a b c"]);
         var handler = new WordAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new WordAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -151,7 +151,7 @@ public class WordAnnotationsHandlerTests
         acc.NextLine();
         acc.AddWord("hello", "hello", 2000, 4500);
         acc.AddWord("world", "world", 4500, 7000);
-        var text    = acc.Build().Text;
+        var text = acc.Build().Text;
         var handler = new WordAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new WordAnnotationsRequest("test/book", 0, SelfUrl), default);

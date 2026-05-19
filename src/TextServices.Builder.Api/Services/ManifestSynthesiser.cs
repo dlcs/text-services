@@ -24,7 +24,7 @@ public class ManifestSynthesiser(TextServicesOptions options) : IManifestSynthes
     {
         var manifest = new Manifest
         {
-            Id    = string.Empty,
+            Id = string.Empty,
             // pdf-type pages embed an existing PDF — they produce no canvas.
             Items = pages
                 .Where(p => !string.Equals(p.Type, "pdf", StringComparison.OrdinalIgnoreCase))
@@ -41,9 +41,9 @@ public class ManifestSynthesiser(TextServicesOptions options) : IManifestSynthes
         // Use supplied id, or synthesise a stable placeholder from the input URI.
         // Non-pdf pages should always have an id (validated at submission time).
         var canvasId = !string.IsNullOrEmpty(page.Id) ? page.Id : string.Empty;
-        var canvas   = new Canvas { Id = canvasId };
+        var canvas = new Canvas { Id = canvasId };
 
-        if (page.Width > 0)  canvas.Width  = page.Width;
+        if (page.Width > 0) canvas.Width = page.Width;
         if (page.Height > 0) canvas.Height = page.Height;
         if (page.Duration.HasValue) canvas.Duration = page.Duration.Value;
 

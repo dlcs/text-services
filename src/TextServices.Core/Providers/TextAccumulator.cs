@@ -118,7 +118,11 @@ public class TextAccumulator
         {
             ContentRaw = contentRaw,
             ContentNorm = contentNorm,
-            X = 0, Y = 0, W = 0, H = 0, Sp = 0,
+            X = 0,
+            Y = 0,
+            W = 0,
+            H = 0,
+            Sp = 0,
             StartMs = startMs,
             EndMs = endMs,
             Wd = _wordCounter++,

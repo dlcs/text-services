@@ -54,7 +54,7 @@ public class AltoParsingTests
         int canvasWidth = 0, int canvasHeight = 0)
     {
         var root = XElement.Parse(altoXml);
-        int w = canvasWidth  > 0 ? canvasWidth  : (int?)root.Descendants()
+        int w = canvasWidth > 0 ? canvasWidth : (int?)root.Descendants()
             .FirstOrDefault(e => e.Name.LocalName == "Page")?.Attribute("WIDTH") ?? 1000;
         int h = canvasHeight > 0 ? canvasHeight : (int?)root.Descendants()
             .FirstOrDefault(e => e.Name.LocalName == "Page")?.Attribute("HEIGHT") ?? 1000;
@@ -259,7 +259,7 @@ public class AltoParsingTests
             """);
 
         var text = ParseAlto(alto, 1000, 2000);
-        var first  = text.Words.Values.First(w => w.ContentRaw == "first");
+        var first = text.Words.Values.First(w => w.ContentRaw == "first");
         var second = text.Words.Values.First(w => w.ContentRaw == "second");
 
         first.Li.ShouldNotBe(second.Li);
@@ -550,7 +550,7 @@ public class AltoParsingTests
 
         var builder = new TextBuilder();
         builder.AddPage("https://example.org/canvas/1", 1000, 1000, page1, profile: NsV2);
-        builder.AddPage("https://example.org/canvas/2", 1000, 1000, null,  profile: NsV2); // sparse
+        builder.AddPage("https://example.org/canvas/2", 1000, 1000, null, profile: NsV2); // sparse
         var result = builder.Build();
 
         result.IsEmpty.ShouldBeFalse();

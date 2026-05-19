@@ -50,7 +50,7 @@ public class TextBuildJob(
             return;
         }
 
-        job.Status  = JobStatus.Running;
+        job.Status = JobStatus.Running;
         job.Started = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync();
 
@@ -63,11 +63,11 @@ public class TextBuildJob(
             var (wordCount, imageCount, errors) =
                 await ProcessPages(job, pages, cancellationToken);
 
-            job.TotalWordCount  = wordCount;
+            job.TotalWordCount = wordCount;
             job.TotalImageCount = imageCount;
-            job.Errors          = errors.Count > 0 ? string.Join('\n', errors) : null;
-            job.Status          = JobStatus.Completed;
-            job.Finished        = DateTimeOffset.UtcNow;
+            job.Errors = errors.Count > 0 ? string.Join('\n', errors) : null;
+            job.Status = JobStatus.Completed;
+            job.Finished = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
 
             logger.LogInformation(
@@ -78,8 +78,8 @@ public class TextBuildJob(
         catch (Exception ex)
         {
             logger.LogError(ex, "TextBuildJob failed for {JobId}", jobId);
-            job.Status   = JobStatus.Failed;
-            job.Errors   = ex.Message;
+            job.Status = JobStatus.Failed;
+            job.Errors = ex.Message;
             job.Finished = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
         }
@@ -166,8 +166,8 @@ public class TextBuildJob(
 
         // Build text in original canvas order (TextBuilder requires sequential input).
         var textBuilder = new TextBuilder();
-        var errors      = fetched.Where(r => r.Error != null).Select(r => r.Error!).ToList();
-        int completed   = 0;
+        var errors = fetched.Where(r => r.Error != null).Select(r => r.Error!).ToList();
+        int completed = 0;
 
         foreach (var fetchedPage in fetched)
         {
@@ -187,7 +187,7 @@ public class TextBuildJob(
                 await db.SaveChangesAsync();
         }
 
-        var result   = textBuilder.Build();
+        var result = textBuilder.Build();
         var services = (JobServices)job.Services;
 
         if (!result.IsEmpty)
@@ -256,8 +256,8 @@ public class TextBuildJob(
                 CustomPageType? cpt = null;
                 customTypes?.TryGetValue(page.Type, out cpt);
                 entry = new JsonObject { ["type"] = page.Type, ["canvasId"] = page.Id };
-                if (page.Width  > 0)      entry["width"]   = page.Width;
-                if (page.Height > 0)      entry["height"]  = page.Height;
+                if (page.Width > 0) entry["width"] = page.Width;
+                if (page.Height > 0) entry["height"] = page.Height;
                 if (cpt?.Message != null) entry["message"] = cpt.Message;
             }
             else
@@ -295,18 +295,18 @@ public class TextBuildJob(
             if (cb.W <= 0 || cb.H <= 0) continue;
             if (cb.ImageIndex < 0 || cb.ImageIndex >= text.Images.Length) continue;
 
-            var canvasId  = text.Images[cb.ImageIndex].ImageIdentifier;
+            var canvasId = text.Images[cb.ImageIndex].ImageIdentifier;
             var blockType = string.IsNullOrWhiteSpace(cb.BlockType) ? "Unknown" : cb.BlockType;
 
             items.Add(new JsonObject
             {
-                ["id"]         = $"f{cb.ComposedBlockIndex}",
-                ["type"]       = "Annotation",
+                ["id"] = $"f{cb.ComposedBlockIndex}",
+                ["type"] = "Annotation",
                 ["motivation"] = "tagging",
                 ["body"] = new JsonObject
                 {
-                    ["type"]   = "TextualBody",
-                    ["value"]  = blockType,
+                    ["type"] = "TextualBody",
+                    ["value"] = blockType,
                     ["format"] = "text/plain",
                 },
                 ["target"] = $"{canvasId}#xywh={cb.X},{cb.Y},{cb.W},{cb.H}",
@@ -318,9 +318,9 @@ public class TextBuildJob(
         var page = new JsonObject
         {
             ["@context"] = "http://iiif.io/api/presentation/3/context.json",
-            ["id"]       = "",   // patched at serve time
-            ["type"]     = "AnnotationPage",
-            ["label"]    = new JsonObject
+            ["id"] = "",   // patched at serve time
+            ["type"] = "AnnotationPage",
+            ["label"] = new JsonObject
             {
                 ["en"] = new JsonArray("Figures, tables and illustrations"),
             },
@@ -344,13 +344,13 @@ public class TextBuildJob(
     {
         if (text.Images.Length == 0 || text.Words.Count == 0) return null;
 
-        var items     = new JsonArray();
+        var items = new JsonArray();
         var annoIndex = 0;
 
         for (var i = 0; i < text.Images.Length; i++)
         {
-            var image      = text.Images[i];
-            var canvasId   = image.ImageIdentifier;
+            var image = text.Images[i];
+            var canvasId = image.ImageIdentifier;
             var isTemporal = image.IsTemporalContent;
 
             var canvasWords = text.Words.Values
@@ -361,33 +361,33 @@ public class TextBuildJob(
             foreach (var lineGroup in canvasWords.GroupBy(w => w.Li).OrderBy(g => g.Key))
             {
                 var lineWords = lineGroup.ToList();
-                var lineText  = string.Join(" ", lineWords.Select(w => w.ContentRaw));
+                var lineText = string.Join(" ", lineWords.Select(w => w.ContentRaw));
 
                 string target;
                 if (isTemporal)
                 {
                     var startMs = lineWords.Min(w => w.StartMs);
-                    var endMs   = lineWords.Max(w => w.EndMs);
+                    var endMs = lineWords.Max(w => w.EndMs);
                     target = $"{canvasId}#t={Sec(startMs)},{Sec(endMs)}";
                 }
                 else
                 {
-                    var x      = lineWords.Min(w => w.X);
-                    var y      = lineWords.Min(w => w.Y);
-                    var right  = lineWords.Max(w => w.X + w.W);
+                    var x = lineWords.Min(w => w.X);
+                    var y = lineWords.Min(w => w.Y);
+                    var right = lineWords.Max(w => w.X + w.W);
                     var bottom = lineWords.Max(w => w.Y + w.H);
                     target = $"{canvasId}#xywh={x},{y},{right - x},{bottom - y}";
                 }
 
                 items.Add(new JsonObject
                 {
-                    ["id"]         = $"anno/{annoIndex++}",
-                    ["type"]       = "Annotation",
+                    ["id"] = $"anno/{annoIndex++}",
+                    ["type"] = "Annotation",
                     ["motivation"] = "supplementing",
-                    ["body"]       = new JsonObject
+                    ["body"] = new JsonObject
                     {
-                        ["type"]   = "TextualBody",
-                        ["value"]  = lineText,
+                        ["type"] = "TextualBody",
+                        ["value"] = lineText,
                         ["format"] = "text/plain",
                     },
                     ["target"] = target,
@@ -402,12 +402,12 @@ public class TextBuildJob(
             ["@context"] = new JsonArray(
                 "http://iiif.io/api/presentation/3/context.json",
                 "https://iiif.io/api/extension/text-granularity/context.json"),
-            ["id"]              = "",   // patched at serve time
-            ["type"]            = "AnnotationPage",
-            ["profile"]         = "https://dlcs.io/profiles/all-text",
+            ["id"] = "",   // patched at serve time
+            ["type"] = "AnnotationPage",
+            ["profile"] = "https://dlcs.io/profiles/all-text",
             ["textGranularity"] = "line",
-            ["label"]           = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
-            ["items"]           = items,
+            ["label"] = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
+            ["items"] = items,
         };
 
         return page.ToJsonString();
@@ -420,11 +420,11 @@ public class TextBuildJob(
         page.Format == Core.Providers.W3cAnnotationTextFormatProvider.FormatSentinel;
 
     private static bool IsVttPage(PageInstruction page) =>
-        ContainsIgnoreCase(page.Profile, "text/vtt")  || ContainsIgnoreCase(page.Format, "text/vtt")  ||
-        ContainsIgnoreCase(page.Profile, "vtt")        || ContainsIgnoreCase(page.Format, "vtt")        ||
-        ContainsIgnoreCase(page.Label,   "vtt")        ||
-        ContainsIgnoreCase(page.Label,   "webvtt")     ||
-        ContainsIgnoreCase(page.Label,   "transcript");
+        ContainsIgnoreCase(page.Profile, "text/vtt") || ContainsIgnoreCase(page.Format, "text/vtt") ||
+        ContainsIgnoreCase(page.Profile, "vtt") || ContainsIgnoreCase(page.Format, "vtt") ||
+        ContainsIgnoreCase(page.Label, "vtt") ||
+        ContainsIgnoreCase(page.Label, "webvtt") ||
+        ContainsIgnoreCase(page.Label, "transcript");
 
     private static bool ContainsIgnoreCase(string? value, string term) =>
         value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);

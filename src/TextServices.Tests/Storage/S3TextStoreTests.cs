@@ -23,9 +23,9 @@ public class S3TextStoreTests
     [Fact]
     public async Task SaveAndLoad_Text_RoundTrips()
     {
-        var fake  = new FakeS3();
+        var fake = new FakeS3();
         var store = MakeStore(fake);
-        var text  = BuildText("hello world");
+        var text = BuildText("hello world");
 
         await store.SaveText("a/b", text);
         var loaded = await store.LoadText("a/b");
@@ -45,7 +45,7 @@ public class S3TextStoreTests
     [Fact]
     public async Task SaveText_UsesCorrectS3Key()
     {
-        var fake  = new FakeS3();
+        var fake = new FakeS3();
         var store = MakeStore(fake, prefix: "ts/");
 
         await store.SaveText("2/books/my-book", BuildText("x"));
@@ -60,9 +60,9 @@ public class S3TextStoreTests
     [Fact]
     public async Task SaveAndLoad_AutoComplete_RoundTrips()
     {
-        var fake  = new FakeS3();
+        var fake = new FakeS3();
         var store = MakeStore(fake);
-        var ac    = new AutoComplete
+        var ac = new AutoComplete
         {
             Buckets = new Dictionary<string, HashSet<string>>
             {
@@ -92,7 +92,7 @@ public class S3TextStoreTests
     [Fact]
     public async Task SaveAndLoad_Manifest_RoundTrips()
     {
-        var fake  = new FakeS3();
+        var fake = new FakeS3();
         var store = MakeStore(fake);
 
         await store.SaveManifest("a/b", """{"id":"https://example.org/m/1"}""");
@@ -116,7 +116,7 @@ public class S3TextStoreTests
     [Fact]
     public async Task Exists_AfterSaveText_ReturnsTrue()
     {
-        var fake  = new FakeS3();
+        var fake = new FakeS3();
         var store = MakeStore(fake);
 
         await store.SaveText("a/b", BuildText("x"));
@@ -137,7 +137,7 @@ public class S3TextStoreTests
     public async Task Exists_AutoCompleteOnly_ReturnsFalse()
     {
         // Exists checks text.bin only — autocomplete alone is not sufficient.
-        var fake  = new FakeS3();
+        var fake = new FakeS3();
         var store = MakeStore(fake);
 
         await store.SaveAutoComplete("a/b", new AutoComplete());
@@ -154,10 +154,10 @@ public class S3TextStoreTests
     public async Task KeyPrefix_TrailingSlashNormalised()
     {
         // Whether prefix is supplied with or without trailing slash, keys are the same.
-        var fakeWith    = new FakeS3();
+        var fakeWith = new FakeS3();
         var fakeWithout = new FakeS3();
 
-        await MakeStore(fakeWith,    prefix: "prefix/").SaveText("k", BuildText("x"));
+        await MakeStore(fakeWith, prefix: "prefix/").SaveText("k", BuildText("x"));
         await MakeStore(fakeWithout, prefix: "prefix").SaveText("k", BuildText("x"));
 
         fakeWith.Keys.First().ShouldBe(fakeWithout.Keys.First());
@@ -166,7 +166,7 @@ public class S3TextStoreTests
     [Fact]
     public async Task NoKeyPrefix_KeyStartsWithJobId()
     {
-        var fake  = new FakeS3();
+        var fake = new FakeS3();
         var store = MakeStore(fake, prefix: "");
 
         await store.SaveText("my/book", BuildText("x"));
@@ -199,7 +199,8 @@ public class S3TextStoreTests
         // Use a no-credential config that never makes real network calls.
         public FakeS3() : base(
             new Amazon.Runtime.BasicAWSCredentials("fake", "fake"),
-            new AmazonS3Config { ServiceURL = "http://localhost:0" }) { }
+            new AmazonS3Config { ServiceURL = "http://localhost:0" })
+        { }
 
         public override Task<PutObjectResponse> PutObjectAsync(
             PutObjectRequest request,

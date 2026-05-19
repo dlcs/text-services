@@ -25,7 +25,7 @@ public class ManifestAnnotationsHandlerTests
     [Fact]
     public async Task Handle_PatchesSelfUrl()
     {
-        var json    = StoredPage("anno/0", "Hello world", "https://example.org/canvas/1#xywh=0,0,100,20");
+        var json = StoredPage("anno/0", "Hello world", "https://example.org/canvas/1#xywh=0,0,100,20");
         var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(json), new StubTextCache());
 
         var result = await handler.Handle(
@@ -38,7 +38,7 @@ public class ManifestAnnotationsHandlerTests
     [Fact]
     public async Task Handle_PrefixesAnnotationIds()
     {
-        var json    = StoredPage("anno/0", "Hello world", "https://example.org/canvas/1#xywh=0,0,100,20");
+        var json = StoredPage("anno/0", "Hello world", "https://example.org/canvas/1#xywh=0,0,100,20");
         var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(json), new StubTextCache());
 
         var result = await handler.Handle(
@@ -52,7 +52,7 @@ public class ManifestAnnotationsHandlerTests
     public async Task Handle_PreservesBodyAndTarget()
     {
         const string target = "https://example.org/canvas/1#xywh=10,20,300,50";
-        var json    = StoredPage("anno/0", "Some line text", target);
+        var json = StoredPage("anno/0", "Some line text", target);
         var handler = new ManifestAnnotationsHandler(new StubAnnotationsStore(json), new StubTextCache());
 
         var result = await handler.Handle(

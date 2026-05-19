@@ -44,10 +44,10 @@ public class AltoTextFormatProvider : ITextFormatProvider
         var pageElement = FindDescendant(root, ns, "Page");
         if (pageElement == null) return;
 
-        float altoWidth  = ParseFloat(pageElement, "WIDTH",  canvasWidth);
+        float altoWidth = ParseFloat(pageElement, "WIDTH", canvasWidth);
         float altoHeight = ParseFloat(pageElement, "HEIGHT", canvasHeight);
 
-        float scaleW = altoWidth  > 0 ? canvasWidth  / altoWidth  : 1f;
+        float scaleW = altoWidth > 0 ? canvasWidth / altoWidth : 1f;
         float scaleH = altoHeight > 0 ? canvasHeight / altoHeight : 1f;
 
         var printSpace = FindDescendant(pageElement, ns, "PrintSpace");
@@ -79,10 +79,10 @@ public class AltoTextFormatProvider : ITextFormatProvider
                 // visually appears (the first line), not the continuation line.
                 if (hyphenPending && strings.Count > 0)
                 {
-                    var hyp2       = strings[0];
+                    var hyp2 = strings[0];
                     var subsContent = hyp2.Attribute("SUBS_CONTENT")?.Value;
-                    var hyp2Raw     = hyp2.Attribute("CONTENT")?.Value ?? string.Empty;
-                    var combinedRaw  = subsContent ?? (pendingRaw + hyp2Raw);
+                    var hyp2Raw = hyp2.Attribute("CONTENT")?.Value ?? string.Empty;
+                    var combinedRaw = subsContent ?? (pendingRaw + hyp2Raw);
                     var combinedNorm = Text.Normalise(combinedRaw);
 
                     accumulator.AddWord(combinedRaw, combinedNorm,
@@ -111,10 +111,10 @@ public class AltoTextFormatProvider : ITextFormatProvider
                         rawWord = rawWord[..^1];
                     }
 
-                    int x  = Scale(xString, "HPOS",   scaleW);
-                    int y  = Scale(xString, "VPOS",   scaleH);
-                    int w  = Scale(xString, "WIDTH",  scaleW);
-                    int h  = Scale(xString, "HEIGHT", scaleH);
+                    int x = Scale(xString, "HPOS", scaleW);
+                    int y = Scale(xString, "VPOS", scaleH);
+                    int w = Scale(xString, "WIDTH", scaleW);
+                    int h = Scale(xString, "HEIGHT", scaleH);
                     int sp = SpaceAfter(xString, ns, scaleW);
 
                     if (wordIsHyphenFirstPart)
@@ -149,9 +149,9 @@ public class AltoTextFormatProvider : ITextFormatProvider
         foreach (var (_, info) in composedBlockTracker)
         {
             accumulator.AddComposedBlock(
-                Scale(info.Elem, "HPOS",   scaleW),
-                Scale(info.Elem, "VPOS",   scaleH),
-                Scale(info.Elem, "WIDTH",  scaleW),
+                Scale(info.Elem, "HPOS", scaleW),
+                Scale(info.Elem, "VPOS", scaleH),
+                Scale(info.Elem, "WIDTH", scaleW),
                 Scale(info.Elem, "HEIGHT", scaleH),
                 info.Elem.Attribute("TYPE")?.Value,
                 info.Start,
@@ -176,7 +176,7 @@ public class AltoTextFormatProvider : ITextFormatProvider
                     ?? RuntimeHelpers.GetHashCode(elem).ToString();
                 if (!seenBlockIds.Add(elemId)) continue; // already captured
 
-                int elemW = Scale(elem, "WIDTH",  scaleW);
+                int elemW = Scale(elem, "WIDTH", scaleW);
                 int elemH = Scale(elem, "HEIGHT", scaleH);
                 if (elemW <= 0 || elemH <= 0) continue;
 
@@ -188,8 +188,8 @@ public class AltoTextFormatProvider : ITextFormatProvider
 
                 var pos = accumulator.LastWordNormPosition;
                 accumulator.AddComposedBlock(
-                    Scale(elem, "HPOS",   scaleW),
-                    Scale(elem, "VPOS",   scaleH),
+                    Scale(elem, "HPOS", scaleW),
+                    Scale(elem, "VPOS", scaleH),
                     elemW,
                     elemH,
                     blockType,

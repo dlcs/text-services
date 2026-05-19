@@ -46,15 +46,15 @@ public class JobResponse
 
         var services = (JobServices)job.Services;
 
-        string? searchV1       = null;
+        string? searchV1 = null;
         string? autocompleteV1 = null;
-        string? searchV2       = null;
+        string? searchV2 = null;
         string? autocompleteV2 = null;
-        string? fullText       = null;
-        string? pdf            = null;
-        string? textAugmented  = null;
-        string? annotations    = null;
-        string? figures        = null;
+        string? fullText = null;
+        string? pdf = null;
+        string? textAugmented = null;
+        string? annotations = null;
+        string? figures = null;
 
         if (job.Status == JobStatus.Completed &&
             !string.IsNullOrEmpty(options.SearchApiBaseUrl))
@@ -91,28 +91,28 @@ public class JobResponse
 
         return new JobResponse
         {
-            Id              = job.Id,
-            SourceUri       = job.SourceUri,
-            SourceData      = sourceData,
-            Status          = job.Status.ToString(),
-            Services        = services,
-            Created         = job.Created,
-            Started         = job.Started,
-            Finished        = job.Finished,
-            TotalPages      = job.TotalPages,
-            PagesCompleted  = job.PagesCompleted,
-            TotalWordCount  = job.TotalWordCount,
+            Id = job.Id,
+            SourceUri = job.SourceUri,
+            SourceData = sourceData,
+            Status = job.Status.ToString(),
+            Services = services,
+            Created = job.Created,
+            Started = job.Started,
+            Finished = job.Finished,
+            TotalPages = job.TotalPages,
+            PagesCompleted = job.PagesCompleted,
+            TotalWordCount = job.TotalWordCount,
             TotalImageCount = job.TotalImageCount,
-            Errors          = job.Errors,
-            SearchV1        = searchV1,
-            AutocompleteV1  = autocompleteV1,
-            SearchV2        = searchV2,
-            AutocompleteV2  = autocompleteV2,
-            FullText        = fullText,
-            Pdf             = pdf,
-            TextAugmented   = textAugmented,
-            Annotations     = annotations,
-            Figures         = figures,
+            Errors = job.Errors,
+            SearchV1 = searchV1,
+            AutocompleteV1 = autocompleteV1,
+            SearchV2 = searchV2,
+            AutocompleteV2 = autocompleteV2,
+            FullText = fullText,
+            Pdf = pdf,
+            TextAugmented = textAugmented,
+            Annotations = annotations,
+            Figures = figures,
         };
     }
 }

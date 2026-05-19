@@ -34,7 +34,7 @@ public class FixtureAltoFetcher(string fixturesRoot) : IAltoFetcher
         // segments: ["text", "alto", "{bnumber}", "{filename}"]
         if (segments.Length < 4) return null;
 
-        var bnumber  = segments[^2];
+        var bnumber = segments[^2];
         var filename = segments[^1];
 
         return Path.Combine(fixturesRoot, bnumber, "alto", filename + ".xml");

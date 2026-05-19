@@ -31,12 +31,12 @@ public class ListJobsTests : IDisposable
 
     private static BuilderJob Job(string id, JobStatus status = JobStatus.Completed,
         DateTimeOffset? created = null) => new()
-    {
-        Id         = id,
-        SourceUri  = $"https://example.org/{id}",
-        Status     = status,
-        Created    = created ?? DateTimeOffset.UtcNow,
-    };
+        {
+            Id = id,
+            SourceUri = $"https://example.org/{id}",
+            Status = status,
+            Created = created ?? DateTimeOffset.UtcNow,
+        };
 
     private async Task<PagedResult<JobResponse>> List(
         int page = 1, int pageSize = 20, string? status = null)
@@ -74,9 +74,9 @@ public class ListJobsTests : IDisposable
     {
         var t = DateTimeOffset.UtcNow;
         await Seed(
-            Job("old",    created: t.AddHours(-2)),
+            Job("old", created: t.AddHours(-2)),
             Job("middle", created: t.AddHours(-1)),
-            Job("new",    created: t));
+            Job("new", created: t));
 
         var result = await List();
 
@@ -134,8 +134,8 @@ public class ListJobsTests : IDisposable
         await Seed(
             Job("completed-1", JobStatus.Completed),
             Job("completed-2", JobStatus.Completed),
-            Job("failed-1",    JobStatus.Failed),
-            Job("waiting-1",   JobStatus.Waiting));
+            Job("failed-1", JobStatus.Failed),
+            Job("waiting-1", JobStatus.Waiting));
 
         var result = await List(status: "Completed");
 

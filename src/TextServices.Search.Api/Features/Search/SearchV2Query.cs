@@ -27,18 +27,18 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
     private static SearchAnnotationPageV2 BuildResponse(
         Text text, List<ResultRect> rects, string selfUrl)
     {
-        var items    = new List<PaintingAnnotationV2>(rects.Count);
+        var items = new List<PaintingAnnotationV2>(rects.Count);
         var contexts = new List<ContextualizingAnnotation>();
 
-        int     currentHitIndex = -1;
-        string  hitMatch        = string.Empty;
-        string? hitBefore       = null;
-        string? hitAfter        = null;
-        string? firstAnnoId     = null;
+        int currentHitIndex = -1;
+        string hitMatch = string.Empty;
+        string? hitBefore = null;
+        string? hitAfter = null;
+        string? firstAnnoId = null;
 
         foreach (var rect in rects)
         {
-            var image    = text.Images[rect.Idx];
+            var image = text.Images[rect.Idx];
             var canvasId = image.ImageIdentifier;
             var isTemporal = image.IsTemporalContent;
 
@@ -48,22 +48,22 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
 
             if (isTemporal)
             {
-                annoId     = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-t{rect.StartMs},{rect.EndMs}";
-                target     = $"{canvasId}#{BuildTemporalTarget(rect.StartMs, rect.EndMs)}";
+                annoId = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-t{rect.StartMs},{rect.EndMs}";
+                target = $"{canvasId}#{BuildTemporalTarget(rect.StartMs, rect.EndMs)}";
                 motivation = "supplementing";
             }
             else
             {
-                annoId     = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-{rect.X},{rect.Y},{rect.W},{rect.H}";
-                target     = $"{canvasId}#xywh={rect.X},{rect.Y},{rect.W},{rect.H}";
+                annoId = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-{rect.X},{rect.Y},{rect.W},{rect.H}";
+                target = $"{canvasId}#xywh={rect.X},{rect.Y},{rect.W},{rect.H}";
                 motivation = "painting";
             }
 
             items.Add(new PaintingAnnotationV2
             {
-                Id         = annoId,
-                Body       = new TextualBodyV2 { Value = rect.ContentRaw },
-                Target     = target,
+                Id = annoId,
+                Body = new TextualBodyV2 { Value = rect.ContentRaw },
+                Target = target,
                 Motivation = motivation,
             });
 
@@ -78,9 +78,9 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
                 }
 
                 currentHitIndex = rect.Hit;
-                hitBefore       = rect.Before;
-                hitMatch        = string.Empty;
-                firstAnnoId     = annoId;
+                hitBefore = rect.Before;
+                hitMatch = string.Empty;
+                firstAnnoId = annoId;
             }
 
             hitMatch += string.IsNullOrEmpty(hitMatch) ? rect.ContentRaw : $" {rect.ContentRaw}";
@@ -97,8 +97,8 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
 
         return new SearchAnnotationPageV2
         {
-            Id          = selfUrl,
-            Items       = items,
+            Id = selfUrl,
+            Items = items,
             Annotations = contexts.Count > 0
                 ? [new ContextualizingAnnotationPage { Items = contexts }]
                 : null,
@@ -108,7 +108,7 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
     private static string BuildTemporalTarget(int startMs, int endMs)
     {
         var start = (startMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture);
-        var end   = (endMs   / 1000.0).ToString("0.###", CultureInfo.InvariantCulture);
+        var end = (endMs / 1000.0).ToString("0.###", CultureInfo.InvariantCulture);
         return $"t={start},{end}";
     }
 
@@ -117,10 +117,10 @@ public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request
     {
         return new ContextualizingAnnotation
         {
-            Id     = id,
+            Id = id,
             Target = new SpecificResourceTarget
             {
-                Source   = firstAnnoId,
+                Source = firstAnnoId,
                 Selector =
                 [
                     new TextQuoteSelector

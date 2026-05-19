@@ -19,8 +19,8 @@ public interface IStringFormatProvider
     /// </summary>
     void ProcessPage(
         TextAccumulator accumulator,
-        string          rawContent,
-        string          imageIdentifier,
-        int             canvasWidth,
-        int             canvasHeight);
+        string rawContent,
+        string imageIdentifier,
+        int canvasWidth,
+        int canvasHeight);
 }

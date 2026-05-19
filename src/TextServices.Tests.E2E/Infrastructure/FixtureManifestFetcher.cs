@@ -21,7 +21,7 @@ public class FixtureManifestFetcher(string fixturesRoot, IManifestReducer reduce
         if (localPath == null || !File.Exists(localPath))
             throw new FileNotFoundException($"No fixture manifest for URI: {uri}");
 
-        var json  = await File.ReadAllTextAsync(localPath, ct);
+        var json = await File.ReadAllTextAsync(localPath, ct);
         var pages = reducer.Reduce(json);
         return new ManifestFetchResult(json, pages);
     }
