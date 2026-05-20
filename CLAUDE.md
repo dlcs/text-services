@@ -192,14 +192,14 @@ Uses MediatR for request/response pattern.
 7. `TextServices.Search.Api` — search and autocomplete endpoints
 8. `TextServices.Search.Api` — text-augmented Manifest endpoint
 9. `TextServices.Storage` — S3 implementation
-10. `TextServices.Tests.E2E` — Playwright suite
+10. `TextServices.Tests.E2E` — integration test suite
 
 ---
 
 ## Testing
 
 - **Unit/integration tests**: XUnit + FluentAssertions in `TextServices.Tests`
-- **E2E tests**: Playwright in `TextServices.Tests.E2E`
+- **Integration tests**: `Microsoft.AspNetCore.Mvc.Testing` in `TextServices.Tests.E2E`
 - **Test fixtures**: Random Wellcome Manifests from `https://iiif.wellcomecollection.org/service/suggest-b-number?q=imfeelinglucky`; use returned b-number in `https://iiif.wellcomecollection.org/presentation/{b-number}`
 - Fixtures cover a good mix: small manifests, large (100s of canvases), manifests with no ALTO links
 - Existing Wellcome search services can be used for comparative validation
@@ -217,7 +217,7 @@ Uses MediatR for request/response pattern.
 | `AsyncKeyedLock` | Search.Api | Per-key async locking for cache |
 | `Microsoft.Extensions.Caching.Memory` | Search.Api | In-process memory cache |
 | `AWSSDK.S3` | Storage | S3 implementation |
-| `Microsoft.Playwright` | Tests.E2E | End-to-end browser tests |
+| `Microsoft.AspNetCore.Mvc.Testing` | Tests.E2E | In-process HTTP integration tests |
 | `FluentAssertions` | Tests | Readable test assertions |
 
 ---
