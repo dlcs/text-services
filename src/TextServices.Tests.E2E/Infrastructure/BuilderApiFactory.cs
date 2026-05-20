@@ -46,7 +46,8 @@ public class BuilderApiFactory : WebApplicationFactory<BuilderDbContext>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:BuilderDb"] = "Host=test-placeholder;",
-                ["TextServices:Storage:RootPath"] = StorageRoot
+                ["TextServices:Storage:RootPath"] = StorageRoot,
+                ["RunMigrations"] = "false"
             }));
 
         builder.ConfigureTestServices(services =>
