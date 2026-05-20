@@ -16,7 +16,7 @@ public class ListJobsHandler(BuilderDbContext db, TextServicesOptions options)
     public async Task<PagedResult<JobResponse>> Handle(ListJobsRequest request, CancellationToken ct)
     {
         var pageSize = Math.Clamp(request.PageSize, 1, 100);
-        var page     = Math.Max(request.Page, 1);
+        var page = Math.Max(request.Page, 1);
 
         var query = db.Jobs.AsQueryable();
 

@@ -275,10 +275,10 @@ public class HocrParsingTests
             var parts = bbox.Replace("bbox ", "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length >= 4)
             {
-                canvasWidth  = canvasWidth  == 0 ? int.Parse(parts[2]) : canvasWidth;
+                canvasWidth = canvasWidth == 0 ? int.Parse(parts[2]) : canvasWidth;
                 canvasHeight = canvasHeight == 0 ? int.Parse(parts[3]) : canvasHeight;
             }
-            canvasWidth  = canvasWidth  == 0 ? 1000 : canvasWidth;
+            canvasWidth = canvasWidth == 0 ? 1000 : canvasWidth;
             canvasHeight = canvasHeight == 0 ? 1000 : canvasHeight;
         }
         return BuildFromElement(root, canvasWidth, canvasHeight);

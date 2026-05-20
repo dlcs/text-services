@@ -29,10 +29,10 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
 
     public void ProcessPage(
         TextAccumulator accumulator,
-        string          rawContent,
-        string          imageIdentifier,
-        int             canvasWidth,
-        int             canvasHeight)
+        string rawContent,
+        string imageIdentifier,
+        int canvasWidth,
+        int canvasHeight)
     {
         using var doc = JsonDocument.Parse(rawContent);
         var root = doc.RootElement;
@@ -101,7 +101,7 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
         {
             JsonValueKind.String => ParseUriTarget(targetEl.GetString()),
             JsonValueKind.Object => ParseSpecificResource(targetEl),
-            _                    => null,
+            _ => null,
         };
 
     /// <summary>Parses a plain URI target such as <c>canvasId#xywh=10,20,100,50</c>.</summary>
@@ -220,7 +220,7 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
         {
             JsonValueKind.String => motivation.GetString()
                 ?.Equals("supplementing", StringComparison.OrdinalIgnoreCase) ?? false,
-            JsonValueKind.Array  => motivation.EnumerateArray()
+            JsonValueKind.Array => motivation.EnumerateArray()
                 .Any(m => m.ValueKind == JsonValueKind.String &&
                           m.GetString()?.Equals("supplementing",
                               StringComparison.OrdinalIgnoreCase) == true),

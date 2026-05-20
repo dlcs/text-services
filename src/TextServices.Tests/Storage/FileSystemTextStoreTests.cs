@@ -309,12 +309,15 @@ public sealed class FileSystemTextStoreTests : IDisposable
             words[pos] = new Word
             {
                 ContentNorm = token,
-                ContentRaw  = token,
-                PosNorm     = pos,
-                PosRaw      = pos,
-                Wd          = wd++,
-                Li          = wd,
-                X = 0, Y = 0, W = 100, H = 20,
+                ContentRaw = token,
+                PosNorm = pos,
+                PosRaw = pos,
+                Wd = wd++,
+                Li = wd,
+                X = 0,
+                Y = 0,
+                W = 100,
+                H = 20,
             };
             pos += token.Length + 1; // +1 for the space
         }
@@ -322,10 +325,10 @@ public sealed class FileSystemTextStoreTests : IDisposable
         return new Text
         {
             NormalisedFullText = normalisedFullText,
-            RawFullText        = normalisedFullText,
-            Words              = words,
-            Images             = [new Image { StartCharacter = 0, ImageIdentifier = "https://example.org/canvas/1" }],
-            ComposedBlocks     = [],
+            RawFullText = normalisedFullText,
+            Words = words,
+            Images = [new Image { StartCharacter = 0, ImageIdentifier = "https://example.org/canvas/1" }],
+            ComposedBlocks = [],
         };
     }
 }

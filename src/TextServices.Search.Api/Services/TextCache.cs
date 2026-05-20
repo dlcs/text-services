@@ -22,13 +22,13 @@ public class TextCache(
 {
     public async Task<Text?> GetTextAsync(string key, CancellationToken ct = default)
         => await GetOrLoadAsync<Text>(
-            cacheKey:  $"text:{key}",
+            cacheKey: $"text:{key}",
             loadAsync: () => textStore.LoadText(key),
             ct);
 
     public async Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
         => await GetOrLoadAsync<AutoComplete>(
-            cacheKey:  $"ac:{key}",
+            cacheKey: $"ac:{key}",
             loadAsync: () => textStore.LoadAutoComplete(key),
             ct);
 

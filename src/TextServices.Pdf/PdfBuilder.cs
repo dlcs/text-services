@@ -25,9 +25,9 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     /// <summary>Named <see cref="HttpClient"/> used for fetching canvas images.</summary>
     public const string HttpClientName = "pdf";
 
-    private const double TargetDpi  = 150.0;
-    private const int    MaxEdgePx  = 2000;
-    private const float  TextPageFontSize = 14f;
+    private const double TargetDpi = 150.0;
+    private const int MaxEdgePx = 2000;
+    private const float TextPageFontSize = 14f;
 
     // -------------------------------------------------------------------------
     // Public entry point
@@ -46,7 +46,7 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     /// <param name="output">Stream to write the PDF to.</param>
     /// <param name="ct">Cancellation token.</param>
     public async Task BuildAsync(
-        Text   text,
+        Text text,
         string manifestJson,
         string? pageSequenceJson,
         Stream output,
@@ -65,7 +65,7 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         if (pageSequenceJson != null)
         {
             // sourceData job: full assembly including pdf-embed and custom-type pages.
-            var entries      = ParsePageSequence(pageSequenceJson);
+            var entries = ParsePageSequence(pageSequenceJson);
             var textIndexMap = BuildCanvasIndexMap(text);
 
             // Pre-determine reference page size from the first image canvas so that
@@ -132,12 +132,12 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     // -------------------------------------------------------------------------
 
     private async Task<(float widthPt, float heightPt)> AddPageAsync(
-        PdfDocument   pdfDoc,
-        PdfFont       font,
-        HttpClient    http,
-        Text          text,
-        int           textIndex,   // index into text.Images; -1 = canvas has no text
-        PageInfo      pageInfo,
+        PdfDocument pdfDoc,
+        PdfFont font,
+        HttpClient http,
+        Text text,
+        int textIndex,   // index into text.Images; -1 = canvas has no text
+        PageInfo pageInfo,
         CancellationToken ct)
     {
         var imageUrl = ChooseImageUrl(pageInfo);
@@ -153,19 +153,19 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
             logger.LogWarning(ex,
                 "Failed to fetch image for canvas {CanvasId} from {Url} — emitting blank page",
                 pageInfo.CanvasId, imageUrl);
-            var fallbackW = (float)(pageInfo.CanvasWidth  * 72.0 / TargetDpi);
+            var fallbackW = (float)(pageInfo.CanvasWidth * 72.0 / TargetDpi);
             var fallbackH = (float)(pageInfo.CanvasHeight * 72.0 / TargetDpi);
             pdfDoc.AddNewPage(new PageSize(fallbackW, fallbackH));
             return (fallbackW, fallbackH);
         }
 
-        var imgWidthPx  = (int)imageData.GetWidth();
+        var imgWidthPx = (int)imageData.GetWidth();
         var imgHeightPx = (int)imageData.GetHeight();
 
-        var pageWidthPt  = (float)(imgWidthPx  * 72.0 / TargetDpi);
+        var pageWidthPt = (float)(imgWidthPx * 72.0 / TargetDpi);
         var pageHeightPt = (float)(imgHeightPx * 72.0 / TargetDpi);
 
-        var page   = pdfDoc.AddNewPage(new PageSize(pageWidthPt, pageHeightPt));
+        var page = pdfDoc.AddNewPage(new PageSize(pageWidthPt, pageHeightPt));
         var canvas = new PdfCanvas(page);
 
         // Background image — scale to fill the page using the CTM directly.
@@ -178,7 +178,7 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
 
         if (words.Count > 0 && pageInfo.CanvasWidth > 0 && pageInfo.CanvasHeight > 0)
         {
-            var scaleX = pageWidthPt  / (float)pageInfo.CanvasWidth;
+            var scaleX = pageWidthPt / (float)pageInfo.CanvasWidth;
             var scaleY = pageHeightPt / (float)pageInfo.CanvasHeight;
 
             canvas.BeginText();
@@ -188,10 +188,10 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
             {
                 if (string.IsNullOrEmpty(word.ContentRaw)) continue;
 
-                var fontSize    = Math.Max(1f, word.H * scaleY);
-                var x           = word.X * scaleX;
+                var fontSize = Math.Max(1f, word.H * scaleY);
+                var x = word.X * scaleX;
                 // PDF origin is bottom-left; flip Y axis.
-                var y           = pageHeightPt - (word.Y + word.H) * scaleY;
+                var y = pageHeightPt - (word.Y + word.H) * scaleY;
                 var targetWidth = Math.Max(1f, word.W * scaleX);
 
                 canvas.SetFontAndSize(font, fontSize);
@@ -218,17 +218,17 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     /// </summary>
     private static void AddTextPage(
         PdfDocument pdfDoc,
-        PdfFont     font,
-        string      message,
-        float       widthPt,
-        float       heightPt)
+        PdfFont font,
+        string message,
+        float widthPt,
+        float heightPt)
     {
-        var page   = pdfDoc.AddNewPage(new PageSize(widthPt, heightPt));
+        var page = pdfDoc.AddNewPage(new PageSize(widthPt, heightPt));
         var canvas = new PdfCanvas(page);
 
         var textWidth = font.GetWidth(message, TextPageFontSize);
-        var x = (widthPt  - textWidth)        / 2f;
-        var y = (heightPt - TextPageFontSize)  / 2f;
+        var x = (widthPt - textWidth) / 2f;
+        var y = (heightPt - TextPageFontSize) / 2f;
 
         canvas.BeginText();
         canvas.SetFontAndSize(font, TextPageFontSize);
@@ -245,11 +245,11 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     /// Supports <c>http/https</c> and <c>file://</c> URIs.
     /// </summary>
     private async Task EmbedPdfAsync(
-        PdfDocument  pdfDoc,
-        HttpClient   http,
-        string?      inputUri,
-        float        targetWidthPt,
-        float        targetHeightPt,
+        PdfDocument pdfDoc,
+        HttpClient http,
+        string? inputUri,
+        float targetWidthPt,
+        float targetHeightPt,
         CancellationToken ct)
     {
         if (string.IsNullOrEmpty(inputUri))
@@ -279,20 +279,20 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
                 return;
             }
 
-            using var reader    = new PdfReader(sourceStream);
+            using var reader = new PdfReader(sourceStream);
             using var sourceDoc = new PdfDocument(reader);
 
             for (var i = 1; i <= sourceDoc.GetNumberOfPages(); i++)
             {
                 var srcPage = sourceDoc.GetPage(i);
                 var srcRect = srcPage.GetPageSize();
-                var xObj    = srcPage.CopyAsFormXObject(pdfDoc);
-                var page    = pdfDoc.AddNewPage(new PageSize(targetWidthPt, targetHeightPt));
+                var xObj = srcPage.CopyAsFormXObject(pdfDoc);
+                var page = pdfDoc.AddNewPage(new PageSize(targetWidthPt, targetHeightPt));
 
                 // Scale to fit, preserving aspect ratio (letterbox/pillarbox if needed).
-                var scale   = Math.Min(targetWidthPt  / srcRect.GetWidth(),
+                var scale = Math.Min(targetWidthPt / srcRect.GetWidth(),
                                        targetHeightPt / srcRect.GetHeight());
-                var offsetX = (targetWidthPt  - srcRect.GetWidth()  * scale) / 2f;
+                var offsetX = (targetWidthPt - srcRect.GetWidth() * scale) / 2f;
                 var offsetY = (targetHeightPt - srcRect.GetHeight() * scale) / 2f;
 
                 new PdfCanvas(page)
@@ -317,9 +317,9 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     /// </summary>
     private async Task<(float widthPt, float heightPt)> DetermineReferenceSizeAsync(
         IReadOnlyList<PageSequenceEntry> entries,
-        Dictionary<string, PageInfo>    manifestPages,
-        HttpClient                      http,
-        CancellationToken               ct)
+        Dictionary<string, PageInfo> manifestPages,
+        HttpClient http,
+        CancellationToken ct)
     {
         foreach (var entry in entries)
         {
@@ -329,10 +329,10 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
             var url = ChooseImageUrl(pageInfo);
             try
             {
-                var bytes     = await http.GetByteArrayAsync(url, ct);
+                var bytes = await http.GetByteArrayAsync(url, ct);
                 var imageData = ImageDataFactory.Create(bytes);
                 return (
-                    (float)(imageData.GetWidth()  * 72.0 / TargetDpi),
+                    (float)(imageData.GetWidth() * 72.0 / TargetDpi),
                     (float)(imageData.GetHeight() * 72.0 / TargetDpi));
             }
             catch (Exception ex)
@@ -386,7 +386,7 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
             var canvasId = canvas["id"]?.GetValue<string>() ?? canvas["@id"]?.GetValue<string>();
             if (canvasId == null) continue;
 
-            var canvasWidth  = canvas["width"]?.GetValue<int>()  ?? 0;
+            var canvasWidth = canvas["width"]?.GetValue<int>() ?? 0;
             var canvasHeight = canvas["height"]?.GetValue<int>() ?? 0;
 
             var body = GetPaintingBody(canvas);
@@ -398,7 +398,7 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
             var staticUrl = body["id"]?.GetValue<string>() ?? body["@id"]?.GetValue<string>();
             if (staticUrl == null) continue;
 
-            var imageWidth  = body["width"]?.GetValue<int>()  ?? canvasWidth;
+            var imageWidth = body["width"]?.GetValue<int>() ?? canvasWidth;
             var imageHeight = body["height"]?.GetValue<int>() ?? canvasHeight;
 
             string? serviceId = null;
@@ -413,7 +413,7 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
                 {
                     foreach (var s in sizesArr)
                     {
-                        var sw = s?["width"]?.GetValue<int>()  ?? 0;
+                        var sw = s?["width"]?.GetValue<int>() ?? 0;
                         var sh = s?["height"]?.GetValue<int>() ?? 0;
                         if (sw > 0 && sh > 0) sizes.Add(new ImageSize(sw, sh));
                     }
@@ -438,12 +438,12 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         {
             if (item is not JsonObject obj) continue;
             entries.Add(new PageSequenceEntry(
-                Type:     obj["type"]?.GetValue<string>(),
+                Type: obj["type"]?.GetValue<string>(),
                 CanvasId: obj["canvasId"]?.GetValue<string>(),
-                Input:    obj["input"]?.GetValue<string>(),
-                Width:    obj["width"]?.GetValue<int>()   ?? 0,
-                Height:   obj["height"]?.GetValue<int>()  ?? 0,
-                Message:  obj["message"]?.GetValue<string>()));
+                Input: obj["input"]?.GetValue<string>(),
+                Width: obj["width"]?.GetValue<int>() ?? 0,
+                Height: obj["height"]?.GetValue<int>() ?? 0,
+                Message: obj["message"]?.GetValue<string>()));
         }
 
         return entries;
@@ -477,18 +477,18 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
 
     private static bool IsPainting(JsonNode? motivation) => motivation switch
     {
-        JsonValue  v   => v.TryGetValue<string>(out var s) && s.Equals("painting", StringComparison.OrdinalIgnoreCase),
-        JsonArray  arr => arr.Any(m => m is JsonValue mv
+        JsonValue v => v.TryGetValue<string>(out var s) && s.Equals("painting", StringComparison.OrdinalIgnoreCase),
+        JsonArray arr => arr.Any(m => m is JsonValue mv
                                     && mv.TryGetValue<string>(out var ms)
                                     && ms.Equals("painting", StringComparison.OrdinalIgnoreCase)),
-        _              => false,
+        _ => false,
     };
 
     private static JsonObject? NormaliseToFirstObject(JsonNode? service) => service switch
     {
-        JsonArray  arr => arr.FirstOrDefault() as JsonObject,
+        JsonArray arr => arr.FirstOrDefault() as JsonObject,
         JsonObject obj => obj,
-        _              => null,
+        _ => null,
     };
 
     // -------------------------------------------------------------------------
@@ -499,18 +499,18 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         string? Type,
         string? CanvasId,
         string? Input,
-        int     Width,
-        int     Height,
+        int Width,
+        int Height,
         string? Message);
 
     private sealed record PageInfo(
-        string      CanvasId,
-        int         CanvasWidth,
-        int         CanvasHeight,
-        string      StaticUrl,
-        int         ImageWidth,
-        int         ImageHeight,
-        string?     ServiceId,
+        string CanvasId,
+        int CanvasWidth,
+        int CanvasHeight,
+        string StaticUrl,
+        int ImageWidth,
+        int ImageHeight,
+        string? ServiceId,
         List<ImageSize> Sizes);
 
     private sealed record ImageSize(int Width, int Height);
@@ -521,17 +521,17 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     /// </summary>
     private sealed class NonClosingStream(Stream inner) : Stream
     {
-        public override bool CanRead  => inner.CanRead;
-        public override bool CanSeek  => inner.CanSeek;
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => inner.CanSeek;
         public override bool CanWrite => inner.CanWrite;
-        public override long Length   => inner.Length;
+        public override long Length => inner.Length;
         public override long Position { get => inner.Position; set => inner.Position = value; }
 
-        public override void  Flush() => inner.Flush();
-        public override int   Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
-        public override long  Seek(long offset, SeekOrigin origin)       => inner.Seek(offset, origin);
-        public override void  SetLength(long value)                      => inner.SetLength(value);
-        public override void  Write(byte[] buffer, int offset, int count) => inner.Write(buffer, offset, count);
+        public override void Flush() => inner.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => inner.Seek(offset, origin);
+        public override void SetLength(long value) => inner.SetLength(value);
+        public override void Write(byte[] buffer, int offset, int count) => inner.Write(buffer, offset, count);
 
         public override void Close() { /* do not close the caller's stream */ }
         protected override void Dispose(bool disposing) { /* do not dispose the caller's stream */ }

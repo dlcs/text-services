@@ -41,7 +41,7 @@ public class DeleteJobHandler(
         try
         {
             var http = httpClientFactory.CreateClient();
-            var url  = $"{options.SearchApiBaseUrl.TrimEnd('/')}/cache/v1/{id}";
+            var url = $"{options.SearchApiBaseUrl.TrimEnd('/')}/cache/v1/{id}";
             await http.DeleteAsync(url);
         }
         catch (Exception ex)

@@ -252,7 +252,7 @@ public class ManifestSynthesiserTests
     {
         // When AllowFileImageProxy is true and SearchApiBaseUrl is set, file:// body.id
         // is rewritten to a /proxy/image URL on the Search API.
-        const string imageUri      = "file:///C:/fixtures/b2888193x/images/b2888193x_0001.jpg";
+        const string imageUri = "file:///C:/fixtures/b2888193x/images/b2888193x_0001.jpg";
         const string searchBaseUrl = "http://localhost:5294";
         var expected = $"{searchBaseUrl}/proxy/image?uri={Uri.EscapeDataString(imageUri)}";
 
@@ -379,7 +379,7 @@ public class ManifestSynthesiserTests
                     Width = 1000, Height = 1500 },
         };
 
-        var result   = JsonNode.Parse(Sut().Synthesise(pages))!;
+        var result = JsonNode.Parse(Sut().Synthesise(pages))!;
         var canvases = result["items"]!.AsArray();
 
         canvases.Count.ShouldBe(1);
@@ -403,7 +403,7 @@ public class ManifestSynthesiserTests
                     Width = 100, Height = 200 },
         };
 
-        var result   = JsonNode.Parse(Sut().Synthesise(pages))!;
+        var result = JsonNode.Parse(Sut().Synthesise(pages))!;
         var canvases = result["items"]!.AsArray();
 
         // pdf-type excluded; normal + custom = 2 canvases.
@@ -431,7 +431,7 @@ public class ManifestSynthesiserTests
         };
 
         var result = JsonNode.Parse(Sut().Synthesise(pages))!;
-        var anno   = result["items"]![0]!["items"]![0]!["items"]![0]!;
+        var anno = result["items"]![0]!["items"]![0]!["items"]![0]!;
 
         anno["body"]!["id"]!.GetValue<string>().ShouldBe(imageUri);
     }
@@ -441,7 +441,7 @@ public class ManifestSynthesiserTests
     {
         // ImageUri wins when both are set.
         const string imageUri = "https://example.org/images/correct.jpg";
-        const string input    = "https://example.org/images/wrong.jpg";
+        const string input = "https://example.org/images/wrong.jpg";
 
         var pages = new List<PageInstruction>
         {
@@ -450,7 +450,7 @@ public class ManifestSynthesiserTests
         };
 
         var result = JsonNode.Parse(Sut().Synthesise(pages))!;
-        var anno   = result["items"]![0]!["items"]![0]!["items"]![0]!;
+        var anno = result["items"]![0]!["items"]![0]!["items"]![0]!;
 
         anno["body"]!["id"]!.GetValue<string>().ShouldBe(imageUri);
     }

@@ -23,25 +23,25 @@ public class LineAnnotationsHandlerTests
     public async Task Handle_TextNotFound_ReturnsNull()
     {
         var handler = new LineAnnotationsHandler(new StubTextCache(null));
-        var result  = await handler.Handle(new LineAnnotationsRequest("missing", 0, SelfUrl), default);
+        var result = await handler.Handle(new LineAnnotationsRequest("missing", 0, SelfUrl), default);
         result.ShouldBeNull();
     }
 
     [Fact]
     public async Task Handle_CanvasIndexOutOfRange_ReturnsNull()
     {
-        var text    = BuildSpatialText([("https://example.org/c/1", "hello world")]);
+        var text = BuildSpatialText([("https://example.org/c/1", "hello world")]);
         var handler = new LineAnnotationsHandler(new StubTextCache(text));
-        var result  = await handler.Handle(new LineAnnotationsRequest("test/book", 5, SelfUrl), default);
+        var result = await handler.Handle(new LineAnnotationsRequest("test/book", 5, SelfUrl), default);
         result.ShouldBeNull();
     }
 
     [Fact]
     public async Task Handle_NegativeCanvasIndex_ReturnsNull()
     {
-        var text    = BuildSpatialText([("https://example.org/c/1", "hello world")]);
+        var text = BuildSpatialText([("https://example.org/c/1", "hello world")]);
         var handler = new LineAnnotationsHandler(new StubTextCache(text));
-        var result  = await handler.Handle(new LineAnnotationsRequest("test/book", -1, SelfUrl), default);
+        var result = await handler.Handle(new LineAnnotationsRequest("test/book", -1, SelfUrl), default);
         result.ShouldBeNull();
     }
 
@@ -52,7 +52,7 @@ public class LineAnnotationsHandlerTests
     [Fact]
     public async Task Handle_ReturnsAnnotationPageWithCorrectMetadata()
     {
-        var text    = BuildSpatialText([("https://example.org/c/1", "hello world")]);
+        var text = BuildSpatialText([("https://example.org/c/1", "hello world")]);
         var handler = new LineAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new LineAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -69,7 +69,7 @@ public class LineAnnotationsHandlerTests
     public async Task Handle_SingleLine_ReturnsSingleAnnotation()
     {
         // All words are on one TextLine in ALTO, so Li is the same for all.
-        var text    = BuildSpatialText([("https://example.org/c/1", "hello world foo")]);
+        var text = BuildSpatialText([("https://example.org/c/1", "hello world foo")]);
         var handler = new LineAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new LineAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -82,7 +82,7 @@ public class LineAnnotationsHandlerTests
     public async Task Handle_MultiLine_ReturnsOneAnnotationPerLine()
     {
         // W3C annotations — each annotation is its own line (distinct Li value).
-        var text    = BuildSpatialTextMultiLine("https://example.org/c/1",
+        var text = BuildSpatialTextMultiLine("https://example.org/c/1",
             ["line one", "line two", "line three"]);
         var handler = new LineAnnotationsHandler(new StubTextCache(text));
 
@@ -94,7 +94,7 @@ public class LineAnnotationsHandlerTests
     [Fact]
     public async Task Handle_LineAnnotation_ContainsAllWordsInLine()
     {
-        var text    = BuildSpatialTextMultiLine("https://example.org/c/1",
+        var text = BuildSpatialTextMultiLine("https://example.org/c/1",
             ["prime minister spoke"]);
         var handler = new LineAnnotationsHandler(new StubTextCache(text));
 
@@ -123,7 +123,7 @@ public class LineAnnotationsHandlerTests
     [Fact]
     public async Task Handle_AnnotationIds_PrefixedWithSelfUrl()
     {
-        var text    = BuildSpatialTextMultiLine("https://example.org/c/1", ["a", "b"]);
+        var text = BuildSpatialTextMultiLine("https://example.org/c/1", ["a", "b"]);
         var handler = new LineAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new LineAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -136,7 +136,7 @@ public class LineAnnotationsHandlerTests
     [Fact]
     public async Task Handle_AnnotationMotivation_IsSupplementing()
     {
-        var text    = BuildSpatialText([("https://example.org/c/1", "hello")]);
+        var text = BuildSpatialText([("https://example.org/c/1", "hello")]);
         var handler = new LineAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new LineAnnotationsRequest("test/book", 0, SelfUrl), default);
@@ -153,7 +153,7 @@ public class LineAnnotationsHandlerTests
             ("https://example.org/c/2", "page two words"),
         ]);
         var selfUrl2 = "https://search.example.org/annotations/lines/v1/1/test/book";
-        var handler  = new LineAnnotationsHandler(new StubTextCache(text));
+        var handler = new LineAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(
             new LineAnnotationsRequest("test/book", 1, selfUrl2), default);
@@ -174,7 +174,7 @@ public class LineAnnotationsHandlerTests
         acc.BeginPage("https://example.org/c/2");
         acc.NextLine();
         acc.AddWord("hello", "hello", 0, 0, 50, 20);
-        var text    = acc.Build().Text;
+        var text = acc.Build().Text;
         var handler = new LineAnnotationsHandler(new StubTextCache(text));
 
         var result = await handler.Handle(new LineAnnotationsRequest("test/book", 0, SelfUrl), default);

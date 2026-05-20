@@ -46,7 +46,7 @@ public class JobInstruction : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        var hasUri  = !string.IsNullOrWhiteSpace(SourceUri);
+        var hasUri = !string.IsNullOrWhiteSpace(SourceUri);
         var hasData = SourceData is { Count: > 0 };
 
         if (!hasUri && !hasData)

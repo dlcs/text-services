@@ -26,43 +26,43 @@ public class SearchHandler(ITextCache cache) : IRequestHandler<SearchRequest, Se
     private static SearchAnnotationList BuildResponse(
         Text text, List<ResultRect> rects, string selfUrl)
     {
-        var resources      = new List<SearchAnnotation>(rects.Count);
-        var hits           = new List<SearchHit>();
-        SearchHit?         currentHit      = null;
-        int                currentHitIndex = -1;
-        List<string>       hitAnnoIds      = [];
-        string?            after           = null;
+        var resources = new List<SearchAnnotation>(rects.Count);
+        var hits = new List<SearchHit>();
+        SearchHit? currentHit = null;
+        int currentHitIndex = -1;
+        List<string> hitAnnoIds = [];
+        string? after = null;
 
         foreach (var rect in rects)
         {
             var canvasId = text.Images[rect.Idx].ImageIdentifier;
             // Annotation ID encodes hit + canvas index + coordinates for uniqueness.
-            var annoId   = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-{rect.X},{rect.Y},{rect.W},{rect.H}";
+            var annoId = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-{rect.X},{rect.Y},{rect.W},{rect.H}";
 
             resources.Add(new SearchAnnotation
             {
-                Id       = annoId,
+                Id = annoId,
                 Resource = new SearchAnnotationResource { Chars = rect.ContentRaw },
-                On       = $"{canvasId}#xywh={rect.X},{rect.Y},{rect.W},{rect.H}",
+                On = $"{canvasId}#xywh={rect.X},{rect.Y},{rect.W},{rect.H}",
             });
 
             if (currentHitIndex != rect.Hit)
             {
                 if (currentHit != null)
                 {
-                    currentHit.After       = after;
+                    currentHit.After = after;
                     currentHit.Annotations = [.. hitAnnoIds];
                     hits.Add(currentHit);
                 }
 
                 currentHit = new SearchHit
                 {
-                    Before      = rect.Before,
-                    Match       = string.Empty,
+                    Before = rect.Before,
+                    Match = string.Empty,
                     Annotations = [], // filled when the hit is closed
                 };
                 currentHitIndex = rect.Hit;
-                hitAnnoIds      = [];
+                hitAnnoIds = [];
             }
 
             currentHit!.Match += string.IsNullOrEmpty(currentHit.Match)
@@ -76,17 +76,17 @@ public class SearchHandler(ITextCache cache) : IRequestHandler<SearchRequest, Se
         // Close the final hit.
         if (currentHit != null)
         {
-            currentHit.After       = after;
+            currentHit.After = after;
             currentHit.Annotations = [.. hitAnnoIds];
             hits.Add(currentHit);
         }
 
         return new SearchAnnotationList
         {
-            Id        = selfUrl,
-            Within    = new SearchLayer { Total = resources.Count },
+            Id = selfUrl,
+            Within = new SearchLayer { Total = resources.Count },
             Resources = resources,
-            Hits      = hits,
+            Hits = hits,
         };
     }
 }

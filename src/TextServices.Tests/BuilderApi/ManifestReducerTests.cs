@@ -572,7 +572,7 @@ public class ManifestReducerTests
     {
         // Regular interpolated strings (not raw) so that \" correctly becomes ".
         var profileJson = profile != null ? $"\"profile\": \"{profile}\"," : "";
-        var labelJson   = label   != null ? $"\"label\": \"{label}\","     : "";
+        var labelJson = label != null ? $"\"label\": \"{label}\"," : "";
         return $$"""
         {
           "id": "{{id}}",

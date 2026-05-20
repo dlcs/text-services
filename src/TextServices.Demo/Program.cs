@@ -18,31 +18,31 @@ app.MapGet("/demo-config", (DemoOptions opts, IWebHostEnvironment env) =>
     var fixturesDir = Path.GetFullPath(
         Path.Combine(env.ContentRootPath, "..", "TextServices.Tests.E2E", "Fixtures", "b2888193x"));
 
-    string? fixtureAlto   = null;
+    string? fixtureAlto = null;
     string? fixtureImages = null;
 
     if (Directory.Exists(fixturesDir))
     {
-        var baseUri   = new Uri(fixturesDir).AbsoluteUri;
-        fixtureAlto   = baseUri + "/alto";
+        var baseUri = new Uri(fixturesDir).AbsoluteUri;
+        fixtureAlto = baseUri + "/alto";
         fixtureImages = baseUri + "/images";
     }
 
     return Results.Ok(new
     {
-        builderApi    = opts.BuilderApiBaseUrl.TrimEnd('/'),
-        searchApi     = opts.SearchApiBaseUrl.TrimEnd('/'),
-        hangfireUrl   = opts.BuilderApiBaseUrl.TrimEnd('/') + "/hangfire",
+        builderApi = opts.BuilderApiBaseUrl.TrimEnd('/'),
+        searchApi = opts.SearchApiBaseUrl.TrimEnd('/'),
+        hangfireUrl = opts.BuilderApiBaseUrl.TrimEnd('/') + "/hangfire",
         fixtureAlto,
         fixtureImages,
     });
 });
 
 // Clean URLs — redirect to the static HTML files.
-app.MapGet("/",       () => Results.Redirect("/index.html"));
-app.MapGet("/builder",() => Results.Redirect("/builder.html"));
+app.MapGet("/", () => Results.Redirect("/index.html"));
+app.MapGet("/builder", () => Results.Redirect("/builder.html"));
 app.MapGet("/viewer", () => Results.Redirect("/viewer.html"));
-app.MapGet("/compare",     () => Results.Redirect("/compare.html"));
+app.MapGet("/compare", () => Results.Redirect("/compare.html"));
 app.MapGet("/annotations", () => Results.Redirect("/annotations.html"));
 
 app.Run();

@@ -14,15 +14,15 @@ namespace TextServices.Storage;
 /// </remarks>
 public class S3TextStore : ITextStore, IDisposable
 {
-    private const string TextFileName         = "text.bin";
+    private const string TextFileName = "text.bin";
     private const string AutoCompleteFileName = "autocomplete.bin";
-    private const string ManifestFileName     = "manifest.json";
-    private const string RawTextFileName      = "rawtext.txt";
-    private const string PdfFileName          = "book.pdf";
-    private const string FiguresFileName      = "figures.json";
-    private const string AnnotationsFileName  = "annotations.json";
-    private const string CapabilitiesFileName  = "capabilities.json";
-    private const string PageSequenceFileName  = "pagesequence.json";
+    private const string ManifestFileName = "manifest.json";
+    private const string RawTextFileName = "rawtext.txt";
+    private const string PdfFileName = "book.pdf";
+    private const string FiguresFileName = "figures.json";
+    private const string AnnotationsFileName = "annotations.json";
+    private const string CapabilitiesFileName = "capabilities.json";
+    private const string PageSequenceFileName = "pagesequence.json";
 
     private readonly IAmazonS3 _s3;
     private readonly string _bucket;
@@ -33,7 +33,7 @@ public class S3TextStore : ITextStore, IDisposable
     /// <summary>Constructor for testing — accepts a pre-configured <see cref="IAmazonS3"/>.</summary>
     public S3TextStore(S3TextStoreOptions options, IAmazonS3 s3)
     {
-        _s3     = s3;
+        _s3 = s3;
         _bucket = options.BucketName;
         _prefix = string.IsNullOrEmpty(options.KeyPrefix)
             ? string.Empty
@@ -234,8 +234,8 @@ public class S3TextStore : ITextStore, IDisposable
         stream.Position = 0;
         await _s3.PutObjectAsync(new PutObjectRequest
         {
-            BucketName  = _bucket,
-            Key         = s3Key,
+            BucketName = _bucket,
+            Key = s3Key,
             InputStream = stream,
             ContentType = contentType
         });

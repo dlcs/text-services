@@ -28,7 +28,7 @@ public class BuildAndSearchTests(E2ETestContext ctx) : IClassFixture<E2ETestCont
     {
         var response = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
         {
-            id        = "e2e/lifecycle-test",
+            id = "e2e/lifecycle-test",
             sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
         });
 
@@ -236,7 +236,7 @@ public class BuildAndSearchTests(E2ETestContext ctx) : IClassFixture<E2ETestCont
     {
         var response = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
         {
-            id         = "e2e/sd-lifecycle",
+            id = "e2e/sd-lifecycle",
             sourceData = SourceDataPages()
         });
 
@@ -337,7 +337,7 @@ public class BuildAndSearchTests(E2ETestContext ctx) : IClassFixture<E2ETestCont
         {
             id,
             sourceData = SourceDataPages(),
-            services   = searchAndTextAugmented,
+            services = searchAndTextAugmented,
         });
 
         var body = await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
@@ -362,7 +362,7 @@ public class BuildAndSearchTests(E2ETestContext ctx) : IClassFixture<E2ETestCont
         {
             id,
             sourceData = SourceDataPages(),
-            services   = searchOnly,
+            services = searchOnly,
         });
 
         await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));

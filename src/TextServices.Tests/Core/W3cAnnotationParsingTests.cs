@@ -123,7 +123,7 @@ public class W3cAnnotationParsingTests
     public void ProcessPage_NoItems_ReturnsEmpty()
     {
         var json = """{"type":"AnnotationPage"}""";
-        var acc  = new TextAccumulator();
+        var acc = new TextAccumulator();
         Provider.ProcessPage(acc, json, "canvas1", 1000, 1000);
         acc.Build().IsEmpty.ShouldBeTrue();
     }
@@ -376,20 +376,20 @@ public class W3cAnnotationParsingTests
         // Built via JsonObject to avoid triple-closing-brace ambiguity in raw string literals.
         var obj = new System.Text.Json.Nodes.JsonObject
         {
-            ["type"]       = "Annotation",
+            ["type"] = "Annotation",
             ["motivation"] = "supplementing",
             ["body"] = new System.Text.Json.Nodes.JsonObject
             {
-                ["type"]  = "TextualBody",
+                ["type"] = "TextualBody",
                 ["value"] = value,
             },
             ["target"] = new System.Text.Json.Nodes.JsonObject
             {
-                ["type"]   = "SpecificResource",
+                ["type"] = "SpecificResource",
                 ["source"] = source,
                 ["selector"] = new System.Text.Json.Nodes.JsonObject
                 {
-                    ["type"]  = "FragmentSelector",
+                    ["type"] = "FragmentSelector",
                     ["value"] = fragmentValue,
                 },
             },

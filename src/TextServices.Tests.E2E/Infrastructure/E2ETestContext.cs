@@ -9,24 +9,24 @@ public sealed class E2ETestContext : IDisposable
     private static readonly string FixturesRoot = Path.Combine(
         AppContext.BaseDirectory, "Fixtures");
 
-    public string StorageRoot    { get; } =
+    public string StorageRoot { get; } =
         Path.Combine(Path.GetTempPath(), "TextServicesE2E_" + Guid.NewGuid().ToString("N"));
 
-    public BuilderApiFactory BuilderFactory  { get; }
-    public SearchApiFactory  SearchFactory   { get; }
+    public BuilderApiFactory BuilderFactory { get; }
+    public SearchApiFactory SearchFactory { get; }
 
-    public HttpClient BuilderClient  { get; }
-    public HttpClient SearchClient   { get; }
+    public HttpClient BuilderClient { get; }
+    public HttpClient SearchClient { get; }
 
     public E2ETestContext()
     {
         Directory.CreateDirectory(StorageRoot);
 
         BuilderFactory = new BuilderApiFactory(StorageRoot, FixturesRoot);
-        SearchFactory  = new SearchApiFactory(StorageRoot);
+        SearchFactory = new SearchApiFactory(StorageRoot);
 
         BuilderClient = BuilderFactory.CreateClient();
-        SearchClient  = SearchFactory.CreateClient();
+        SearchClient = SearchFactory.CreateClient();
     }
 
     /// <summary>
@@ -40,12 +40,12 @@ public sealed class E2ETestContext : IDisposable
         CancellationToken ct = default)
     {
         var deadline = DateTime.UtcNow + (timeout ?? TimeSpan.FromSeconds(30));
-        var delay    = TimeSpan.FromMilliseconds(200);
+        var delay = TimeSpan.FromMilliseconds(200);
 
         while (DateTime.UtcNow < deadline)
         {
             var response = await BuilderClient.GetAsync($"/textbuilder/{jobId}", ct);
-            var body     = await response.Content.ReadAsStringAsync(ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
 
             if (body.Contains("\"Completed\"") || body.Contains("\"Failed\""))
                 return body;

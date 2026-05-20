@@ -13,15 +13,15 @@ namespace TextServices.Storage;
 /// </remarks>
 public class FileSystemTextStore : ITextStore
 {
-    private const string TextFileName         = "text.bin";
+    private const string TextFileName = "text.bin";
     private const string AutoCompleteFileName = "autocomplete.bin";
-    private const string ManifestFileName     = "manifest.json";
-    private const string RawTextFileName      = "rawtext.txt";
-    private const string PdfFileName          = "book.pdf";
-    private const string FiguresFileName      = "figures.json";
-    private const string AnnotationsFileName  = "annotations.json";
-    private const string CapabilitiesFileName  = "capabilities.json";
-    private const string PageSequenceFileName  = "pagesequence.json";
+    private const string ManifestFileName = "manifest.json";
+    private const string RawTextFileName = "rawtext.txt";
+    private const string PdfFileName = "book.pdf";
+    private const string FiguresFileName = "figures.json";
+    private const string AnnotationsFileName = "annotations.json";
+    private const string CapabilitiesFileName = "capabilities.json";
+    private const string PageSequenceFileName = "pagesequence.json";
 
     private readonly string _rootPath;
 

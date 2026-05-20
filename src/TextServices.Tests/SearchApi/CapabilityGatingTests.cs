@@ -19,8 +19,8 @@ namespace TextServices.Tests.SearchApi;
 /// </summary>
 public class CapabilityGatingTests
 {
-    private const string Id       = "test/book";
-    private const string SelfUrl  = "https://search.example.org/test/book";
+    private const string Id = "test/book";
+    private const string SelfUrl = "https://search.example.org/test/book";
     private const string SearchBase = "https://search.example.org";
 
     // -------------------------------------------------------------------------

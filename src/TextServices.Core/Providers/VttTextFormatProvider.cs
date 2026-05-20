@@ -9,10 +9,10 @@ namespace TextServices.Core.Providers;
 public class VttTextFormatProvider : IStringFormatProvider
 {
     public bool Supports(string? profile, string? format, string? label) =>
-        ContainsIgnoreCase(profile, "text/vtt")  || ContainsIgnoreCase(format, "text/vtt")  ||
-        ContainsIgnoreCase(profile, "vtt")        || ContainsIgnoreCase(format, "vtt")        ||
-        ContainsIgnoreCase(label,   "vtt")        || ContainsIgnoreCase(label,  "webvtt")     ||
-        ContainsIgnoreCase(label,   "transcript");
+        ContainsIgnoreCase(profile, "text/vtt") || ContainsIgnoreCase(format, "text/vtt") ||
+        ContainsIgnoreCase(profile, "vtt") || ContainsIgnoreCase(format, "vtt") ||
+        ContainsIgnoreCase(label, "vtt") || ContainsIgnoreCase(label, "webvtt") ||
+        ContainsIgnoreCase(label, "transcript");
 
     public void ProcessPage(
         TextAccumulator accumulator,
@@ -25,7 +25,7 @@ public class VttTextFormatProvider : IStringFormatProvider
 
         // Normalise line endings and strip BOM
         var content = rawContent.TrimStart('\uFEFF').ReplaceLineEndings("\n");
-        var lines   = content.Split('\n');
+        var lines = content.Split('\n');
 
         var i = 0;
 
@@ -60,7 +60,7 @@ public class VttTextFormatProvider : IStringFormatProvider
 
             foreach (var token in plainText.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
-                var raw  = token;
+                var raw = token;
                 var norm = Text.Normalise(token);
                 if (!string.IsNullOrEmpty(norm))
                     accumulator.AddWord(raw, norm, startMs, endMs);
@@ -86,7 +86,7 @@ public class VttTextFormatProvider : IStringFormatProvider
         try
         {
             var dotIdx = s.IndexOf('.');
-            var ms     = dotIdx >= 0 ? int.Parse(s[(dotIdx + 1)..].PadRight(3, '0')[..3]) : 0;
+            var ms = dotIdx >= 0 ? int.Parse(s[(dotIdx + 1)..].PadRight(3, '0')[..3]) : 0;
             var timePart = dotIdx >= 0 ? s[..dotIdx] : s;
             var colonParts = timePart.Split(':');
             return colonParts.Length switch
@@ -111,9 +111,9 @@ public class VttTextFormatProvider : IStringFormatProvider
         var inTag = false;
         foreach (var c in text)
         {
-            if (c == '<')      inTag = true;
+            if (c == '<') inTag = true;
             else if (c == '>') inTag = false;
-            else if (!inTag)   sb.Append(c);
+            else if (!inTag) sb.Append(c);
         }
         return sb.ToString();
     }

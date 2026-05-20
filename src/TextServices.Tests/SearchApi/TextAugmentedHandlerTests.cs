@@ -10,14 +10,14 @@ namespace TextServices.Tests.SearchApi;
 
 public class TextAugmentedHandlerTests
 {
-    private const string SelfUrl       = "https://search.example.org/text-augmented/v3/test/book";
-    private const string SearchBase    = "https://search.example.org";
-    private const string ExpectedSearchV2       = "https://search.example.org/search/v2/test/book";
+    private const string SelfUrl = "https://search.example.org/text-augmented/v3/test/book";
+    private const string SearchBase = "https://search.example.org";
+    private const string ExpectedSearchV2 = "https://search.example.org/search/v2/test/book";
     private const string ExpectedAutocompleteV2 = "https://search.example.org/autocomplete/v2/test/book";
-    private const string ExpectedSearchV1       = "https://search.example.org/search/v1/test/book";
+    private const string ExpectedSearchV1 = "https://search.example.org/search/v1/test/book";
     private const string ExpectedAutocompleteV1 = "https://search.example.org/autocomplete/v1/test/book";
-    private const string ExpectedRawTextUrl     = "https://search.example.org/text/v1/test/book";
-    private const string ExpectedPdfUrl        = "https://search.example.org/pdf/v1/test/book";
+    private const string ExpectedRawTextUrl = "https://search.example.org/text/v1/test/book";
+    private const string ExpectedPdfUrl = "https://search.example.org/pdf/v1/test/book";
 
     // -------------------------------------------------------------------------
     // Not found
@@ -273,7 +273,7 @@ public class TextAugmentedHandlerTests
     public async Task Handle_WithAnnotationsAndFigures_AnnotationsRefBeforeFiguresRef()
     {
         const string annotationsJson = """{"type":"AnnotationPage","items":[]}""";
-        const string figuresJson     = """{"type":"AnnotationPage","items":[]}""";
+        const string figuresJson = """{"type":"AnnotationPage","items":[]}""";
         var handler = MakeHandler(V3Manifest(), annotationsJson: annotationsJson, figuresJson: figuresJson);
 
         var result = await handler.Handle(

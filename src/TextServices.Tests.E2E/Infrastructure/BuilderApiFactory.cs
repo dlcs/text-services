@@ -29,12 +29,12 @@ namespace TextServices.Tests.E2E.Infrastructure;
 /// </remarks>
 public class BuilderApiFactory : WebApplicationFactory<BuilderDbContext>
 {
-    public string StorageRoot    { get; }
-    public string FixturesRoot   { get; }
+    public string StorageRoot { get; }
+    public string FixturesRoot { get; }
 
     public BuilderApiFactory(string storageRoot, string fixturesRoot)
     {
-        StorageRoot  = storageRoot;
+        StorageRoot = storageRoot;
         FixturesRoot = fixturesRoot;
     }
 
@@ -45,8 +45,8 @@ public class BuilderApiFactory : WebApplicationFactory<BuilderDbContext>
         builder.ConfigureAppConfiguration((_, config) =>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:BuilderDb"]    = "Host=test-placeholder;",
-                ["TextServices:Storage:RootPath"]  = StorageRoot
+                ["ConnectionStrings:BuilderDb"] = "Host=test-placeholder;",
+                ["TextServices:Storage:RootPath"] = StorageRoot
             }));
 
         builder.ConfigureTestServices(services =>
@@ -72,7 +72,7 @@ public class BuilderApiFactory : WebApplicationFactory<BuilderDbContext>
             services.RemoveAll<ITextStore>();
             services.AddSingleton<ITextStore>(_ =>
                 new FileSystemTextStore(new FileSystemTextStoreOptions
-                    { RootPath = StorageRoot }));
+                { RootPath = StorageRoot }));
 
             // ---- Fetchers: replace with fixture-based stubs ---------------------
             services.RemoveAll<IAltoFetcher>();

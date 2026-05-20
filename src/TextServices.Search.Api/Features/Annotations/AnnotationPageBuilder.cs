@@ -11,7 +11,7 @@ namespace TextServices.Search.Api.Features.Annotations;
 /// </summary>
 public static class AnnotationPageBuilder
 {
-    private const string Pres3Context       = "http://iiif.io/api/presentation/3/context.json";
+    private const string Pres3Context = "http://iiif.io/api/presentation/3/context.json";
     private const string GranularityContext = "https://iiif.io/api/extension/text-granularity/context.json";
 
     /// <summary>
@@ -28,8 +28,8 @@ public static class AnnotationPageBuilder
     /// <returns>The annotation page as a <see cref="JsonObject"/>.</returns>
     public static JsonObject Build(Text text, int canvasIndex, string selfUrl, bool wordLevel)
     {
-        var image      = text.Images[canvasIndex];
-        var canvasId   = image.ImageIdentifier;
+        var image = text.Images[canvasIndex];
+        var canvasId = image.ImageIdentifier;
         var isTemporal = image.IsTemporalContent;
 
         // All words for this canvas, in document order.
@@ -45,10 +45,10 @@ public static class AnnotationPageBuilder
         return new JsonObject
         {
             ["@context"] = new JsonArray(Pres3Context, GranularityContext),
-            ["id"]               = selfUrl,
-            ["type"]             = "AnnotationPage",
-            ["textGranularity"]  = wordLevel ? "word" : "line",
-            ["items"]            = items,
+            ["id"] = selfUrl,
+            ["type"] = "AnnotationPage",
+            ["textGranularity"] = wordLevel ? "word" : "line",
+            ["items"] = items,
         };
     }
 
@@ -62,7 +62,7 @@ public static class AnnotationPageBuilder
         var items = new JsonArray();
         for (var i = 0; i < words.Count; i++)
         {
-            var word   = words[i];
+            var word = words[i];
             var target = isTemporal
                 ? $"{canvasId}#t={Sec(word.StartMs)},{Sec(word.EndMs)}"
                 : $"{canvasId}#xywh={word.X},{word.Y},{word.W},{word.H}";
@@ -86,20 +86,20 @@ public static class AnnotationPageBuilder
         foreach (var lineGroup in words.GroupBy(w => w.Li).OrderBy(g => g.Key))
         {
             var lineWords = lineGroup.ToList();
-            var lineText  = string.Join(" ", lineWords.Select(w => w.ContentRaw));
+            var lineText = string.Join(" ", lineWords.Select(w => w.ContentRaw));
 
             string target;
             if (isTemporal)
             {
                 var startMs = lineWords.Min(w => w.StartMs);
-                var endMs   = lineWords.Max(w => w.EndMs);
+                var endMs = lineWords.Max(w => w.EndMs);
                 target = $"{canvasId}#t={Sec(startMs)},{Sec(endMs)}";
             }
             else
             {
-                var x      = lineWords.Min(w => w.X);
-                var y      = lineWords.Min(w => w.Y);
-                var right  = lineWords.Max(w => w.X + w.W);
+                var x = lineWords.Min(w => w.X);
+                var y = lineWords.Min(w => w.Y);
+                var right = lineWords.Max(w => w.X + w.W);
                 var bottom = lineWords.Max(w => w.Y + w.H);
                 target = $"{canvasId}#xywh={x},{y},{right - x},{bottom - y}";
             }
@@ -116,13 +116,13 @@ public static class AnnotationPageBuilder
 
     private static JsonObject Annotation(string id, string value, string target) => new()
     {
-        ["id"]         = id,
-        ["type"]       = "Annotation",
+        ["id"] = id,
+        ["type"] = "Annotation",
         ["motivation"] = "supplementing",
-        ["body"]       = new JsonObject
+        ["body"] = new JsonObject
         {
-            ["type"]   = "TextualBody",
-            ["value"]  = value,
+            ["type"] = "TextualBody",
+            ["value"] = value,
             ["format"] = "text/plain",
         },
         ["target"] = target,

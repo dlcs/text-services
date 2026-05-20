@@ -22,7 +22,7 @@ public class AutocompleteV2Handler(ITextCache cache) : IRequestHandler<Autocompl
 
         return new TermPageV2
         {
-            Id    = request.SelfUrl,
+            Id = request.SelfUrl,
             Items = suggestions.Select(s => new TermV2 { Value = s }).ToList(),
         };
     }

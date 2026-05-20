@@ -30,13 +30,13 @@ public class ManifestReducer : IManifestReducer
         {
             if (!canvas.TryGetProperty("id", out var idEl)) continue;
 
-            var id     = idEl.GetString() ?? string.Empty;
+            var id = idEl.GetString() ?? string.Empty;
             var source = FindTextSource(canvas);
 
-            canvas.TryGetProperty("width",    out var w);
-            canvas.TryGetProperty("height",   out var h);
+            canvas.TryGetProperty("width", out var w);
+            canvas.TryGetProperty("height", out var h);
             bool hasDimensions = w.ValueKind == JsonValueKind.Number && h.ValueKind == JsonValueKind.Number;
-            bool hasDuration   = canvas.TryGetProperty("duration", out var durationEl) &&
+            bool hasDuration = canvas.TryGetProperty("duration", out var durationEl) &&
                                  durationEl.ValueKind == JsonValueKind.Number;
 
             if (!hasDimensions)
@@ -52,14 +52,14 @@ public class ManifestReducer : IManifestReducer
 
             pages.Add(new PageInstruction
             {
-                Id       = id,
-                Width    = hasDimensions ? w.GetInt32() : 0,
-                Height   = hasDimensions ? h.GetInt32() : 0,
+                Id = id,
+                Width = hasDimensions ? w.GetInt32() : 0,
+                Height = hasDimensions ? h.GetInt32() : 0,
                 Duration = hasDuration ? durationEl.GetDouble() : null,
-                TextUri  = source?.Uri,
-                Profile  = source?.Profile,
-                Format   = source?.Format,
-                Label    = source?.Label,
+                TextUri = source?.Uri,
+                Profile = source?.Profile,
+                Format = source?.Format,
+                Label = source?.Label,
                 ImageUri = ExtractImageUri(canvas),
             });
         }
@@ -142,7 +142,7 @@ public class ManifestReducer : IManifestReducer
         return motivation.ValueKind switch
         {
             JsonValueKind.String => motivation.GetString()?.Equals("painting", StringComparison.OrdinalIgnoreCase) ?? false,
-            JsonValueKind.Array  => motivation.EnumerateArray()
+            JsonValueKind.Array => motivation.EnumerateArray()
                 .Any(m => m.ValueKind == JsonValueKind.String &&
                           m.GetString()?.Equals("painting", StringComparison.OrdinalIgnoreCase) == true),
             _ => false,
@@ -162,9 +162,9 @@ public class ManifestReducer : IManifestReducer
         {
             var source = seeAlso.ValueKind switch
             {
-                JsonValueKind.Array  => FindTextSourceInArray(seeAlso),
+                JsonValueKind.Array => FindTextSourceInArray(seeAlso),
                 JsonValueKind.Object => TryGetTextSource(seeAlso),
-                _                    => null,
+                _ => null,
             };
             if (source != null) return source;
         }
@@ -217,8 +217,8 @@ public class ManifestReducer : IManifestReducer
     private static TextSource? TryGetTextSource(JsonElement item)
     {
         var profile = item.TryGetProperty("profile", out var p) ? p.GetString() : null;
-        var format  = item.TryGetProperty("format",  out var f) ? f.GetString() : null;
-        var label   = item.TryGetProperty("label",   out var l) ? ExtractLabelText(l) : null;
+        var format = item.TryGetProperty("format", out var f) ? f.GetString() : null;
+        var label = item.TryGetProperty("label", out var l) ? ExtractLabelText(l) : null;
 
         if (!IsRecognisedTextFormat(profile, format, label)) return null;
 
@@ -247,8 +247,8 @@ public class ManifestReducer : IManifestReducer
                 if (body.ValueKind != JsonValueKind.Object) continue;
 
                 var profile = body.TryGetProperty("profile", out var p) ? p.GetString() : null;
-                var format  = body.TryGetProperty("format",  out var f) ? f.GetString() : null;
-                var label   = body.TryGetProperty("label",   out var l) ? ExtractLabelText(l) : null;
+                var format = body.TryGetProperty("format", out var f) ? f.GetString() : null;
+                var label = body.TryGetProperty("label", out var l) ? ExtractLabelText(l) : null;
 
                 if (!IsRecognisedTextFormat(profile, format, label)) continue;
 
@@ -265,7 +265,7 @@ public class ManifestReducer : IManifestReducer
         return motivation.ValueKind switch
         {
             JsonValueKind.String => motivation.GetString()?.Equals("supplementing", StringComparison.OrdinalIgnoreCase) ?? false,
-            JsonValueKind.Array  => motivation.EnumerateArray()
+            JsonValueKind.Array => motivation.EnumerateArray()
                 .Any(m => m.ValueKind == JsonValueKind.String &&
                           m.GetString()?.Equals("supplementing", StringComparison.OrdinalIgnoreCase) == true),
             _ => false,
@@ -273,10 +273,10 @@ public class ManifestReducer : IManifestReducer
     }
 
     private static bool IsVttFormat(string? profile, string? format, string? label) =>
-        ContainsIgnoreCase(profile, "text/vtt")  || ContainsIgnoreCase(format, "text/vtt")  ||
-        ContainsIgnoreCase(profile, "vtt")        || ContainsIgnoreCase(format, "vtt")        ||
-        ContainsIgnoreCase(label,   "vtt")        || ContainsIgnoreCase(label,  "webvtt")     ||
-        ContainsIgnoreCase(label,   "transcript");
+        ContainsIgnoreCase(profile, "text/vtt") || ContainsIgnoreCase(format, "text/vtt") ||
+        ContainsIgnoreCase(profile, "vtt") || ContainsIgnoreCase(format, "vtt") ||
+        ContainsIgnoreCase(label, "vtt") || ContainsIgnoreCase(label, "webvtt") ||
+        ContainsIgnoreCase(label, "transcript");
 
     /// <summary>
     /// Returns <see langword="true"/> if the profile URI, format MIME type, or label indicates

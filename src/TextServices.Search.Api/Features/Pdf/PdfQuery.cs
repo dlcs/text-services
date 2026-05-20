@@ -21,11 +21,11 @@ public record PdfRequest(string Id) : IRequest<Stream?>;
 public record PdfTriggerRequest(string Id) : IRequest<bool>;
 
 public class PdfHandler(
-    ITextStore               textStore,
-    ITextCache               cache,
-    PdfBuilder               pdfBuilder,
+    ITextStore textStore,
+    ITextCache cache,
+    PdfBuilder pdfBuilder,
     AsyncKeyedLocker<string> locker,
-    ILogger<PdfHandler>      logger)
+    ILogger<PdfHandler> logger)
     : IRequestHandler<PdfRequest, Stream?>,
       IRequestHandler<PdfTriggerRequest, bool>
 {
