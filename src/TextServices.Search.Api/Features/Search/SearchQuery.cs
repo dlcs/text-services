@@ -2,29 +2,21 @@ using MediatR;
 using TextServices.Core.Models;
 using TextServices.Search.Api.Models;
 using TextServices.Search.Api.Services;
-using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.Search;
 
 public record SearchRequest(string Id, string Query, string SelfUrl) : IRequest<SearchAnnotationList?>;
 
-public class SearchHandler(ITextCache cache) : IRequestHandler<SearchRequest, SearchAnnotationList?>
+public class SearchHandler(ITextCache cache)
+    : SearchHandlerBase<SearchAnnotationList>(cache), IRequestHandler<SearchRequest, SearchAnnotationList?>
 {
-    public async Task<SearchAnnotationList?> Handle(SearchRequest request, CancellationToken ct)
-    {
-        if (!await cache.IsEnabledAsync(request.Id, JobServices.Search, ct)) return null;
+    public Task<SearchAnnotationList?> Handle(SearchRequest request, CancellationToken ct)
+        => HandleCore(request.Id, request.Query, request.SelfUrl, ct);
 
-        if (string.IsNullOrWhiteSpace(request.Query))
-            return new SearchAnnotationList { Id = request.SelfUrl, Within = new SearchLayer { Total = 0 }, Resources = [], Hits = [] };
+    protected override SearchAnnotationList EmptyQueryResponse(string selfUrl) =>
+        new() { Id = selfUrl, Within = new SearchLayer { Total = 0 }, Resources = [], Hits = [] };
 
-        var text = await cache.GetTextAsync(request.Id, ct);
-        if (text == null) return null;
-
-        return BuildResponse(text, text.Search(request.Query), request.SelfUrl);
-    }
-
-    private static SearchAnnotationList BuildResponse(
-        Text text, List<ResultRect> rects, string selfUrl)
+    protected override SearchAnnotationList BuildResponse(Text text, List<ResultRect> rects, string selfUrl)
     {
         var resources = new List<SearchAnnotation>(rects.Count);
         var hits = new List<SearchHit>();
@@ -59,7 +51,7 @@ public class SearchHandler(ITextCache cache) : IRequestHandler<SearchRequest, Se
                 {
                     Before = rect.Before,
                     Match = string.Empty,
-                    Annotations = [], // filled when the hit is closed
+                    Annotations = [],
                 };
                 currentHitIndex = rect.Hit;
                 hitAnnoIds = [];
