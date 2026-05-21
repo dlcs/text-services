@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using AsyncKeyedLock;
-using MediatR;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
 using TextServices.Search.Api.Configuration;
@@ -55,18 +55,14 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 
 // ---- Configuration ----------------------------------------------------------
 
-var options = builder.Configuration
-    .GetSection("TextServices")
-    .Get<SearchApiOptions>() ?? new SearchApiOptions();
-
-builder.Services.AddSingleton(options);
+builder.Services.Configure<SearchApiOptions>(builder.Configuration.GetSection("TextServices"));
 
 // ---- Storage ----------------------------------------------------------------
 
-builder.Services.AddSingleton<ITextStore>(_ =>
+builder.Services.AddSingleton<ITextStore>(sp =>
     new FileSystemTextStore(new FileSystemTextStoreOptions
     {
-        RootPath = options.StorageRootPath
+        RootPath = sp.GetRequiredService<IOptions<SearchApiOptions>>().Value.StorageRootPath
     }));
 
 // ITextStore is also injected directly into TextAugmentedHandler (manifest is plain JSON,
@@ -84,7 +80,8 @@ builder.Services.AddHttpClient(PdfBuilder.HttpClientName)
 
 // ---- Cache ------------------------------------------------------------------
 
-builder.Services.AddMemoryCache(opts => opts.SizeLimit = options.CacheMaxEntries);
+builder.Services.AddMemoryCache(opts =>
+    opts.SizeLimit = builder.Configuration.GetSection("TextServices").GetValue<int?>("CacheMaxEntries") ?? 20);
 builder.Services.AddSingleton(new AsyncKeyedLocker<string>());
 builder.Services.AddSingleton<ITextCache, TextCache>();
 
@@ -117,247 +114,17 @@ app.UseHttpsRedirection();
 
 // ---- Endpoints --------------------------------------------------------------
 
-// DELETE /cache/v1/{**id}  — invalidates the in-process cache for a job key.
-// Called by the Builder API (fire-and-forget) after reprocess or delete so the
-// Search API serves fresh artefacts rather than stale cached data.
-app.MapDelete("/cache/v1/{**id}", (string id, ITextCache textCache) =>
-{
-    textCache.Invalidate(id);
-    return Results.NoContent();
-});
-
-// GET /search/v2/{**id}?q={term}
-app.MapGet("/search/v2/{**id}", async (
-    string id, string? q,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    var selfUrl = BuildSelfUrl(options, ctx, $"search/v2/{id}", q);
-
-    var result = await sender.Send(new SearchV2Request(id, q ?? string.Empty, selfUrl));
-    if (result == null) return Results.NotFound();
-
-    result.Ignored = GetIgnoredParams(ctx);
-    return Results.Json(result, contentType: "application/ld+json");
-});
-
-// GET /autocomplete/v2/{**id}?q={term}
-app.MapGet("/autocomplete/v2/{**id}", async (
-    string id, string? q,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    var selfUrl = BuildSelfUrl(options, ctx, $"autocomplete/v2/{id}", q);
-
-    var result = await sender.Send(new AutocompleteV2Request(id, q ?? string.Empty, selfUrl));
-    if (result == null) return Results.NotFound();
-
-    return Results.Json(result, contentType: "application/ld+json");
-});
-
-// GET /search/v1/{**id}?q={term}
-app.MapGet("/search/v1/{**id}", async (
-    string id, string? q,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    var selfUrl = BuildSelfUrl(options, ctx, $"search/v1/{id}", q);
-
-    var result = await sender.Send(new SearchRequest(id, q ?? string.Empty, selfUrl));
-    if (result == null) return Results.NotFound();
-
-    result.Ignored = GetIgnoredParams(ctx);
-    return Results.Json(result, contentType: "application/ld+json");
-});
-
-// GET /autocomplete/v1/{**id}?q={term}
-app.MapGet("/autocomplete/v1/{**id}", async (
-    string id, string? q,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    var selfUrl = BuildSelfUrl(options, ctx, $"autocomplete/v1/{id}", q);
-
-    var result = await sender.Send(new AutocompleteRequest(id, q ?? string.Empty, selfUrl));
-    if (result == null) return Results.NotFound();
-
-    return Results.Json(result, contentType: "application/ld+json");
-});
-
-// GET /text/v1/{**id}
-app.MapGet("/text/v1/{**id}", async (
-    string id,
-    ISender sender) =>
-{
-    var result = await sender.Send(new RawTextRequest(id));
-    if (result == null) return Results.NotFound();
-    return Results.Text(result, "text/plain");
-});
-
-// GET /pdf/v1/{**id}  — synchronous; generates on first request, then serves from storage
-// Accepts optional .pdf suffix (e.g. /pdf/v1/my/book.pdf) for nicer save-as filenames.
-app.MapGet("/pdf/v1/{**id}", async (
-    string id,
-    ISender sender) =>
-{
-    id = StripPdfExtension(id);
-    var stream = await sender.Send(new PdfRequest(id));
-    if (stream == null) return Results.NotFound();
-    return Results.Stream(stream, "application/pdf",
-        enableRangeProcessing: false);
-});
-
-// POST /pdf/v1/{**id}  — async trigger for M2M / bulk pre-generation
-app.MapPost("/pdf/v1/{**id}", async (
-    string id,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    id = StripPdfExtension(id);
-    var started = await sender.Send(new PdfTriggerRequest(id));
-    if (!started)
-    {
-        // PDF already exists — redirect the caller to download it
-        var location = BuildSelfUrl(options, ctx, $"pdf/v1/{id}", null);
-        return Results.Ok(new { location });
-    }
-    var locationUrl = BuildSelfUrl(options, ctx, $"pdf/v1/{id}", null);
-    return Results.Accepted(locationUrl);
-});
-
-// GET /identified/figures/{**id}
-app.MapGet("/identified/figures/{**id}", async (
-    string id,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    var selfUrl = BuildSelfUrl(options, ctx, $"identified/figures/{id}", null);
-    var result = await sender.Send(new FiguresRequest(id, selfUrl));
-    if (result == null) return Results.NotFound();
-
-    return Results.Json(result, contentType: "application/ld+json");
-});
-
-// GET /annotations/manifest/v1/{**id}  — manifest-level line annotations (stored at build time)
-app.MapGet("/annotations/manifest/v1/{**id}", async (
-    string id,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    var selfUrl = BuildSelfUrl(options, ctx, $"annotations/manifest/v1/{id}", null);
-    var result = await sender.Send(new ManifestAnnotationsRequest(id, selfUrl));
-    if (result == null) return Results.NotFound();
-    return Results.Json(result, contentType: "application/ld+json");
-});
-
-// GET /annotations/lines/v1/{n}/{**id}  — line-level annotation page for canvas n
-app.MapGet("/annotations/lines/v1/{n:int}/{**id}", async (
-    int n, string id,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    var selfUrl = BuildSelfUrl(options, ctx, $"annotations/lines/v1/{n}/{id}", null);
-    var result = await sender.Send(new LineAnnotationsRequest(id, n, selfUrl));
-    if (result == null) return Results.NotFound();
-    return Results.Json(result, contentType: "application/ld+json");
-});
-
-// GET /annotations/words/v1/{n}/{**id}  — word-level annotation page for canvas n
-app.MapGet("/annotations/words/v1/{n:int}/{**id}", async (
-    int n, string id,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    var selfUrl = BuildSelfUrl(options, ctx, $"annotations/words/v1/{n}/{id}", null);
-    var result = await sender.Send(new WordAnnotationsRequest(id, n, selfUrl));
-    if (result == null) return Results.NotFound();
-    return Results.Json(result, contentType: "application/ld+json");
-});
-
-// GET /proxy/image?uri={uri}
-// Proxies local file:// image URIs so IIIF viewers can load painting annotation bodies
-// from synthesised manifests.  For non-proxiable schemes (e.g. s3://) returns a 1×1
-// transparent PNG placeholder so the manifest remains structurally valid.
-// The Search API hosts this endpoint (not the Builder API) because the Search API is
-// always running when a viewer needs to load images from a stored manifest.
-app.MapGet("/proxy/image", async (string uri, CancellationToken ct) =>
-{
-    if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed))
-        return Results.BadRequest("Invalid URI.");
-
-    if (parsed.Scheme == "file")
-    {
-        // Guard: return placeholder unless AllowFileImageProxy is explicitly enabled.
-        // This prevents the proxy from exposing access-controlled images even if a
-        // proxy URL ends up in a manifest on a deployment where proxying is disabled.
-        if (!options.AllowFileImageProxy)
-            return Results.Bytes(TextServices.Search.Api.ProxyImagePlaceholder.Png, "image/png");
-
-        var path = parsed.LocalPath;
-        if (!File.Exists(path)) return Results.NotFound();
-
-        var ext = Path.GetExtension(path).ToLowerInvariant();
-        var contentType = ext switch
-        {
-            ".jpg" or ".jpeg" => "image/jpeg",
-            ".png" => "image/png",
-            ".tif" or ".tiff" => "image/tiff",
-            ".webp" => "image/webp",
-            _ => "application/octet-stream",
-        };
-        return Results.Stream(File.OpenRead(path), contentType);
-    }
-
-    if (parsed.Scheme == "s3")
-        return Results.Bytes(TextServices.Search.Api.ProxyImagePlaceholder.Png, "image/png");
-
-    return Results.BadRequest($"URI scheme '{parsed.Scheme}' is not supported by this proxy.");
-});
-
-// GET /text-augmented/v3/{**id}
-app.MapGet("/text-augmented/v3/{**id}", async (
-    string id,
-    ISender sender,
-    HttpContext ctx) =>
-{
-    var selfUrl = BuildSelfUrl(options, ctx, $"text-augmented/v3/{id}", null);
-    var searchBase = string.IsNullOrEmpty(options.BaseUrl)
-        ? $"{ctx.Request.Scheme}://{ctx.Request.Host}"
-        : options.BaseUrl.TrimEnd('/');
-
-    var result = await sender.Send(new TextAugmentedRequest(id, selfUrl, searchBase));
-    if (result == null) return Results.NotFound();
-
-    return Results.Json(result, contentType: "application/ld+json");
-});
+app.MapCacheEndpoints()
+   .MapSearchEndpoints()
+   .MapAutocompleteEndpoints()
+   .MapPlainTextEndpoints()
+   .MapPdfEndpoints()
+   .MapFiguresEndpoints()
+   .MapAnnotationEndpoints()
+   .MapTextAugmentedEndpoints()
+   .MapProxyEndpoints();
 
 app.Run();
-
-// ---- Helpers ----------------------------------------------------------------
-
-static string StripPdfExtension(string id) =>
-    id.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? id[..^4] : id;
-
-static string BuildSelfUrl(SearchApiOptions opts, HttpContext ctx, string path, string? q)
-{
-    var baseUrl = string.IsNullOrEmpty(opts.BaseUrl)
-        ? $"{ctx.Request.Scheme}://{ctx.Request.Host}"
-        : opts.BaseUrl.TrimEnd('/');
-
-    var url = $"{baseUrl}/{path}";
-    return string.IsNullOrWhiteSpace(q) ? url : $"{url}?q={Uri.EscapeDataString(q)}";
-}
-
-static string[]? GetIgnoredParams(HttpContext ctx)
-{
-    // Parameters defined by the IIIF Search v1 spec that we recognise but don't process.
-    string[] knownIgnored = ["motivation", "date", "user", "box"];
-    var ignored = ctx.Request.Query.Keys
-        .Where(k => knownIgnored.Contains(k, StringComparer.OrdinalIgnoreCase)
-                    && !string.IsNullOrWhiteSpace(ctx.Request.Query[k]))
-        .ToArray();
-    return ignored.Length > 0 ? ignored : null;
-}
 
 // Make Program visible to integration test projects
 public partial class Program { }

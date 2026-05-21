@@ -1,5 +1,6 @@
 using AsyncKeyedLock;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using TextServices.Core.Models;
 using TextServices.Search.Api.Configuration;
 using TextServices.Storage;
@@ -18,7 +19,7 @@ public class TextCache(
     ITextStore textStore,
     IMemoryCache memoryCache,
     AsyncKeyedLocker<string> locker,
-    SearchApiOptions options) : ITextCache
+    IOptions<SearchApiOptions> options) : ITextCache
 {
     public async Task<Text?> GetTextAsync(string key, CancellationToken ct = default)
         => await GetOrLoadAsync<Text>(
@@ -49,8 +50,8 @@ public class TextCache(
 
             memoryCache.Set(cacheKey, entry,
                 new MemoryCacheEntryOptions()
-                    .SetSlidingExpiration(TimeSpan.FromMinutes(options.CacheSlidingExpirationMinutes))
-                    .SetAbsoluteExpiration(TimeSpan.FromHours(options.CacheAbsoluteExpirationHours))
+                    .SetSlidingExpiration(TimeSpan.FromMinutes(options.Value.CacheSlidingExpirationMinutes))
+                    .SetAbsoluteExpiration(TimeSpan.FromHours(options.Value.CacheAbsoluteExpirationHours))
                     .SetSize(1));
 
             return raw.HasValue ? (JobServices)raw.Value : null;
@@ -87,9 +88,9 @@ public class TextCache(
             {
                 var entryOptions = new MemoryCacheEntryOptions()
                     .SetSlidingExpiration(
-                        TimeSpan.FromMinutes(options.CacheSlidingExpirationMinutes))
+                        TimeSpan.FromMinutes(options.Value.CacheSlidingExpirationMinutes))
                     .SetAbsoluteExpiration(
-                        TimeSpan.FromHours(options.CacheAbsoluteExpirationHours))
+                        TimeSpan.FromHours(options.Value.CacheAbsoluteExpirationHours))
                     .SetSize(1);
 
                 memoryCache.Set(cacheKey, value, entryOptions);

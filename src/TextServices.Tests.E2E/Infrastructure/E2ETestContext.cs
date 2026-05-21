@@ -1,10 +1,15 @@
+using Microsoft.EntityFrameworkCore;
+using Testcontainers.PostgreSql;
+using TextServices.Builder.Api.Data;
+
 namespace TextServices.Tests.E2E.Infrastructure;
 
 /// <summary>
-/// IClassFixture shared across all E2E tests. Creates a single temp storage directory,
-/// starts both API factories once, and tears them down after the test class completes.
+/// Collection fixture shared across all E2E tests (see <see cref="E2ECollectionDefinition"/>).
+/// Starts a PostgreSQL TestContainer once for the entire test run, applies EF migrations,
+/// then tears everything down afterwards.
 /// </summary>
-public sealed class E2ETestContext : IDisposable
+public sealed class E2ETestContext : IAsyncLifetime
 {
     private static readonly string FixturesRoot = Path.Combine(
         AppContext.BaseDirectory, "Fixtures");
@@ -12,21 +17,35 @@ public sealed class E2ETestContext : IDisposable
     public string StorageRoot { get; } =
         Path.Combine(Path.GetTempPath(), "TextServicesE2E_" + Guid.NewGuid().ToString("N"));
 
-    public BuilderApiFactory BuilderFactory { get; }
-    public SearchApiFactory SearchFactory { get; }
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
+        .WithImage("postgres:16-alpine")
+        .Build();
 
-    public HttpClient BuilderClient { get; }
-    public HttpClient SearchClient { get; }
+    public BuilderApiFactory BuilderFactory { get; private set; } = null!;
+    public SearchApiFactory SearchFactory { get; private set; } = null!;
 
-    public E2ETestContext()
+    public HttpClient BuilderClient { get; private set; } = null!;
+    public HttpClient SearchClient { get; private set; } = null!;
+
+    public async Task InitializeAsync()
     {
         Directory.CreateDirectory(StorageRoot);
 
-        BuilderFactory = new BuilderApiFactory(StorageRoot, FixturesRoot);
-        SearchFactory = new SearchApiFactory(StorageRoot);
+        await _postgres.StartAsync();
+
+        var options = new DbContextOptionsBuilder<BuilderDbContext>()
+            .UseNpgsql(_postgres.GetConnectionString())
+            .UseSnakeCaseNamingConvention()
+            .Options;
+
+        await using var ctx = new BuilderDbContext(options);
+        await ctx.Database.MigrateAsync();
+
+        BuilderFactory = new BuilderApiFactory(_postgres.GetConnectionString(), StorageRoot, FixturesRoot);
+        SearchFactory  = new SearchApiFactory(StorageRoot);
 
         BuilderClient = BuilderFactory.CreateClient();
-        SearchClient = SearchFactory.CreateClient();
+        SearchClient  = SearchFactory.CreateClient();
     }
 
     /// <summary>
@@ -58,14 +77,16 @@ public sealed class E2ETestContext : IDisposable
         throw new TimeoutException($"Job '{jobId}' did not complete within {timeout ?? TimeSpan.FromSeconds(30)}.");
     }
 
-    public void Dispose()
+    public async Task DisposeAsync()
     {
-        BuilderClient.Dispose();
-        SearchClient.Dispose();
-        BuilderFactory.Dispose();
-        SearchFactory.Dispose();
+        BuilderClient?.Dispose();
+        SearchClient?.Dispose();
+        BuilderFactory?.Dispose();
+        SearchFactory?.Dispose();
 
         try { Directory.Delete(StorageRoot, recursive: true); }
-        catch { /* best-effort cleanup */ }
+        catch { /* best-effort */ }
+
+        await _postgres.DisposeAsync();
     }
 }

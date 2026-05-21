@@ -1,5 +1,6 @@
 using Hangfire;
 using MediatR;
+using Microsoft.Extensions.Options;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Jobs;
@@ -25,7 +26,7 @@ public class ReprocessJobHandler(
     IBackgroundJobClient hangfire,
     ITextStore textStore,
     IHttpClientFactory httpClientFactory,
-    TextServicesOptions options,
+    IOptions<TextServicesOptions> options,
     ILogger<ReprocessJobHandler> logger)
     : IRequestHandler<ReprocessJobRequest, ReprocessJobResult>
 {
@@ -37,7 +38,7 @@ public class ReprocessJobHandler(
 
         // Can't safely re-enqueue while the worker is actively processing.
         if (job.Status == JobStatus.Running)
-            return new ReprocessJobResult(ReprocessStatus.Conflict, JobResponse.From(job, options));
+            return new ReprocessJobResult(ReprocessStatus.Conflict, JobResponse.From(job, options.Value));
 
         // Remove the old Hangfire job entry (may be queued, awaiting retry, or
         // already finished — Delete is a no-op if the job no longer exists).
@@ -67,16 +68,16 @@ public class ReprocessJobHandler(
         job.HangfireJobId = hangfireJobId;
         await db.SaveChangesAsync(ct);
 
-        return new ReprocessJobResult(ReprocessStatus.Ok, JobResponse.From(job, options));
+        return new ReprocessJobResult(ReprocessStatus.Ok, JobResponse.From(job, options.Value));
     }
 
     private async Task InvalidateCacheAsync(string id)
     {
-        if (string.IsNullOrEmpty(options.SearchApiBaseUrl)) return;
+        if (string.IsNullOrEmpty(options.Value.SearchApiBaseUrl)) return;
         try
         {
             var http = httpClientFactory.CreateClient();
-            var url = $"{options.SearchApiBaseUrl.TrimEnd('/')}/cache/v1/{id}";
+            var url = $"{options.Value.SearchApiBaseUrl.TrimEnd('/')}/cache/v1/{id}";
             await http.DeleteAsync(url);
         }
         catch (Exception ex)

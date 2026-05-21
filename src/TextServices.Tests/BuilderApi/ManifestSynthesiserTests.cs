@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Features.Jobs;
@@ -13,7 +14,7 @@ namespace TextServices.Tests.BuilderApi;
 public class ManifestSynthesiserTests
 {
     private static ManifestSynthesiser Sut(string searchApiBaseUrl = "", bool allowFileProxy = false) =>
-        new(new TextServicesOptions { SearchApiBaseUrl = searchApiBaseUrl, AllowFileImageProxy = allowFileProxy });
+        new(Options.Create(new TextServicesOptions { SearchApiBaseUrl = searchApiBaseUrl, AllowFileImageProxy = allowFileProxy }));
 
     // -------------------------------------------------------------------------
     // Top-level manifest shape

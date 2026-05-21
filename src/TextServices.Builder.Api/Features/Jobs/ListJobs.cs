@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 
@@ -10,7 +11,7 @@ namespace TextServices.Builder.Api.Features.Jobs;
 /// <param name="Status">Optional status filter (e.g. "Completed", "Failed").</param>
 public record ListJobsRequest(int Page, int PageSize, string? Status) : IRequest<PagedResult<JobResponse>>;
 
-public class ListJobsHandler(BuilderDbContext db, TextServicesOptions options)
+public class ListJobsHandler(BuilderDbContext db, IOptions<TextServicesOptions> options)
     : IRequestHandler<ListJobsRequest, PagedResult<JobResponse>>
 {
     public async Task<PagedResult<JobResponse>> Handle(ListJobsRequest request, CancellationToken ct)
@@ -34,7 +35,7 @@ public class ListJobsHandler(BuilderDbContext db, TextServicesOptions options)
             .Take(pageSize)
             .ToListAsync(ct);
 
-        var items = entities.Select(j => JobResponse.From(j, options)).ToList();
+        var items = entities.Select(j => JobResponse.From(j, options.Value)).ToList();
 
         return new PagedResult<JobResponse>(page, pageSize, total, items);
     }

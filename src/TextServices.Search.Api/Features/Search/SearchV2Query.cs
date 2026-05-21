@@ -3,29 +3,21 @@ using MediatR;
 using TextServices.Core.Models;
 using TextServices.Search.Api.Models;
 using TextServices.Search.Api.Services;
-using TextServices.Storage;
 
 namespace TextServices.Search.Api.Features.Search;
 
 public record SearchV2Request(string Id, string Query, string SelfUrl) : IRequest<SearchAnnotationPageV2?>;
 
-public class SearchV2Handler(ITextCache cache) : IRequestHandler<SearchV2Request, SearchAnnotationPageV2?>
+public class SearchV2Handler(ITextCache cache)
+    : SearchHandlerBase<SearchAnnotationPageV2>(cache), IRequestHandler<SearchV2Request, SearchAnnotationPageV2?>
 {
-    public async Task<SearchAnnotationPageV2?> Handle(SearchV2Request request, CancellationToken ct)
-    {
-        if (!await cache.IsEnabledAsync(request.Id, JobServices.Search, ct)) return null;
+    public Task<SearchAnnotationPageV2?> Handle(SearchV2Request request, CancellationToken ct)
+        => HandleCore(request.Id, request.Query, request.SelfUrl, ct);
 
-        if (string.IsNullOrWhiteSpace(request.Query))
-            return new SearchAnnotationPageV2 { Id = request.SelfUrl, Items = [], Annotations = null };
+    protected override SearchAnnotationPageV2 EmptyQueryResponse(string selfUrl) =>
+        new() { Id = selfUrl, Items = [], Annotations = null };
 
-        var text = await cache.GetTextAsync(request.Id, ct);
-        if (text == null) return null;
-
-        return BuildResponse(text, text.Search(request.Query), request.SelfUrl);
-    }
-
-    private static SearchAnnotationPageV2 BuildResponse(
-        Text text, List<ResultRect> rects, string selfUrl)
+    protected override SearchAnnotationPageV2 BuildResponse(Text text, List<ResultRect> rects, string selfUrl)
     {
         var items = new List<PaintingAnnotationV2>(rects.Count);
         var contexts = new List<ContextualizingAnnotation>();

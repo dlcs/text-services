@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
@@ -9,7 +10,7 @@ namespace TextServices.Tests.BuilderApi;
 public class ListJobsTests : IDisposable
 {
     private readonly BuilderDbContext _db;
-    private readonly TextServicesOptions _options = new();
+    private readonly IOptions<TextServicesOptions> _options = Options.Create(new TextServicesOptions());
 
     public ListJobsTests()
     {

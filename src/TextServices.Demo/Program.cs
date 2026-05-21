@@ -1,9 +1,9 @@
+using Microsoft.Extensions.Options;
 using TextServices.Demo;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var options = builder.Configuration.GetSection("Demo").Get<DemoOptions>() ?? new DemoOptions();
-builder.Services.AddSingleton(options);
+builder.Services.Configure<DemoOptions>(builder.Configuration.GetSection("Demo"));
 
 var app = builder.Build();
 
@@ -11,7 +11,7 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 // Inject server-side config into the browser so JS never hard-codes URLs.
-app.MapGet("/demo-config", (DemoOptions opts, IWebHostEnvironment env) =>
+app.MapGet("/demo-config", (IOptions<DemoOptions> opts, IWebHostEnvironment env) =>
 {
     // Compute file:// URIs for the E2E fixture directories so sourcedata.js
     // doesn't need to hard-code the checkout path.
@@ -30,9 +30,9 @@ app.MapGet("/demo-config", (DemoOptions opts, IWebHostEnvironment env) =>
 
     return Results.Ok(new
     {
-        builderApi = opts.BuilderApiBaseUrl.TrimEnd('/'),
-        searchApi = opts.SearchApiBaseUrl.TrimEnd('/'),
-        hangfireUrl = opts.BuilderApiBaseUrl.TrimEnd('/') + "/hangfire",
+        builderApi = opts.Value.BuilderApiBaseUrl.TrimEnd('/'),
+        searchApi = opts.Value.SearchApiBaseUrl.TrimEnd('/'),
+        hangfireUrl = opts.Value.BuilderApiBaseUrl.TrimEnd('/') + "/hangfire",
         fixtureAlto,
         fixtureImages,
     });

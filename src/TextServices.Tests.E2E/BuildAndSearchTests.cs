@@ -11,13 +11,13 @@ namespace TextServices.Tests.E2E;
 /// End-to-end tests for the full pipeline: Builder API → stored artefacts → Search API.
 ///
 /// Uses <see cref="E2ETestContext"/> which boots both APIs in-process with:
-/// - EF Core InMemory (no PostgreSQL required)
+/// - EF Core PostgreSQL (TestContainers — real Postgres, migrations applied)
 /// - Hangfire InMemory (jobs processed by a real background server in the test process)
 /// - <see cref="FixtureAltoFetcher"/> + <see cref="FixtureManifestFetcher"/> (local fixture files)
 /// - Shared temp <see cref="FileSystemTextStore"/> (Builder writes, Search reads)
 /// </summary>
 [Collection("E2E")]
-public class BuildAndSearchTests(E2ETestContext ctx) : IClassFixture<E2ETestContext>
+public class BuildAndSearchTests(E2ETestContext ctx)
 {
     // -------------------------------------------------------------------------
     // Builder API — job lifecycle

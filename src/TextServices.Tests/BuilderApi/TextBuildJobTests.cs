@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
@@ -356,7 +357,7 @@ public sealed class TextBuildJobTests : IDisposable
         });
 
         // Use the real synthesiser so the manifest contains the canvas ids.
-        var sut = MakeJob(manifestSynthesiser: new ManifestSynthesiser(new TextServices.Builder.Api.Configuration.TextServicesOptions()), altoFetcher: altoFetcher);
+        var sut = MakeJob(manifestSynthesiser: new ManifestSynthesiser(Options.Create(new TextServices.Builder.Api.Configuration.TextServicesOptions())), altoFetcher: altoFetcher);
         await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
 
         var storedManifest = await _textStore.LoadManifest(job.Id);
@@ -520,7 +521,7 @@ public sealed class TextBuildJobTests : IDisposable
             vttFetcher ?? new FakeVttFetcher(_ => Task.FromResult<string?>(null)),
             annotationPageFetcher ?? new FakeAnnotationPageFetcher(_ => Task.FromResult<string?>(null)),
             _textStore,
-            new TextServicesOptions(),
+            Options.Create(new TextServicesOptions()),
             NullLogger<TextBuildJob>.Instance);
     }
 

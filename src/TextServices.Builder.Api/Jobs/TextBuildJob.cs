@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Xml.Linq;
 using Hangfire;
+using Microsoft.Extensions.Options;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
@@ -31,7 +32,7 @@ public class TextBuildJob(
     IVttFetcher vttFetcher,
     IAnnotationPageFetcher annotationPageFetcher,
     ITextStore textStore,
-    TextServicesOptions options,
+    IOptions<TextServicesOptions> options,
     ILogger<TextBuildJob> logger)
 {
     private const int ProgressBatchSize = 10;
@@ -149,7 +150,7 @@ public class TextBuildJob(
         //     hostname pattern and use a higher limit for those.
         //   Consider deriving the limit from the scheme/host of pages[0].Text, or
         //   adding a per-host override table to TextServicesOptions.
-        var semaphore = new SemaphoreSlim(options.MaxConcurrentAltoFetches);
+        var semaphore = new SemaphoreSlim(options.Value.MaxConcurrentAltoFetches);
 
         var fetchTasks = pages
             // pdf-type pages embed an existing PDF; they have no text to build.
