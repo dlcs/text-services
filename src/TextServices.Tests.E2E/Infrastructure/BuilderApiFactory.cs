@@ -16,7 +16,7 @@ namespace TextServices.Tests.E2E.Infrastructure;
 /// <see cref="WebApplicationFactory{TEntryPoint}"/> for the Builder API with
 /// all external dependencies replaced for in-process testing:
 /// <list type="bullet">
-///   <item>EF Core PostgreSQL → EF Core InMemory</item>
+///   <item>EF Core PostgreSQL → EF Core PostgreSQL (TestContainers)</item>
 ///   <item>Hangfire PostgreSQL → Hangfire InMemory</item>
 ///   <item><see cref="ITextStore"/> → <see cref="FileSystemTextStore"/> in a temp directory</item>
 ///   <item><see cref="IAltoFetcher"/> → <see cref="FixtureAltoFetcher"/> (local XML files)</item>
@@ -29,30 +29,30 @@ namespace TextServices.Tests.E2E.Infrastructure;
 /// </remarks>
 public class BuilderApiFactory : WebApplicationFactory<BuilderDbContext>
 {
+    private readonly string _connectionString;
     public string StorageRoot { get; }
     public string FixturesRoot { get; }
 
-    public BuilderApiFactory(string storageRoot, string fixturesRoot)
+    public BuilderApiFactory(string connectionString, string storageRoot, string fixturesRoot)
     {
+        _connectionString = connectionString;
         StorageRoot = storageRoot;
         FixturesRoot = fixturesRoot;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // Provide a fake connection string so Program.cs doesn't throw on startup —
-        // the real DbContext and Hangfire registrations are replaced below.
         builder.ConfigureAppConfiguration((_, config) =>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:BuilderDb"] = "Host=test-placeholder;",
+                ["ConnectionStrings:BuilderDb"] = _connectionString,
                 ["TextServices:Storage:RootPath"] = StorageRoot,
                 ["RunMigrations"] = "false"
             }));
 
         builder.ConfigureTestServices(services =>
         {
-            // ---- EF Core: replace PostgreSQL with InMemory -----------------------
+            // ---- EF Core: replace production Npgsql config with TestContainers ----
             // Must remove ALL generic descriptors parameterised by BuilderDbContext,
             // including the IDbContextOptionsConfiguration<BuilderDbContext> entries
             // that EF Core uses to build DbContextOptions.  Removing only
@@ -64,7 +64,8 @@ public class BuilderApiFactory : WebApplicationFactory<BuilderDbContext>
                 .ToList();
             efDescriptors.ForEach(d => services.Remove(d));
             services.AddDbContext<BuilderDbContext>(o =>
-                o.UseInMemoryDatabase("BuilderE2E"));
+                o.UseNpgsql(_connectionString)
+                 .UseSnakeCaseNamingConvention());
 
             // ---- Hangfire: replace PostgreSQL storage with InMemory --------------
             services.AddHangfire(config => config.UseInMemoryStorage());
