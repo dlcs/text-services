@@ -42,10 +42,10 @@ builder.Services.AddSingleton(tsOptions);
 
 // ---- EF Core / PostgreSQL ---------------------------------------------------
 
-var connectionString = builder.Configuration.GetConnectionString("BuilderDb")
-    ?? throw new InvalidOperationException("ConnectionStrings:BuilderDb is required.");
-
-builder.Services.AddDbContext<BuilderDbContext>(o => o.UseNpgsql(connectionString).UseSnakeCaseNamingConvention());
+builder.Services.AddDbContext<BuilderDbContext>(o =>
+    o.UseNpgsql(builder.Configuration.GetConnectionString("BuilderDb")
+        ?? throw new InvalidOperationException("ConnectionStrings:BuilderDb is required."))
+     .UseSnakeCaseNamingConvention());
 
 // ---- Hangfire ---------------------------------------------------------------
 
@@ -53,7 +53,9 @@ builder.Services.AddHangfire(config => config
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
     .UseSimpleAssemblyNameTypeSerializer()
     .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(connectionString)));
+    .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(
+        builder.Configuration.GetConnectionString("BuilderDb")
+            ?? throw new InvalidOperationException("ConnectionStrings:BuilderDb is required."))));
 
 builder.Services.AddHangfireServer();
 
@@ -99,7 +101,7 @@ builder.Services.AddScoped<IAnnotationPageFetcher, AnnotationPageFetcher>();
 builder.Services.AddSingleton<ITextStore>(_ =>
     new FileSystemTextStore(new FileSystemTextStoreOptions
     {
-        RootPath = tsOptions.Storage.RootPath
+        RootPath = builder.Configuration.GetSection("TextServices").Get<TextServicesOptions>()?.Storage.RootPath ?? string.Empty
     }));
 
 // ---- HTTP -------------------------------------------------------------------

@@ -65,7 +65,7 @@ builder.Services.AddSingleton(options);
 builder.Services.AddSingleton<ITextStore>(_ =>
     new FileSystemTextStore(new FileSystemTextStoreOptions
     {
-        RootPath = options.StorageRootPath
+        RootPath = builder.Configuration.GetSection("TextServices").Get<SearchApiOptions>()?.StorageRootPath ?? string.Empty
     }));
 
 // ITextStore is also injected directly into TextAugmentedHandler (manifest is plain JSON,
