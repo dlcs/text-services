@@ -1,7 +1,6 @@
 using System.Net.Http.Headers;
 using Amazon.S3;
 using Hangfire;
-using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Serilog;
@@ -46,15 +45,7 @@ builder.Services.AddDbContext<BuilderDbContext>(o =>
 
 // ---- Hangfire ---------------------------------------------------------------
 
-builder.Services.AddHangfire(config => config
-    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-    .UseSimpleAssemblyNameTypeSerializer()
-    .UseRecommendedSerializerSettings()
-    .UsePostgreSqlStorage(o => o.UseNpgsqlConnection(
-        builder.Configuration.GetConnectionString("BuilderDb")
-            ?? throw new InvalidOperationException("ConnectionStrings:BuilderDb is required."))));
-
-builder.Services.AddHangfireServer();
+builder.Services.AddHangfireServices(builder.Configuration);
 
 // ---- MediatR ----------------------------------------------------------------
 
@@ -86,12 +77,12 @@ builder.Services.AddScoped<IResourceFetcher>(sp => new ResourceFetcher(
 
 // ---- Manifest services ------------------------------------------------------
 
-builder.Services.AddSingleton<IManifestReducer, ManifestReducer>();
-builder.Services.AddSingleton<IManifestSynthesiser, ManifestSynthesiser>();
-builder.Services.AddScoped<IManifestFetcher, ManifestFetcher>();
-builder.Services.AddScoped<IAltoFetcher, AltoFetcher>();
-builder.Services.AddScoped<IVttFetcher, VttFetcher>();
-builder.Services.AddScoped<IAnnotationPageFetcher, AnnotationPageFetcher>();
+builder.Services.AddSingleton<IManifestReducer, ManifestReducer>()
+    .AddSingleton<IManifestSynthesiser, ManifestSynthesiser>()
+    .AddScoped<IManifestFetcher, ManifestFetcher>()
+    .AddScoped<IAltoFetcher, AltoFetcher>()
+    .AddScoped<IVttFetcher, VttFetcher>()
+    .AddScoped<IAnnotationPageFetcher, AnnotationPageFetcher>();
 
 // ---- Storage ----------------------------------------------------------------
 
