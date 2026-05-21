@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Options;
 using TextServices.Search.Api.Configuration;
 
 namespace TextServices.Search.Api.Features.Pdf;
@@ -18,17 +19,17 @@ internal static class PdfEndpoints
         routes.MapPost("/pdf/v1/{**id}", async (
             string id,
             ISender sender,
-            SearchApiOptions options,
+            IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
             id = StripPdfExtension(id);
             var started = await sender.Send(new PdfTriggerRequest(id));
             if (!started)
             {
-                var location = EndpointHelpers.BuildSelfUrl(options, ctx, $"pdf/v1/{id}", null);
+                var location = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null);
                 return Results.Ok(new { location });
             }
-            var locationUrl = EndpointHelpers.BuildSelfUrl(options, ctx, $"pdf/v1/{id}", null);
+            var locationUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null);
             return Results.Accepted(locationUrl);
         });
 

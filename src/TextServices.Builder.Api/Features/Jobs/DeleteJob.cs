@@ -1,5 +1,6 @@
 using Hangfire;
 using MediatR;
+using Microsoft.Extensions.Options;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Storage;
@@ -13,7 +14,7 @@ public class DeleteJobHandler(
     IBackgroundJobClient hangfire,
     ITextStore textStore,
     IHttpClientFactory httpClientFactory,
-    TextServicesOptions options,
+    IOptions<TextServicesOptions> options,
     ILogger<DeleteJobHandler> logger)
     : IRequestHandler<DeleteJobRequest, bool>
 {
@@ -37,11 +38,11 @@ public class DeleteJobHandler(
 
     private async Task InvalidateCacheAsync(string id)
     {
-        if (string.IsNullOrEmpty(options.SearchApiBaseUrl)) return;
+        if (string.IsNullOrEmpty(options.Value.SearchApiBaseUrl)) return;
         try
         {
             var http = httpClientFactory.CreateClient();
-            var url = $"{options.SearchApiBaseUrl.TrimEnd('/')}/cache/v1/{id}";
+            var url = $"{options.Value.SearchApiBaseUrl.TrimEnd('/')}/cache/v1/{id}";
             await http.DeleteAsync(url);
         }
         catch (Exception ex)

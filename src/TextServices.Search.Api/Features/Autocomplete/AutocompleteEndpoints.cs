@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.Extensions.Options;
 using TextServices.Search.Api.Configuration;
 
 namespace TextServices.Search.Api.Features.Autocomplete;
@@ -10,10 +11,10 @@ internal static class AutocompleteEndpoints
         routes.MapGet("/autocomplete/v1/{**id}", async (
             string id, string? q,
             ISender sender,
-            SearchApiOptions options,
+            IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options, ctx, $"autocomplete/v1/{id}", q);
+            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"autocomplete/v1/{id}", q);
             var result = await sender.Send(new AutocompleteRequest(id, q ?? string.Empty, selfUrl));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");
@@ -22,10 +23,10 @@ internal static class AutocompleteEndpoints
         routes.MapGet("/autocomplete/v2/{**id}", async (
             string id, string? q,
             ISender sender,
-            SearchApiOptions options,
+            IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options, ctx, $"autocomplete/v2/{id}", q);
+            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"autocomplete/v2/{id}", q);
             var result = await sender.Send(new AutocompleteV2Request(id, q ?? string.Empty, selfUrl));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");

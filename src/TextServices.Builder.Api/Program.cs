@@ -3,6 +3,7 @@ using Amazon.S3;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
 using TextServices.Builder.Api.Configuration;
@@ -34,11 +35,7 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 
 // ---- Configuration ----------------------------------------------------------
 
-var tsOptions = builder.Configuration
-    .GetSection("TextServices")
-    .Get<TextServicesOptions>() ?? new TextServicesOptions();
-
-builder.Services.AddSingleton(tsOptions);
+builder.Services.Configure<TextServicesOptions>(builder.Configuration.GetSection("TextServices"));
 
 // ---- EF Core / PostgreSQL ---------------------------------------------------
 
@@ -98,10 +95,10 @@ builder.Services.AddScoped<IAnnotationPageFetcher, AnnotationPageFetcher>();
 
 // ---- Storage ----------------------------------------------------------------
 
-builder.Services.AddSingleton<ITextStore>(_ =>
+builder.Services.AddSingleton<ITextStore>(sp =>
     new FileSystemTextStore(new FileSystemTextStoreOptions
     {
-        RootPath = builder.Configuration.GetSection("TextServices").Get<TextServicesOptions>()?.Storage.RootPath ?? string.Empty
+        RootPath = sp.GetRequiredService<IOptions<TextServicesOptions>>().Value.Storage.RootPath
     }));
 
 // ---- HTTP -------------------------------------------------------------------

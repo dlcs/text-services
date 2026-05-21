@@ -3,6 +3,7 @@ using IIIF.Presentation.V3;
 using IIIF.Presentation.V3.Annotation;
 using IIIF.Presentation.V3.Content;
 using IIIF.Serialisation;
+using Microsoft.Extensions.Options;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Features.Jobs;
 
@@ -18,7 +19,7 @@ public interface IManifestSynthesiser
     string Synthesise(IReadOnlyList<PageInstruction> pages);
 }
 
-public class ManifestSynthesiser(TextServicesOptions options) : IManifestSynthesiser
+public class ManifestSynthesiser(IOptions<TextServicesOptions> options) : IManifestSynthesiser
 {
     public string Synthesise(IReadOnlyList<PageInstruction> pages)
     {
@@ -97,10 +98,10 @@ public class ManifestSynthesiser(TextServicesOptions options) : IManifestSynthes
         if (parsed.Scheme is "http" or "https")
             return imageUri;
 
-        if (options.AllowFileImageProxy && !string.IsNullOrEmpty(options.SearchApiBaseUrl))
+        if (options.Value.AllowFileImageProxy && !string.IsNullOrEmpty(options.Value.SearchApiBaseUrl))
         {
             var encoded = Uri.EscapeDataString(imageUri);
-            return $"{options.SearchApiBaseUrl.TrimEnd('/')}/proxy/image?uri={encoded}";
+            return $"{options.Value.SearchApiBaseUrl.TrimEnd('/')}/proxy/image?uri={encoded}";
         }
 
         return null;

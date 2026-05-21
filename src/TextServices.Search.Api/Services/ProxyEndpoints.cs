@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using TextServices.Search.Api.Configuration;
 
 namespace TextServices.Search.Api.Services;
@@ -11,14 +12,14 @@ internal static class ProxyEndpoints
         // transparent PNG placeholder so the manifest remains structurally valid.
         // The Search API hosts this endpoint (not the Builder API) because the Search API is
         // always running when a viewer needs to load images from a stored manifest.
-        routes.MapGet("/proxy/image", async (string uri, SearchApiOptions options, CancellationToken ct) =>
+        routes.MapGet("/proxy/image", async (string uri, IOptions<SearchApiOptions> options, CancellationToken ct) =>
         {
             if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed))
                 return Results.BadRequest("Invalid URI.");
 
             if (parsed.Scheme == "file")
             {
-                if (!options.AllowFileImageProxy)
+                if (!options.Value.AllowFileImageProxy)
                     return Results.Bytes(ProxyImagePlaceholder.Png, "image/png");
 
                 var path = parsed.LocalPath;

@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using AsyncKeyedLock;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
 using TextServices.Search.Api.Configuration;
@@ -54,18 +55,14 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 
 // ---- Configuration ----------------------------------------------------------
 
-var options = builder.Configuration
-    .GetSection("TextServices")
-    .Get<SearchApiOptions>() ?? new SearchApiOptions();
-
-builder.Services.AddSingleton(options);
+builder.Services.Configure<SearchApiOptions>(builder.Configuration.GetSection("TextServices"));
 
 // ---- Storage ----------------------------------------------------------------
 
-builder.Services.AddSingleton<ITextStore>(_ =>
+builder.Services.AddSingleton<ITextStore>(sp =>
     new FileSystemTextStore(new FileSystemTextStoreOptions
     {
-        RootPath = builder.Configuration.GetSection("TextServices").Get<SearchApiOptions>()?.StorageRootPath ?? string.Empty
+        RootPath = sp.GetRequiredService<IOptions<SearchApiOptions>>().Value.StorageRootPath
     }));
 
 // ITextStore is also injected directly into TextAugmentedHandler (manifest is plain JSON,
@@ -83,7 +80,8 @@ builder.Services.AddHttpClient(PdfBuilder.HttpClientName)
 
 // ---- Cache ------------------------------------------------------------------
 
-builder.Services.AddMemoryCache(opts => opts.SizeLimit = options.CacheMaxEntries);
+builder.Services.AddMemoryCache(opts =>
+    opts.SizeLimit = builder.Configuration.GetSection("TextServices").GetValue<int?>("CacheMaxEntries") ?? 20);
 builder.Services.AddSingleton(new AsyncKeyedLocker<string>());
 builder.Services.AddSingleton<ITextCache, TextCache>();
 
