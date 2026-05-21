@@ -53,3 +53,27 @@ jobs:
 
       - name: Test
         run: dotnet test src/TextServices.sln --no-build --configuration Release
+
+  build-push-images:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: (github.event.pull_request.draft != true || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'build-image')))
+
+    strategy:
+      matrix:
+        include:
+          - name: text-services-builder
+            dockerfile: Dockerfile.Builder
+          - name: text-services-search
+            dockerfile: Dockerfile.Search
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and push ${{ matrix.name }}
+        uses: ./.github/actions/docker-build-and-push
+        with:
+          image-name: ${{ matrix.name }}
+          dockerfile: ${{ matrix.dockerfile }}
+          context: .
+          github-token: ${{ secrets.GITHUB_TOKEN }}
