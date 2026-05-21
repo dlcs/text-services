@@ -11,7 +11,7 @@ Code-level decisions are in CLAUDE.md. This log covers the *why*.
 Tom Crane (Digirati) briefed Claude on the requirements via `instructions/text-services.md`.
 Claude read both reference implementations in full:
 - Wellcome Collection: `C:/git/wellcomecollection/iiif-builder/src/Wellcome.Dds/`
-- St Louis Fed: `C:/git/digirati-co-uk/st-louis-fed/src/IIIFBuilder/`
+- SL: `C:/git/digirati-co-uk/st-louis-fed/src/IIIFBuilder/`
 
 ### Questions asked and answers given
 
@@ -23,8 +23,8 @@ Claude read both reference implementations in full:
 
 *Confirmed: Hangfire uses a pluggable storage backend (PostgreSQL, Redis, SQL Server). Works identically with local PostgreSQL, AWS RDS, and Azure Database for PostgreSQL. Just change the connection string.*
 
-**Q3: AutoComplete storage — embedded in Text object (Wellcome pattern) vs separate file (St Louis pattern)?**
-> "Let's go for the St Louis separate file pattern - unless you recommend otherwise"
+**Q3: AutoComplete storage — embedded in Text object (Wellcome pattern) vs separate file (SL pattern)?**
+> "Let's go for the SL separate file pattern - unless you recommend otherwise"
 
 *No counter-recommendation — separate storage is the better design: the Search API can load AutoComplete independently from the (larger) Text object when serving autocomplete-only requests.*
 
@@ -93,7 +93,7 @@ reference's use of the two-argument `Select` overload.
 
 **PR review question:** Is the normalisation correct re the reference implementations?
 
-Both Wellcome and St Louis Fed use `ToAlphanumericOrWhitespace` which **drops** non-alphanumeric characters (keeping existing whitespace), rather than replacing them with spaces. Corrected in response to review:
+Both Wellcome and SL use `ToAlphanumericOrWhitespace` which **drops** non-alphanumeric characters (keeping existing whitespace), rather than replacing them with spaces. Corrected in response to review:
 - `"it's"` → `"its"` (not `"it s"`)
 - `"foo-bar"` → `"foobar"` (not `"foo bar"`)
 - `"hello, world"` → `"hello world"` (comma dropped; adjacent space preserved)
@@ -159,9 +159,9 @@ After both passes, the following are confirmed correct against both references:
 
 Intentional extensions beyond the references:
 - `ComposedBlock` has X, Y, W, H, BlockType (Wellcome has coordinates and type embedded differently; added here for completeness)
-- AutoComplete stored as a separate file (St Louis pattern), not inside Text (Wellcome pattern)
+- AutoComplete stored as a separate file (SL pattern), not inside Text (Wellcome pattern)
 - `StringComparison.Ordinal` in `IndexOf` rather than `InvariantCultureIgnoreCase` (equivalent for lowercase-only normalised text; Ordinal is marginally faster)
-- Empty-norm words are skipped entirely by TextAccumulator rather than being written to raw but not norm text (St Louis partial-skip behaviour); our approach is cleaner
+- Empty-norm words are skipped entirely by TextAccumulator rather than being written to raw but not norm text (SL partial-skip behaviour); our approach is cleaner
 
 ---
 
