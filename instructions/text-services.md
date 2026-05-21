@@ -30,7 +30,7 @@ Solution root: C:\git\wellcomecollection\iiif-builder\src\Wellcome.Dds (most of 
 C:\git\wellcomecollection\iiif-builder\src\Wellcome.Dds\Wellcome.Dds.Repositories\WordsAndPictures\AltoSearchTextProvider::GetSearchText builds a `Wellcome.Dds.WordsAndPictures.Text` object. There is extraneous code here that depends on Wellcome-specifics before it can get to the essential data - the width and height of the image, and the XElement that represents the ALTO file. This `Text` object is serialised to disk by BinaryObjectCache, which also manages the retrieval of objects from disk or S3 and holding them in MemoryCache.
 At runtime, the ASP.NET controller `Wellcome.Dds.Server.Controllers.SearchController` has the actions `SearchV1` and `AutoCompleteV1` to provide the IIIF Search and Autocomplete services, that are consumed by IIIF viewers as the back end of "search within" features. While there is a hit on the additional initial load of a `Text` object from storage, we then keep the `Text` object in MemoryCache for a while, on the assumption that the user will make more than one query to it in a short space of time.
 
-### Implementation 2: St Louis Fed
+### Implementation 2: SL
 
 Solution root: C:\git\digirati-co-uk\st-louis-fed\src\IIIFBuilder (again, most of this is not relevant to the project at hand).
 
@@ -50,7 +50,7 @@ This has the class `IIIFBuilder.Processor.Alto.Building.TextBuilder` to build th
 
 ### Class Library
 
-Fundamentally, the Text object is built from a sequence of URIs (file:, or http(s):) of ALTO files, and integer Canvas dimensions (width and height). So, we should be able to adapt the Wellcome/St Louis Fed implementations into a new class library that accepts a data structure containing a sequence of dimensions and ALTO URIs and uses it to generate `Text` objects. In addition, for implementation of derived services later, for each entry in the sequence there is a string identifier. This class library probably doesn't do any storage, that's left to callers. How much I/O it does is a design decision, e.g., does the caller feed it `XElement` instances for each ALTO file, or does this class library fetch and read them itself? I think the former but am open to see where the design goes.
+Fundamentally, the Text object is built from a sequence of URIs (file:, or http(s):) of ALTO files, and integer Canvas dimensions (width and height). So, we should be able to adapt the Wellcome/SL implementations into a new class library that accepts a data structure containing a sequence of dimensions and ALTO URIs and uses it to generate `Text` objects. In addition, for implementation of derived services later, for each entry in the sequence there is a string identifier. This class library probably doesn't do any storage, that's left to callers. How much I/O it does is a design decision, e.g., does the caller feed it `XElement` instances for each ALTO file, or does this class library fetch and read them itself? I think the former but am open to see where the design goes.
 
 
 ### API Text Building service
@@ -123,7 +123,7 @@ This API service will queue jobs to create text services (taking them serially, 
 
 * The above implies that the API maintains state. It should do so in a simple PostgreSQL database, with a table for jobs (at least). I have a local PostgreSQL instance running which you can create a DB in for this work. The code should use EntityFramework and migrations. You'll need to ask me for admin credentials at the appropriate time. The table columns are not necessarily identical to the API object, for example, the search and autocomplete URIs are likely to be computed from the environment plus the `id` and not stored.
 
-* The API should not depend on a particular storage implementation. It can have a filesystem implementation and an AWS S3 implementation initially, with more to follow. The Wellcome example has this but is probably far more complex than is needed just for this application (unless you think otherwise). Look at how St Louis Fed does it, too.
+* The API should not depend on a particular storage implementation. It can have a filesystem implementation and an AWS S3 implementation initially, with more to follow. The Wellcome example has this but is probably far more complex than is needed just for this application (unless you think otherwise). Look at how SL does it, too.
 
 * Where the supplied source is a IIIF Manifest, the service should *store a copy of the Manifest* as well as the Text object, which will be used later to host a version of the Manifest decorated with generated search services.
 
