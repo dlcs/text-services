@@ -370,6 +370,34 @@ dotnet test TextServices.Tests/TextServices.Tests.csproj
 The unit/integration tests run entirely in-process and do not require a running database or
 either API to be up.
 
+### 6 — Code formatting
+
+This project enforces `dotnet format` on every commit via [`pre-commit`](https://pre-commit.com/).
+Install it once (requires Python):
+
+```bash
+pip install pre-commit   # or: brew install pre-commit / scoop install pre-commit
+```
+
+Then wire up the hook once per clone:
+
+```bash
+pre-commit install
+```
+
+After that, `dotnet format` runs automatically on `git commit` and will block the commit if any
+C# files need reformatting. To run it manually across all files:
+
+```bash
+pre-commit run --all-files
+```
+
+To auto-fix formatting issues without committing:
+
+```bash
+dotnet format src/TextServices.sln
+```
+
 ### Storage directory
 
 The default storage root is `C:/textservices-data`. The Builder API creates subdirectories

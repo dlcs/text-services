@@ -50,14 +50,18 @@ public class JobInstruction : IValidatableObject
         var hasData = SourceData is { Count: > 0 };
 
         if (!hasUri && !hasData)
+        {
             yield return new ValidationResult(
                 "Exactly one of sourceUri or sourceData must be provided.",
                 [nameof(SourceUri), nameof(SourceData)]);
+        }
 
         if (hasUri && hasData)
+        {
             yield return new ValidationResult(
                 "Provide sourceUri or sourceData, not both.",
                 [nameof(SourceUri), nameof(SourceData)]);
+        }
 
         if (SourceData != null)
         {
@@ -65,9 +69,11 @@ public class JobInstruction : IValidatableObject
             {
                 if (!string.Equals(page.Type, "pdf", StringComparison.OrdinalIgnoreCase)
                     && string.IsNullOrEmpty(page.Id))
+                {
                     yield return new ValidationResult(
                         "Each non-pdf page in sourceData must supply an 'id' (canvas identifier URI).",
                         [nameof(SourceData)]);
+                }
             }
         }
     }
