@@ -17,9 +17,11 @@ public class ManifestReducer : IManifestReducer
         var root = doc.RootElement;
 
         if (!IsV3(root))
+        {
             throw new InvalidOperationException(
                 "Only IIIF Presentation v3 manifests are supported. " +
                 "The manifest must have @context containing 'presentation/3'.");
+        }
 
         if (!root.TryGetProperty("items", out var items))
             return [];
@@ -82,8 +84,10 @@ public class ManifestReducer : IManifestReducer
 
                 case JsonValueKind.Array:
                     foreach (var item in ctx.EnumerateArray())
+                    {
                         if (item.ValueKind == JsonValueKind.String && IsV3Context(item.GetString()))
                             return true;
+                    }
                     // If the array contained a v2 context and no v3 context, reject.
                     return false;
             }
@@ -110,12 +114,17 @@ public class ManifestReducer : IManifestReducer
     {
         if (!canvas.TryGetProperty("items", out var annotPages) ||
             annotPages.ValueKind != JsonValueKind.Array)
+        {
             return null;
+        }
 
         foreach (var annotPage in annotPages.EnumerateArray())
         {
             if (!annotPage.TryGetProperty("items", out var annotations) ||
-                annotations.ValueKind != JsonValueKind.Array) continue;
+                annotations.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
 
             foreach (var annotation in annotations.EnumerateArray())
             {
@@ -194,7 +203,10 @@ public class ManifestReducer : IManifestReducer
             if (annoPage.TryGetProperty("items", out _)) continue;
 
             if (!annoPage.TryGetProperty("type", out var type) ||
-                type.GetString() != "AnnotationPage") continue;
+                type.GetString() != "AnnotationPage")
+            {
+                continue;
+            }
 
             var uri = annoPage.TryGetProperty("id", out var id) ? id.GetString() : null;
             if (uri != null)
@@ -307,8 +319,10 @@ public class ManifestReducer : IManifestReducer
                 if (lang.Value.ValueKind == JsonValueKind.Array)
                 {
                     foreach (var val in lang.Value.EnumerateArray())
+                    {
                         if (val.ValueKind == JsonValueKind.String)
                             return val.GetString();
+                    }
                 }
                 else if (lang.Value.ValueKind == JsonValueKind.String)
                 {

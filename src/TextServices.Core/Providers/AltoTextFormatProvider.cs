@@ -89,8 +89,10 @@ public class AltoTextFormatProvider : ITextFormatProvider
                         pendingX, pendingY, pendingW, pendingH, pendingSp);
 
                     if (!string.IsNullOrEmpty(combinedNorm))
+                    {
                         TrackComposedBlock(textBlock, ns,
                             accumulator.LastWordNormPosition, composedBlockTracker);
+                    }
 
                     hyphenPending = false;
                     startIdx = 1; // HypPart2 string consumed — skip it below

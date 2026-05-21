@@ -42,10 +42,10 @@ public sealed class E2ETestContext : IAsyncLifetime
         await ctx.Database.MigrateAsync();
 
         BuilderFactory = new BuilderApiFactory(_postgres.GetConnectionString(), StorageRoot, FixturesRoot);
-        SearchFactory  = new SearchApiFactory(StorageRoot);
+        SearchFactory = new SearchApiFactory(StorageRoot);
 
         BuilderClient = BuilderFactory.CreateClient();
-        SearchClient  = SearchFactory.CreateClient();
+        SearchClient = SearchFactory.CreateClient();
     }
 
     /// <summary>

@@ -54,7 +54,10 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
             if (body.ValueKind != JsonValueKind.Object) continue;
 
             if (!body.TryGetProperty("type", out var typeEl) ||
-                typeEl.GetString() != "TextualBody") continue;
+                typeEl.GetString() != "TextualBody")
+            {
+                continue;
+            }
 
             if (!body.TryGetProperty("value", out var valueEl)) continue;
             var text = valueEl.GetString();
@@ -123,7 +126,10 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
     private static AnnotationTarget? ParseSpecificResource(JsonElement obj)
     {
         if (!obj.TryGetProperty("type", out var type) ||
-            type.GetString() != "SpecificResource") return null;
+            type.GetString() != "SpecificResource")
+        {
+            return null;
+        }
 
         if (!obj.TryGetProperty("selector", out var selectorEl)) return null;
 
@@ -148,7 +154,10 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
         {
             fragmentSelector = selectorEl;
             if (!fragmentSelector.TryGetProperty("type", out var t) ||
-                t.GetString() != "FragmentSelector") return null;
+                t.GetString() != "FragmentSelector")
+            {
+                return null;
+            }
         }
 
         if (!fragmentSelector.TryGetProperty("value", out var value)) return null;
@@ -178,7 +187,10 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
             if (!TryParseInt(parts[0], out var x) ||
                 !TryParseInt(parts[1], out var y) ||
                 !TryParseInt(parts[2], out var w) ||
-                !TryParseInt(parts[3], out var h)) return null;
+                !TryParseInt(parts[3], out var h))
+            {
+                return null;
+            }
 
             return new AnnotationTarget(false, x, y, w, h, 0, 0);
         }
@@ -189,7 +201,9 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
             if (parts.Length != 2) return null;
             if (!double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var start) ||
                 !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var end))
+            {
                 return null;
+            }
 
             return new AnnotationTarget(true, 0, 0, 0, 0,
                 (int)(start * 1000), (int)(end * 1000));

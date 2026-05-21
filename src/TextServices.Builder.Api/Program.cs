@@ -8,8 +8,8 @@ using Serilog.Events;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
-using TextServices.Infrastructure.Http;
 using TextServices.Builder.Api.Services;
+using TextServices.Infrastructure.Http;
 using TextServices.Storage;
 
 Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();

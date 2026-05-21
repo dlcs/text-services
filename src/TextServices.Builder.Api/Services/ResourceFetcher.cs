@@ -43,8 +43,10 @@ public sealed class ResourceFetcher(IHttpClientFactory httpClientFactory, IAmazo
     private async Task<Stream?> FetchS3Async(Uri uri, CancellationToken ct)
     {
         if (s3 is null)
+        {
             throw new InvalidOperationException(
                 $"s3:// URI encountered but IAmazonS3 is not configured: {uri}");
+        }
 
         var bucket = uri.Host;
         var key = uri.AbsolutePath.TrimStart('/');

@@ -176,10 +176,14 @@ public class TextBuildJob(
 
             var page = fetchedPage.Page;
             if (fetchedPage.Xml != null)
+            {
                 textBuilder.AddPage(page.Id!, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Label);
+            }
             else if (fetchedPage.StringContent != null)
+            {
                 textBuilder.AddTranscriptPage(page.Id!, page.Width, page.Height, fetchedPage.StringContent,
                     profile: page.Profile, format: page.Format, label: page.Label);
+            }
 
             completed++;
             job.PagesCompleted = completed;
@@ -204,7 +208,9 @@ public class TextBuildJob(
 
             if (services.HasFlag(JobServices.FullText) &&
                 !string.IsNullOrEmpty(result.Text.RawFullText))
+            {
                 await textStore.SaveRawText(job.Id, result.Text.RawFullText);
+            }
 
             if (services.HasFlag(JobServices.Figures))
             {
@@ -444,9 +450,11 @@ public class TextBuildJob(
             var xml = await altoFetcher.FetchAsync(page.TextUri, ct);
 
             if (xml == null)
+            {
                 logger.LogDebug(
                     "No ALTO content at {AltoUri} for canvas {CanvasId} — skipping",
                     page.TextUri, page.Id);
+            }
 
             return new FetchedPage(page, xml, null, null);
         }
