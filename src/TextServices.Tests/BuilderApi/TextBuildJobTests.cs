@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
+using Shouldly.ShouldlyExtensionMethods;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
@@ -75,6 +76,10 @@ public sealed class TextBuildJobTests : IDisposable
         updated.PagesCompleted.ShouldBe(1);
         updated.TotalWordCount.ShouldBe(2);   // "hello", "world"
         updated.Errors.ShouldBeNull();
+        updated.FulfilledServices.ShouldNotBeNull();
+        var fulfilledFlags = (JobServices)updated.FulfilledServices!.Value;
+        fulfilledFlags.ShouldHaveFlag(JobServices.Search);
+        fulfilledFlags.ShouldHaveFlag(JobServices.Autocomplete);
 
         (await _textStore.Exists(job.Id)).ShouldBeTrue();
         (await _textStore.LoadAutoComplete(job.Id)).ShouldNotBeNull();
@@ -251,6 +256,7 @@ public sealed class TextBuildJobTests : IDisposable
         var updated = await _db.Jobs.FindAsync(job.Id);
         updated!.Status.ShouldBe(JobStatus.Failed);
         updated.Errors.ShouldNotBeNull();
+        updated.FulfilledServices.ShouldBe((int)JobServices.None);
     }
 
     // -------------------------------------------------------------------------
@@ -422,6 +428,65 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_EmptyText_RestrictedServices_FulfilledServicesIsNone()
+    {
+        // No text returned for any page; Search is the only requested service.
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        var job = await CreateJob("test/empty-text-restricted",
+            sourceDataJson: JsonSerializer.Serialize(pages),
+            services: JobServices.Search);
+
+        // Fetcher returns null — no ALTO content, text will be empty.
+        var altoFetcher = new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null));
+
+        var sut = MakeJob(altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Completed);
+        updated.TotalWordCount.ShouldBe(0);
+        updated.FulfilledServices.ShouldBe((int)JobServices.None);
+
+        var caps = await _textStore.LoadCapabilities(job.Id);
+        caps.ShouldNotBeNull();
+        caps.Value.ShouldBe((int)JobServices.None);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_EmptyText_AllServices_OnlyTextAugmentedFulfilled()
+    {
+        // No text, but all services requested. The synthetic manifest is still saved,
+        // so TextAugmented is the only service that can be fulfilled.
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        var job = await CreateJob("test/empty-text-all",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var altoFetcher = new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null));
+
+        var sut = MakeJob(altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.FulfilledServices.ShouldNotBeNull();
+        var fulfilled = (JobServices)updated.FulfilledServices!.Value;
+        fulfilled.ShouldHaveFlag(JobServices.TextAugmented);
+        fulfilled.ShouldNotHaveFlag(JobServices.Search);
+        fulfilled.ShouldNotHaveFlag(JobServices.Autocomplete);
+        fulfilled.ShouldNotHaveFlag(JobServices.Pdf);
+        fulfilled.ShouldNotHaveFlag(JobServices.FullText);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_RestrictedServices_SavesCapabilitiesFile()
     {
         var pages = new List<PageInstruction>
@@ -443,15 +508,21 @@ public sealed class TextBuildJobTests : IDisposable
         await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
 
         var caps = await _textStore.LoadCapabilities(job.Id);
-        caps.ShouldNotBeNull();
-        var saved = (JobServices)caps.Value;
-        saved.HasFlag(JobServices.Search).ShouldBeTrue();
-        saved.HasFlag(JobServices.Autocomplete).ShouldBeTrue();
-        saved.HasFlag(JobServices.Pdf).ShouldBeFalse();
+        var saved = (JobServices)caps!.Value;
+        saved.ShouldHaveFlag(JobServices.Search);
+        saved.ShouldHaveFlag(JobServices.Autocomplete);
+        saved.ShouldNotHaveFlag(JobServices.Pdf);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.FulfilledServices.ShouldNotBeNull();
+        var fulfilled = (JobServices)updated.FulfilledServices!.Value;
+        fulfilled.ShouldHaveFlag(JobServices.Search);
+        fulfilled.ShouldHaveFlag(JobServices.Autocomplete);
+        fulfilled.ShouldNotHaveFlag(JobServices.Pdf);
     }
 
     [Fact]
-    public async Task ExecuteAsync_AllServices_DoesNotSaveCapabilitiesFile()
+    public async Task ExecuteAsync_AllServices_SavesCapabilitiesFileWithFulfilledFlags()
     {
         var pages = new List<PageInstruction>
         {
@@ -460,7 +531,7 @@ public sealed class TextBuildJobTests : IDisposable
         };
 
         // Default services = All
-        var job = await CreateJob("test/caps-not-saved",
+        var job = await CreateJob("test/caps-all-fulfilled",
             sourceDataJson: JsonSerializer.Serialize(pages));
 
         var altoFetcher = FakeAlto(new Dictionary<string, XElement>
@@ -471,8 +542,17 @@ public sealed class TextBuildJobTests : IDisposable
         var sut = MakeJob(altoFetcher: altoFetcher);
         await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
 
-        // No capabilities file means "all enabled" — backward-compatible default.
-        (await _textStore.LoadCapabilities(job.Id)).ShouldBeNull();
+        // Capabilities are always written now, reflecting what was actually fulfilled.
+        var caps = await _textStore.LoadCapabilities(job.Id);
+        var fulfilled = (JobServices)caps.ShouldNotBeNull();
+        fulfilled.ShouldHaveFlag(JobServices.Search);
+        fulfilled.ShouldHaveFlag(JobServices.Autocomplete);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.FulfilledServices.ShouldNotBeNull();
+        var fulfilledOnJob = (JobServices)updated.FulfilledServices!.Value;
+        fulfilledOnJob.ShouldHaveFlag(JobServices.Search);
+        fulfilledOnJob.ShouldHaveFlag(JobServices.Autocomplete);
     }
 
     private static string SimpleVtt() =>

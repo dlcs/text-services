@@ -24,7 +24,14 @@ public class JobResponse
     public int TotalImageCount { get; set; }
     public string? Errors { get; set; }
 
-    // Endpoint URLs — null when not yet completed or service is not enabled.
+    /// <summary>
+    /// The services that were actually produced during the most recent run.
+    /// Null for jobs processed before this field was introduced.
+    /// Use <see cref="Services"/> to see what was requested.
+    /// </summary>
+    public JobServices? FulfilledServices { get; set; }
+
+    // Endpoint URLs — null when not yet completed or service was not fulfilled.
     public string? SearchV1 { get; set; }
     public string? AutocompleteV1 { get; set; }
     public string? SearchV2 { get; set; }
@@ -46,6 +53,12 @@ public class JobResponse
 
         var services = (JobServices)job.Services;
 
+        // Use fulfilled services for URL generation when available; fall back to requested
+        // services for jobs processed before FulfilledServices was introduced.
+        var fulfilled = job.FulfilledServices.HasValue
+            ? (JobServices)job.FulfilledServices.Value
+            : services;
+
         string? searchV1 = null;
         string? autocompleteV1 = null;
         string? searchV2 = null;
@@ -61,31 +74,31 @@ public class JobResponse
         {
             var baseUrl = options.SearchApiBaseUrl.TrimEnd('/');
 
-            if (services.HasFlag(JobServices.Search))
+            if (fulfilled.HasFlag(JobServices.Search))
             {
                 searchV1 = $"{baseUrl}/search/v1/{job.Id}";
                 searchV2 = $"{baseUrl}/search/v2/{job.Id}";
             }
 
-            if (services.HasFlag(JobServices.Autocomplete))
+            if (fulfilled.HasFlag(JobServices.Autocomplete))
             {
                 autocompleteV1 = $"{baseUrl}/autocomplete/v1/{job.Id}";
                 autocompleteV2 = $"{baseUrl}/autocomplete/v2/{job.Id}";
             }
 
-            if (services.HasFlag(JobServices.FullText))
+            if (fulfilled.HasFlag(JobServices.FullText))
                 fullText = $"{baseUrl}/text/v1/{job.Id}";
 
-            if (services.HasFlag(JobServices.Pdf))
+            if (fulfilled.HasFlag(JobServices.Pdf))
                 pdf = $"{baseUrl}/pdf/v1/{job.Id}";
 
-            if (services.HasFlag(JobServices.TextAugmented))
+            if (fulfilled.HasFlag(JobServices.TextAugmented))
                 textAugmented = $"{baseUrl}/text-augmented/v3/{job.Id}";
 
-            if (services.HasFlag(JobServices.Annotations))
+            if (fulfilled.HasFlag(JobServices.Annotations))
                 annotations = $"{baseUrl}/annotations/manifest/v1/{job.Id}";
 
-            if (services.HasFlag(JobServices.Figures))
+            if (fulfilled.HasFlag(JobServices.Figures))
                 figures = $"{baseUrl}/identified/figures/{job.Id}";
         }
 
@@ -96,6 +109,7 @@ public class JobResponse
             SourceData = sourceData,
             Status = job.Status.ToString(),
             Services = services,
+            FulfilledServices = job.FulfilledServices.HasValue ? fulfilled : null,
             Created = job.Created,
             Started = job.Started,
             Finished = job.Finished,
