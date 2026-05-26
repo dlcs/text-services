@@ -29,7 +29,7 @@ public class TextServicesOptions
     public bool AllowFileImageProxy { get; set; } = false;
 
     /// <summary>
-    /// Maximum number of ALTO files fetched concurrently within a single job.
+    /// Maximum number of text files (ALTO, VTT, AnnotationPage) fetched concurrently within a single job.
     /// The right value depends on the source:
     /// <list type="bullet">
     ///   <item>Third-party HTTP (Wellcome, Internet Archive, etc.): 4–8 for politeness.</item>
@@ -37,9 +37,9 @@ public class TextServicesOptions
     ///   <item>S3 (same-region, same-bucket): 64–128 — S3 handles high parallelism well.</item>
     /// </list>
     /// TODO: When S3 storage is added, consider deriving the limit automatically from
-    /// the URI scheme/host of the ALTO links, or adding a per-host override table here.
+    /// the URI scheme/host of the text links, or adding a per-host override table here.
     /// </summary>
-    public int MaxConcurrentAltoFetches { get; set; } = 8;
+    public int MaxConcurrentPageFetches { get; set; } = 8;
 
     /// <summary>
     /// When <c>true</c> (the default), job progress is flushed to the database every

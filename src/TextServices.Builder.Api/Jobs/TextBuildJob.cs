@@ -18,7 +18,7 @@ namespace TextServices.Builder.Api.Jobs;
 /// Hangfire background job that executes the full text-build pipeline for a single job:
 /// <list type="number">
 ///   <item>Fetch and reduce the IIIF Manifest (when <c>sourceUri</c> was supplied).</item>
-///   <item>Fetch all ALTO files concurrently (bounded by <see cref="TextServicesOptions.MaxConcurrentAltoFetches"/>).</item>
+///   <item>Fetch all ALTO files concurrently (bounded by <see cref="TextServicesOptions.MaxConcurrentPageFetches"/>).</item>
 ///   <item>Feed pages to <see cref="TextBuilder"/> in original canvas order.</item>
 ///   <item>Persist <c>Text</c> and <c>AutoComplete</c> via <see cref="ITextStore"/>.</item>
 /// </list>
@@ -140,11 +140,11 @@ public class TextBuildJob(
         IReadOnlyList<PageInstruction> pages,
         IJobCancellationToken cancellationToken)
     {
-        // Fetch all ALTO files concurrently, bounded by the semaphore.
-        // Results are returned as an ordered array matching the pages list,
-        // so TextBuilder receives canvases in the correct sequence.
+        // Fetch all pages concurrently, bounded by MaxConcurrentPageFetches.
+        // Results are stored into a pre-allocated array so TextBuilder receives
+        // canvases in the correct sequence.
         //
-        // TODO: The right concurrency limit depends on where the ALTO files live.
+        // TODO: The right concurrency limit depends on where the text files live.
         //   - Third-party HTTP (e.g. Wellcome, Internet Archive): keep low (4–8) for
         //     politeness and to avoid rate-limiting.
         //   - Internal/trusted HTTP: can be higher (16–32).
@@ -155,20 +155,19 @@ public class TextBuildJob(
         //     hostname pattern and use a higher limit for those.
         //   Consider deriving the limit from the scheme/host of pages[0].Text, or
         //   adding a per-host override table to TextServicesOptions.
-        var semaphore = new SemaphoreSlim(options.Value.MaxConcurrentAltoFetches);
 
-        var fetchTasks = pages
-            // pdf-type pages embed an existing PDF; they have no text to build.
-            // Custom-type pages are generated at PDF render time; no text to fetch.
-            .Where(page => page.Type == null)
-            .Select(page => IsAnnotationPage(page)
-                ? FetchAnnotationPageWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken)
-                : IsVttPage(page)
-                    ? FetchVttWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken)
-                    : FetchXmlWithSemaphoreAsync(page, semaphore, cancellationToken.ShutdownToken))
-            .ToList();
+        // pdf-type pages embed an existing PDF; they have no text to build.
+        // Custom-type pages are generated at PDF render time; no text to fetch.
+        var pagesToFetch = pages.Where(page => page.Type == null).ToList();
+        var fetched = new FetchedPage[pagesToFetch.Count];
 
-        var fetched = await Task.WhenAll(fetchTasks);
+        await Parallel.ForEachAsync(Enumerable.Range(0, pagesToFetch.Count),
+            new ParallelOptions
+            {
+                MaxDegreeOfParallelism = options.Value.MaxConcurrentPageFetches,
+                CancellationToken = cancellationToken.ShutdownToken
+            },
+            async (i, ct) => { fetched[i] = await FetchPageAsync(pagesToFetch[i], ct); });
 
         // Build text in original canvas order (TextBuilder requires sequential input).
         var textBuilder = new TextBuilder();
@@ -467,94 +466,41 @@ public class TextBuildJob(
     private static bool ContainsIgnoreCase(string? value, string term) =>
         value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
 
-    private async Task<FetchedPage> FetchXmlWithSemaphoreAsync(
-        PageInstruction page,
-        SemaphoreSlim semaphore,
-        CancellationToken ct)
+    private async Task<FetchedPage> FetchPageAsync(PageInstruction page, CancellationToken ct)
     {
-        if (page.TextUri == null)
-            return new FetchedPage(page, null, null, null);
+        if (page.TextUri == null) return new FetchedPage(page, null, null, null);
 
-        await semaphore.WaitAsync(ct);
         try
         {
-            var xml = await altoFetcher.FetchAsync(page.TextUri, ct);
-
-            if (xml == null)
+            if (IsAnnotationPage(page))
             {
-                logger.LogDebug(
-                    "No ALTO content at {AltoUri} for canvas {CanvasId} — skipping",
-                    page.TextUri, page.Id);
+                var json = await annotationPageFetcher.FetchAsync(page.TextUri, ct);
+                if (json == null)
+                    logger.LogDebug("Annotation page not found for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
+                else
+                    logger.LogDebug("Annotation page fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
+                return new FetchedPage(page, null, json, null);
             }
 
+            if (IsVttPage(page))
+            {
+                var vtt = await vttFetcher.FetchAsync(page.TextUri, ct);
+                if (vtt == null)
+                    logger.LogDebug("VTT not found for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
+                else
+                    logger.LogDebug("VTT fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
+                return new FetchedPage(page, null, vtt, null);
+            }
+
+            var xml = await altoFetcher.FetchAsync(page.TextUri, ct);
+            if (xml == null)
+                logger.LogDebug("No ALTO content at {AltoUri} for canvas {CanvasId} — skipping", page.TextUri, page.Id);
             return new FetchedPage(page, xml, null, null);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex,
-                "Failed to fetch or parse ALTO for canvas {CanvasId} ({AltoUri})",
-                page.Id, page.TextUri);
+            logger.LogWarning(ex, "Failed to fetch page {CanvasId} from {Url}", page.Id, page.TextUri);
             return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
-        }
-        finally
-        {
-            semaphore.Release();
-        }
-    }
-
-    private async Task<FetchedPage> FetchVttWithSemaphoreAsync(
-        PageInstruction page,
-        SemaphoreSlim semaphore,
-        CancellationToken cancellationToken)
-    {
-        if (page.TextUri == null) return new FetchedPage(page, null, null, null);
-
-        await semaphore.WaitAsync(cancellationToken);
-        try
-        {
-            var vtt = await vttFetcher.FetchAsync(page.TextUri, cancellationToken);
-            if (vtt == null)
-                logger.LogDebug("VTT not found for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
-            else
-                logger.LogDebug("VTT fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
-            return new FetchedPage(page, null, vtt, null);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to fetch VTT for canvas {CanvasId} from {Url}", page.Id, page.TextUri);
-            return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
-        }
-        finally
-        {
-            semaphore.Release();
-        }
-    }
-
-    private async Task<FetchedPage> FetchAnnotationPageWithSemaphoreAsync(
-        PageInstruction page,
-        SemaphoreSlim semaphore,
-        CancellationToken cancellationToken)
-    {
-        if (page.TextUri == null) return new FetchedPage(page, null, null, null);
-
-        await semaphore.WaitAsync(cancellationToken);
-        try
-        {
-            var json = await annotationPageFetcher.FetchAsync(page.TextUri, cancellationToken);
-            if (json == null)
-                logger.LogDebug("Annotation page not found for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
-            else
-                logger.LogDebug("Annotation page fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
-            return new FetchedPage(page, null, json, null);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to fetch annotation page for canvas {CanvasId} from {Url}", page.Id, page.TextUri);
-            return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
-        }
-        finally
-        {
-            semaphore.Release();
         }
     }
 }

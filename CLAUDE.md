@@ -106,7 +106,7 @@ or with inline pages:
 
 **`BuilderJob` entity** (PostgreSQL, snake_case naming): `Id`, `SourceUri`, `SourceDataJson`, `Status`, `Created`, `Started`, `Finished`, `TotalPages`, `PagesCompleted`, `TotalWordCount`, `TotalImageCount`, `Errors`, `HangfireJobId`, `Services` (bitmask), `Title`, `CustomTypesJson`.
 
-**`TextBuildJob`** (Hangfire): fetches manifest/resources concurrently (bounded by `MaxConcurrentAltoFetches`), feeds `TextBuilder`, persists all artefacts, records per-page warnings without aborting the job.
+**`TextBuildJob`** (Hangfire): fetches manifest/resources concurrently (bounded by `MaxConcurrentPageFetches`), feeds `TextBuilder`, persists all artefacts, records per-page warnings without aborting the job.
 
 **Services that Builder.Api registers**: `IResourceFetcher`, `IManifestFetcher`, `IManifestReducer`, `IManifestSynthesiser`, `IAltoFetcher`, `IVttFetcher`, `IAnnotationPageFetcher`, `ITextStore`.
 
