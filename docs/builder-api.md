@@ -404,5 +404,9 @@ Builder API configuration lives under the `TextServices` key in `appsettings.jso
 | `ConnectionStrings:BuilderDb` | _(required)_ | PostgreSQL connection string. Used for both EF Core (job state) and Hangfire (job queue). |
 | `SearchApiBaseUrl` | `""` | Public base URL of the Search API. Used to populate the `searchV1` / `searchV2` fields in completed job responses, and to construct `/proxy/image` URLs in synthesised Manifests when `sourceData` pages supply `file://` or `s3://` imageUri values. Leave empty if the Search API is not yet deployed. |
 | `MaxConcurrentAltoFetches` | `8` | Maximum number of text files fetched in parallel within a single job. Increase for internal or S3 sources; keep low (4–8) for third-party HTTP hosts. |
-| `Storage:RootPath` | `textservices-data` | Root directory for stored text artefacts. Must be readable by the Search API. |
+| `Storage:RootPath` | `textservices-data` | Root directory for stored text artefacts. Ignored when S3 storage is configured. Must be readable by the Search API if used. |
+| `Storage:S3:BucketName` | `""` | S3 bucket for stored artefacts. When set, the S3 store is used instead of the filesystem store. |
+| `Storage:S3:KeyPrefix` | `""` | Optional prefix for all S3 object keys (e.g. `"textservices/"`). A trailing `/` is added automatically if omitted. |
 | `CorsAllowedOrigins` | `[]` | Allowed CORS origins. Empty array disables CORS. |
+
+S3 credentials and region are resolved by the standard AWS SDK credential chain (environment variables, instance profile, `appsettings.json` `AWS` section). Configure the region via the `AWS:Region` key or the `AWS_DEFAULT_REGION` environment variable.

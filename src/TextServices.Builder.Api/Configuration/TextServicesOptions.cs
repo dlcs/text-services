@@ -52,6 +52,25 @@ public class StorageOptions
 {
     /// <summary>Root path under which text artefacts are stored on the filesystem.</summary>
     public string RootPath { get; set; } = "textservices-data";
+
+    /// <summary>
+    /// S3 storage options. When <see cref="S3StorageOptions.BucketName"/> is set,
+    /// the S3 store is used; otherwise the filesystem store is used.
+    /// </summary>
+    public S3StorageOptions? S3 { get; set; }
+}
+
+public class S3StorageOptions
+{
+    /// <summary>The S3 bucket name in which all artefacts are stored.</summary>
+    public string BucketName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional key prefix applied to every S3 object key (e.g. <c>"textservices/"</c>).
+    /// A trailing <c>/</c> is added automatically if omitted.
+    /// Leave empty to store objects at the bucket root.
+    /// </summary>
+    public string KeyPrefix { get; set; } = string.Empty;
 }
 
 public class NotificationsOptions

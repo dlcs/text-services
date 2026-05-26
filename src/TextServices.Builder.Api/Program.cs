@@ -70,9 +70,8 @@ builder.Services.AddHttpClient("Resource", client =>
     client.Timeout = TimeSpan.FromSeconds(30);
 });
 
-// IAmazonS3 is optional — register it here when S3 support is needed.
-// ResourceFetcher receives null when it is absent and throws only if an s3:// URI is actually used.
-// builder.Services.AddSingleton<IAmazonS3>(new AmazonS3Client());
+builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
+builder.Services.AddAWSService<IAmazonS3>();
 
 builder.Services.AddScoped<IResourceFetcher>(sp => new ResourceFetcher(
     sp.GetRequiredService<IHttpClientFactory>(),
@@ -89,7 +88,6 @@ builder.Services.AddSingleton<IManifestReducer, ManifestReducer>()
 
 // ---- Notifications ----------------------------------------------------------
 
-builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
 builder.Services.AddAWSService<IAmazonSimpleNotificationService>();
 builder.Services.AddSingleton<IJobNotifier>(sp =>
 {
@@ -101,10 +99,17 @@ builder.Services.AddSingleton<IJobNotifier>(sp =>
 // ---- Storage ----------------------------------------------------------------
 
 builder.Services.AddSingleton<ITextStore>(sp =>
-    new FileSystemTextStore(new FileSystemTextStoreOptions
+{
+    var storage = sp.GetRequiredService<IOptions<TextServicesOptions>>().Value.Storage;
+    if (!string.IsNullOrEmpty(storage.S3?.BucketName))
     {
-        RootPath = sp.GetRequiredService<IOptions<TextServicesOptions>>().Value.Storage.RootPath
-    }));
+        return new S3TextStore(
+            new S3TextStoreOptions { BucketName = storage.S3.BucketName, KeyPrefix = storage.S3.KeyPrefix },
+            sp.GetRequiredService<IAmazonS3>());
+    }
+
+    return new FileSystemTextStore(new FileSystemTextStoreOptions { RootPath = storage.RootPath });
+});
 
 // ---- HTTP -------------------------------------------------------------------
 
