@@ -41,6 +41,14 @@ public class TextServicesOptions
     /// </summary>
     public int MaxConcurrentAltoFetches { get; set; } = 8;
 
+    /// <summary>
+    /// When <c>true</c> (the default), job progress is flushed to the database every
+    /// <c>ProgressBatchSize</c> pages so that <c>GET /textbuilder/{id}</c> reflects live
+    /// in-flight progress. Set to <c>false</c> to reduce database writes on large manifests
+    /// at the cost of no progress visibility until the job completes.
+    /// </summary>
+    public bool ReportBatchProgress { get; set; } = true;
+
     /// <summary>Options for the filesystem text store.</summary>
     public StorageOptions Storage { get; set; } = new();
 

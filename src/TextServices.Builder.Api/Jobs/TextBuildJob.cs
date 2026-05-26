@@ -199,8 +199,10 @@ public class TextBuildJob(
             completed++;
             job.PagesCompleted = completed;
 
-            if (completed % ProgressBatchSize == 0 || completed == pages.Count)
+            if (options.Value.ReportBatchProgress && (completed % ProgressBatchSize == 0 || completed == pages.Count))
+            {
                 await db.SaveChangesAsync();
+            }
         }
 
         var result = textBuilder.Build();
