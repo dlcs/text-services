@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using Amazon.Extensions.NETCore.Setup;
 using Amazon.S3;
 using Amazon.SimpleNotificationService;
 using Hangfire;
