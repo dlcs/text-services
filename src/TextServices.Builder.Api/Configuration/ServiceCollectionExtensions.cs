@@ -37,10 +37,14 @@ public static class ServiceCollectionExtensions
         // Only register when configured — unconditional registration triggers the AWS credential
         // chain at startup, which hangs in test environments without real credentials.
         if (!string.IsNullOrEmpty(configuration["TextServices:Storage:S3:BucketName"]))
+        {
             services.AddAWSService<IAmazonS3>();
+        }
 
         if (!string.IsNullOrEmpty(configuration["TextServices:Notifications:TopicArn"]))
+        {
             services.AddAWSService<IAmazonSimpleNotificationService>();
+        }
 
         return services;
     }
