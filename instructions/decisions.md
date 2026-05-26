@@ -193,13 +193,13 @@ Neither reference implementation handles IIIF Manifests (both use METS). This is
 
 ### Concurrent ALTO fetching
 
-ALTO files are fetched concurrently using `Task.WhenAll` bounded by a `SemaphoreSlim`. Results are held in an ordered array and fed to `TextBuilder` sequentially — the global line counter requires canvases in original order.
+Text files (ALTO, VTT, AnnotationPage) are fetched concurrently using `Parallel.ForEachAsync`. Results are stored into a pre-allocated ordered array and fed to `TextBuilder` sequentially — the global line counter requires canvases in original order.
 
 `IHttpClientFactory` is the correct tool: it pools the underlying `HttpMessageHandler` so TCP connections and HTTP/2 streams are reused even when multiple `HttpClient` instances are created. The apparent "create per call" pattern is intentional and idiomatic.
 
-Default concurrency is 8, configurable via `TextServicesOptions.MaxConcurrentAltoFetches`.
+Default concurrency is 8, configurable via `TextServicesOptions.MaxConcurrentPageFetches`.
 
-**Future work (noted in code TODOs):** The right limit depends on where the ALTO files live — third-party HTTP needs to be low (4–8) for politeness; S3 same-region can be much higher (64–128). When the S3 storage implementation is added, consider auto-deriving the limit from the URI scheme/host, or adding a per-host override table to `TextServicesOptions`.
+**Future work (noted in code TODOs):** The right limit depends on where the text files live — third-party HTTP needs to be low (4–8) for politeness; S3 same-region can be much higher (64–128). When the S3 storage implementation is added, consider auto-deriving the limit from the URI scheme/host, or adding a per-host override table to `TextServicesOptions`.
 
 ### Accept header for ALTO fetches
 
