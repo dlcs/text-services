@@ -71,7 +71,12 @@ builder.Services.AddHttpClient("Resource", client =>
 });
 
 builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
-builder.Services.AddAWSService<IAmazonS3>();
+
+builder.Services.Configure<S3TextStoreOptions>(builder.Configuration.GetSection("TextServices:Storage:S3"));
+
+var s3BucketName = builder.Configuration["TextServices:Storage:S3:BucketName"];
+if (!string.IsNullOrEmpty(s3BucketName))
+    builder.Services.AddAWSService<IAmazonS3>();
 
 builder.Services.AddScoped<IResourceFetcher>(sp => new ResourceFetcher(
     sp.GetRequiredService<IHttpClientFactory>(),
@@ -88,7 +93,10 @@ builder.Services.AddSingleton<IManifestReducer, ManifestReducer>()
 
 // ---- Notifications ----------------------------------------------------------
 
-builder.Services.AddAWSService<IAmazonSimpleNotificationService>();
+var topicArn = builder.Configuration["TextServices:Notifications:TopicArn"];
+if (!string.IsNullOrEmpty(topicArn))
+    builder.Services.AddAWSService<IAmazonSimpleNotificationService>();
+
 builder.Services.AddSingleton<IJobNotifier>(sp =>
 {
     var opts = sp.GetRequiredService<IOptions<TextServicesOptions>>();
@@ -100,14 +108,9 @@ builder.Services.AddSingleton<IJobNotifier>(sp =>
 
 builder.Services.AddSingleton<ITextStore>(sp =>
 {
+    if (!string.IsNullOrEmpty(s3BucketName))
+        return ActivatorUtilities.CreateInstance<S3TextStore>(sp);
     var storage = sp.GetRequiredService<IOptions<TextServicesOptions>>().Value.Storage;
-    if (!string.IsNullOrEmpty(storage.S3?.BucketName))
-    {
-        return new S3TextStore(
-            new S3TextStoreOptions { BucketName = storage.S3.BucketName, KeyPrefix = storage.S3.KeyPrefix },
-            sp.GetRequiredService<IAmazonS3>());
-    }
-
     return new FileSystemTextStore(new FileSystemTextStoreOptions { RootPath = storage.RootPath });
 });
 

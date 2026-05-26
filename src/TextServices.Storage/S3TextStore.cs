@@ -1,5 +1,6 @@
 using Amazon.S3;
 using Amazon.S3.Model;
+using Microsoft.Extensions.Options;
 using ProtoBuf;
 using TextServices.Core.Models;
 
@@ -28,13 +29,13 @@ public class S3TextStore : ITextStore, IDisposable
     private readonly string _bucket;
     private readonly string _prefix;
 
-    public S3TextStore(S3TextStoreOptions options, IAmazonS3 s3)
+    public S3TextStore(IOptions<S3TextStoreOptions> options, IAmazonS3 s3)
     {
         _s3 = s3;
-        _bucket = options.BucketName;
-        _prefix = string.IsNullOrEmpty(options.KeyPrefix)
+        _bucket = options.Value.BucketName;
+        _prefix = string.IsNullOrEmpty(options.Value.KeyPrefix)
             ? string.Empty
-            : options.KeyPrefix.TrimEnd('/') + '/';
+            : options.Value.KeyPrefix.TrimEnd('/') + '/';
     }
 
     /// <inheritdoc/>
