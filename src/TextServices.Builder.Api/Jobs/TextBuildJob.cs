@@ -62,12 +62,13 @@ public class TextBuildJob(
             job.TotalPages = pages.Count;
             await db.SaveChangesAsync();
 
-            var (wordCount, imageCount, errors) =
+            var (wordCount, imageCount, errors, fulfilled) =
                 await ProcessPages(job, pages, cancellationToken);
 
             job.TotalWordCount = wordCount;
             job.TotalImageCount = imageCount;
             job.Errors = errors.Count > 0 ? string.Join('\n', errors) : null;
+            job.FulfilledServices = (int)fulfilled;
             job.Status = JobStatus.Completed;
             job.Finished = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
@@ -87,6 +88,7 @@ public class TextBuildJob(
             logger.LogError(ex, "TextBuildJob failed for {JobId}", jobId);
             job.Status = JobStatus.Failed;
             job.Errors = ex.Message;
+            job.FulfilledServices = (int)JobServices.None;
             job.Finished = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
 
@@ -97,19 +99,14 @@ public class TextBuildJob(
         }
     }
 
-    // -------------------------------------------------------------------------
-
-    private async Task<IReadOnlyList<PageInstruction>> GetPages(
-        BuilderJob job, CancellationToken ct)
+    private async Task<IReadOnlyList<PageInstruction>> GetPages(BuilderJob job, CancellationToken ct)
     {
         var services = (JobServices)job.Services;
-        bool needsManifest = services.HasFlag(JobServices.TextAugmented) ||
-                             services.HasFlag(JobServices.Pdf);
+        var needsManifest = services.HasFlag(JobServices.TextAugmented) || services.HasFlag(JobServices.Pdf);
 
         if (job.SourceUri != null)
         {
-            logger.LogInformation(
-                "Fetching manifest for job {JobId} from {Uri}", job.Id, job.SourceUri);
+            logger.LogInformation("Fetching manifest for job {JobId} from {Uri}", job.Id, job.SourceUri);
 
             var result = await manifestFetcher.FetchAndReduce(job.SourceUri, ct);
 
@@ -118,9 +115,7 @@ public class TextBuildJob(
 
             job.SourceDataJson = JsonSerializer.Serialize(result.Pages);
 
-            logger.LogInformation(
-                "Manifest fetched for {JobId}: {PageCount} canvases", job.Id, result.Pages.Count);
-
+            logger.LogInformation("Manifest fetched for {JobId}: {PageCount} canvases", job.Id, result.Pages.Count);
             return result.Pages;
         }
 
@@ -134,14 +129,13 @@ public class TextBuildJob(
         {
             var syntheticJson = manifestSynthesiser.Synthesise(pages);
             await textStore.SaveManifest(job.Id, syntheticJson);
-            logger.LogDebug(
-                "Synthetic manifest saved for {JobId} ({PageCount} canvases)", job.Id, pages.Count);
+            logger.LogDebug("Synthetic manifest saved for {JobId} ({PageCount} canvases)", job.Id, pages.Count);
         }
 
         return pages;
     }
 
-    private async Task<(int WordCount, int ImageCount, List<string> Errors)> ProcessPages(
+    private async Task<(int WordCount, int ImageCount, List<string> Errors, JobServices Fulfilled)> ProcessPages(
         BuilderJob job,
         IReadOnlyList<PageInstruction> pages,
         IJobCancellationToken cancellationToken)
@@ -208,42 +202,65 @@ public class TextBuildJob(
         var result = textBuilder.Build();
         var services = (JobServices)job.Services;
 
+        string? figuresJson = null;
+        string? annotationsJson = null;
+        bool textSaved = false;
+
         if (!result.IsEmpty)
         {
             // Text artefact is needed by the Search endpoint and by PDF generation.
             bool needsText = services.HasFlag(JobServices.Search) ||
                              services.HasFlag(JobServices.Pdf);
             if (needsText)
+            {
                 await textStore.SaveText(job.Id, result.Text);
+                textSaved = true;
+            }
 
-            if (services.HasFlag(JobServices.Autocomplete))
-                await textStore.SaveAutoComplete(job.Id, result.AutoComplete);
+            if (services.HasFlag(JobServices.Autocomplete)) await textStore.SaveAutoComplete(job.Id, result.AutoComplete);
 
-            if (services.HasFlag(JobServices.FullText) &&
-                !string.IsNullOrEmpty(result.Text.RawFullText))
+            if (services.HasFlag(JobServices.FullText) && !string.IsNullOrEmpty(result.Text.RawFullText))
             {
                 await textStore.SaveRawText(job.Id, result.Text.RawFullText);
             }
 
             if (services.HasFlag(JobServices.Figures))
             {
-                var figuresJson = BuildFiguresJson(result.Text);
-                if (figuresJson != null)
-                    await textStore.SaveFigures(job.Id, figuresJson);
+                figuresJson = BuildFiguresJson(result.Text);
+                if (figuresJson != null) await textStore.SaveFigures(job.Id, figuresJson);
             }
 
             if (services.HasFlag(JobServices.Annotations))
             {
-                var annotationsJson = BuildManifestAnnotationsJson(result.Text);
-                if (annotationsJson != null)
-                    await textStore.SaveAnnotations(job.Id, annotationsJson);
+                annotationsJson = BuildManifestAnnotationsJson(result.Text);
+                if (annotationsJson != null) await textStore.SaveAnnotations(job.Id, annotationsJson);
             }
         }
 
-        // Write capabilities file only when services are restricted; the Search API
-        // treats absence of the file as "all services enabled".
-        if (services != JobServices.All)
-            await textStore.SaveCapabilities(job.Id, (int)services);
+        // Determine which services were actually fulfilled so consumers know what's available.
+        var needsManifest = services.HasFlag(JobServices.TextAugmented) || services.HasFlag(JobServices.Pdf);
+        var manifestSaved = needsManifest && (job.SourceUri != null || pages.Count > 0);
+
+        var fulfilled = JobServices.None;
+        if (textSaved)
+        {
+            if (services.HasFlag(JobServices.Search)) fulfilled |= JobServices.Search;
+            if (services.HasFlag(JobServices.Pdf)) fulfilled |= JobServices.Pdf;
+        }
+        if (!result.IsEmpty && services.HasFlag(JobServices.Autocomplete))
+            fulfilled |= JobServices.Autocomplete;
+        if (!result.IsEmpty && services.HasFlag(JobServices.FullText) && !string.IsNullOrEmpty(result.Text.RawFullText))
+            fulfilled |= JobServices.FullText;
+        if (!result.IsEmpty && services.HasFlag(JobServices.Figures) && figuresJson != null)
+            fulfilled |= JobServices.Figures;
+        if (!result.IsEmpty && services.HasFlag(JobServices.Annotations) && annotationsJson != null)
+            fulfilled |= JobServices.Annotations;
+        if (services.HasFlag(JobServices.TextAugmented) && manifestSaved)
+            fulfilled |= JobServices.TextAugmented;
+
+        // Always write capabilities using the fulfilled bitmask so the Search API only exposes
+        // endpoints that actually have artefacts (e.g. no search service when text is empty).
+        await textStore.SaveCapabilities(job.Id, (int)fulfilled);
 
         // For sourceData jobs, persist the full page sequence (including pdf-embed entries
         // that have no canvas in the synthesised manifest) so the PDF builder can
@@ -254,14 +271,16 @@ public class TextBuildJob(
             await textStore.SavePageSequence(job.Id, pageSequenceJson);
         }
 
-        return (result.Text.Words.Count, result.Text.Images.Length, errors);
+        return (result.Text.Words.Count, result.Text.Images.Length, errors, fulfilled);
     }
 
     private static string BuildPageSequenceJson(BuilderJob job, IReadOnlyList<PageInstruction> pages)
     {
         Dictionary<string, CustomPageType>? customTypes = null;
         if (job.CustomTypesJson != null)
+        {
             customTypes = JsonSerializer.Deserialize<Dictionary<string, CustomPageType>>(job.CustomTypesJson);
+        }
 
         var pageArray = new JsonArray();
         foreach (var page in pages)
@@ -304,8 +323,7 @@ public class TextBuildJob(
     /// </remarks>
     private static string? BuildFiguresJson(Text text)
     {
-        if (text.ComposedBlocks == null || text.ComposedBlocks.Length == 0)
-            return null;
+        if (text.ComposedBlocks == null || text.ComposedBlocks.Length == 0) return null;
 
         var items = new JsonArray();
 

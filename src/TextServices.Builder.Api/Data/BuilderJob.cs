@@ -51,4 +51,11 @@ public class BuilderJob
     /// job instruction. Null when no custom page types were supplied.
     /// </summary>
     public string? CustomTypesJson { get; set; }
+
+    /// <summary>
+    /// Bitmask of <see cref="TextServices.Storage.JobServices"/> flags that were actually
+    /// fulfilled during the most recent run. Null until the job has completed processing.
+    /// A value of 0 means processing completed but no derivatives could be produced.
+    /// </summary>
+    public int? FulfilledServices { get; set; }
 }
