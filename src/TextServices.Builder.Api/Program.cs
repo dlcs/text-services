@@ -1,5 +1,7 @@
 using System.Net.Http.Headers;
+using Amazon.Extensions.NETCore.Setup;
 using Amazon.S3;
+using Amazon.SimpleNotificationService;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -9,6 +11,7 @@ using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
 using TextServices.Builder.Api.Services;
+using TextServices.Builder.Api.Services.Notifications;
 using TextServices.Infrastructure.Http;
 using TextServices.Storage;
 
@@ -83,6 +86,17 @@ builder.Services.AddSingleton<IManifestReducer, ManifestReducer>()
     .AddScoped<IAltoFetcher, AltoFetcher>()
     .AddScoped<IVttFetcher, VttFetcher>()
     .AddScoped<IAnnotationPageFetcher, AnnotationPageFetcher>();
+
+// ---- Notifications ----------------------------------------------------------
+
+builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
+builder.Services.AddAWSService<IAmazonSimpleNotificationService>();
+builder.Services.AddSingleton<IJobNotifier>(sp =>
+{
+    var opts = sp.GetRequiredService<IOptions<TextServicesOptions>>();
+    if (string.IsNullOrEmpty(opts.Value.Notifications.TopicArn)) return new NullJobNotifier();
+    return ActivatorUtilities.CreateInstance<SnsJobNotifier>(sp);
+});
 
 // ---- Storage ----------------------------------------------------------------
 

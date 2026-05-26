@@ -10,6 +10,7 @@ using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
 using TextServices.Builder.Api.Jobs;
 using TextServices.Builder.Api.Services;
+using TextServices.Builder.Api.Services.Notifications;
 using TextServices.Storage;
 
 namespace TextServices.Tests.BuilderApi;
@@ -487,6 +488,54 @@ public sealed class TextBuildJobTests : IDisposable
         """;
 
     // -------------------------------------------------------------------------
+    // Notifier
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task ExecuteAsync_OnSuccess_NotifiesWithCompletedStatus()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        var job = await CreateJob("test/notify-completed",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+        });
+
+        var notifier = new CapturingJobNotifier();
+        var sut = MakeJob(altoFetcher: altoFetcher, jobNotifier: notifier);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        notifier.Captured.ShouldHaveSingleItem();
+        notifier.Captured[0].JobId.ShouldBe(job.Id);
+        notifier.Captured[0].Status.ShouldBe(JobStatus.Completed);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_OnFailure_NotifiesWithFailedStatus()
+    {
+        var job = await CreateJob("test/notify-failed",
+            sourceUri: "https://example.org/bad-manifest");
+
+        var manifestFetcher = new FakeManifestFetcher(
+            _ => throw new InvalidOperationException("manifest error"));
+
+        var notifier = new CapturingJobNotifier();
+        var sut = MakeJob(manifestFetcher: manifestFetcher, jobNotifier: notifier);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        notifier.Captured.ShouldHaveSingleItem();
+        notifier.Captured[0].JobId.ShouldBe(job.Id);
+        notifier.Captured[0].Status.ShouldBe(JobStatus.Failed);
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -511,7 +560,8 @@ public sealed class TextBuildJobTests : IDisposable
         IManifestSynthesiser? manifestSynthesiser = null,
         IAltoFetcher? altoFetcher = null,
         IVttFetcher? vttFetcher = null,
-        IAnnotationPageFetcher? annotationPageFetcher = null)
+        IAnnotationPageFetcher? annotationPageFetcher = null,
+        IJobNotifier? jobNotifier = null)
     {
         return new TextBuildJob(
             _db,
@@ -521,6 +571,7 @@ public sealed class TextBuildJobTests : IDisposable
             vttFetcher ?? new FakeVttFetcher(_ => Task.FromResult<string?>(null)),
             annotationPageFetcher ?? new FakeAnnotationPageFetcher(_ => Task.FromResult<string?>(null)),
             _textStore,
+            jobNotifier ?? new NoOpJobNotifier(),
             Options.Create(new TextServicesOptions()),
             NullLogger<TextBuildJob>.Instance);
     }
@@ -601,5 +652,22 @@ public sealed class TextBuildJobTests : IDisposable
         public static readonly FakeCancellationToken Instance = new();
         public CancellationToken ShutdownToken => CancellationToken.None;
         public void ThrowIfCancellationRequested() { }
+    }
+
+    private sealed class NoOpJobNotifier : IJobNotifier
+    {
+        public Task Notify(JobCompletionNotification notification, CancellationToken ct = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class CapturingJobNotifier : IJobNotifier
+    {
+        public List<JobCompletionNotification> Captured { get; } = [];
+
+        public Task Notify(JobCompletionNotification notification, CancellationToken ct = default)
+        {
+            Captured.Add(notification);
+            return Task.CompletedTask;
+        }
     }
 }
