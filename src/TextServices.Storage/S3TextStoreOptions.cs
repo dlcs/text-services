@@ -17,10 +17,4 @@ public class S3TextStoreOptions
     /// </summary>
     public string KeyPrefix { get; init; } = string.Empty;
 
-    /// <summary>
-    /// AWS region name (e.g. <c>"eu-west-1"</c>).
-    /// When running on ECS/EC2 with an appropriate IAM role this can be left empty
-    /// and the SDK will resolve the region from instance metadata.
-    /// </summary>
-    public string RegionName { get; init; } = string.Empty;
 }

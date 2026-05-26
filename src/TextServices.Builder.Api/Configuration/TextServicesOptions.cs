@@ -43,10 +43,22 @@ public class TextServicesOptions
 
     /// <summary>Options for the filesystem text store.</summary>
     public StorageOptions Storage { get; set; } = new();
+
+    /// <summary>Options for job completion notifications.</summary>
+    public NotificationsOptions Notifications { get; set; } = new();
 }
 
 public class StorageOptions
 {
     /// <summary>Root path under which text artefacts are stored on the filesystem.</summary>
     public string RootPath { get; set; } = "textservices-data";
+}
+
+public class NotificationsOptions
+{
+    /// <summary>
+    /// ARN of the SNS topic to publish job completion notifications to.
+    /// Leave null or empty to disable notifications.
+    /// </summary>
+    public string? TopicArn { get; set; }
 }

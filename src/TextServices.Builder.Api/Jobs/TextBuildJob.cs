@@ -7,6 +7,7 @@ using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
 using TextServices.Builder.Api.Services;
+using TextServices.Builder.Api.Services.Notifications;
 using TextServices.Core.Models;
 using TextServices.Core.Providers;
 using TextServices.Storage;
@@ -32,6 +33,7 @@ public class TextBuildJob(
     IVttFetcher vttFetcher,
     IAnnotationPageFetcher annotationPageFetcher,
     ITextStore textStore,
+    IJobNotifier jobNotifier,
     IOptions<TextServicesOptions> options,
     ILogger<TextBuildJob> logger)
 {
@@ -41,7 +43,6 @@ public class TextBuildJob(
     private record FetchedPage(PageInstruction Page, XElement? Xml, string? StringContent, string? Error);
 
     [JobDisplayName("TextBuild: {0}")]
-    [AutomaticRetry(Attempts = 3)]
     public async Task ExecuteAsync(string jobId, IJobCancellationToken cancellationToken)
     {
         var job = await db.Jobs.FindAsync(jobId);
@@ -75,6 +76,11 @@ public class TextBuildJob(
                 "TextBuildJob completed for {JobId}: {WordCount} words, {ImageCount} images, " +
                 "{ErrorCount} page error(s)",
                 jobId, wordCount, imageCount, errors.Count);
+
+            await jobNotifier.Notify(
+                new JobCompletionNotification(job.Id, job.Status, job.Finished,
+                    job.TotalPages, job.TotalWordCount, job.Errors),
+                cancellationToken.ShutdownToken);
         }
         catch (Exception ex)
         {
@@ -83,6 +89,11 @@ public class TextBuildJob(
             job.Errors = ex.Message;
             job.Finished = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
+
+            await jobNotifier.Notify(
+                new JobCompletionNotification(job.Id, job.Status, job.Finished,
+                    job.TotalPages, job.TotalWordCount, job.Errors),
+                cancellationToken.ShutdownToken);
         }
     }
 

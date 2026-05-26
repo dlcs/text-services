@@ -33,6 +33,9 @@ jobs:
       - name: Check formatting
         run: dotnet format src/TextServices.sln --verify-no-changes --severity warn
 
+      - name: Check analyzers
+        run: dotnet format analyzers src/TextServices.sln --verify-no-changes --severity warn
+
   build-and-test:
     runs-on: ubuntu-latest
     needs: format
