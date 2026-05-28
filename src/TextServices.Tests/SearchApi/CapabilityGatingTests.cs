@@ -33,7 +33,7 @@ public class CapabilityGatingTests
         var handler = new SearchHandler(new StubTextCache(JobServices.Autocomplete));
 
         var result = await handler.Handle(
-            new SearchRequest(Id, "hello", SelfUrl), CancellationToken.None);
+            new SearchRequest(Id, "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldBeNull();
     }
@@ -45,7 +45,7 @@ public class CapabilityGatingTests
         var handler = new SearchHandler(new StubTextCache(null));
 
         var result = await handler.Handle(
-            new SearchRequest(Id, "hello", SelfUrl), CancellationToken.None);
+            new SearchRequest(Id, "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         // Gating passed; null result because text is absent, not because of gating.
         result.ShouldBeNull();

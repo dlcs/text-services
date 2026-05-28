@@ -12,7 +12,13 @@ namespace TextServices.Search.Api.Features.TextAugmented;
 ///   type "SearchService1" / "AutoCompleteService1"  (IIIF Search 1, legacy)
 /// No @context is emitted inside service blocks — it belongs only at document level.
 /// </summary>
-public record TextAugmentedRequest(string Id, string SelfUrl, string SearchBaseUrl)
+/// <param name="Id">Storage key used to load artefacts from the text store.</param>
+/// <param name="UrlId">
+/// Id to use when generating IIIF service URLs. Differs from <see cref="Id"/> when the
+/// request arrived via a proxy that rewrites the path (X-Forwarded-Path). Defaults to
+/// <see cref="Id"/> when null.
+/// </param>
+public record TextAugmentedRequest(string Id, string SelfUrl, string SearchBaseUrl, string? UrlId = null)
     : IRequest<JsonNode?>;
 
 public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
@@ -35,12 +41,14 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
 
         // Build service descriptors using Presentation 3 id/type conventions.
         // v2 is listed first; v1 follows for backward-compatible clients.
+
+        // TODO - de-duplicate when adding services
         var base_ = request.SearchBaseUrl;
-        var id = request.Id;
+        var id = request.UrlId ?? request.Id;
 
         var searchServiceV2 = new JsonObject
         {
-            ["id"] = $"{base_}/search/v2/{id}",
+            ["id"] = $"{base_}/search/v2/{id}", // TODO - can we build these from a central place?
             ["type"] = "SearchService2",
             ["service"] = new JsonArray(new JsonObject
             {

@@ -6,18 +6,18 @@ using TextServices.Search.Api.Services;
 
 namespace TextServices.Search.Api.Features.Search;
 
-public record SearchV2Request(string Id, string Query, string SelfUrl) : IRequest<SearchAnnotationPageV2?>;
+public record SearchV2Request(string Id, string Query, string SelfUrl, string ResourceUrl) : IRequest<SearchAnnotationPageV2?>;
 
 public class SearchV2Handler(ITextCache cache)
     : SearchHandlerBase<SearchAnnotationPageV2>(cache), IRequestHandler<SearchV2Request, SearchAnnotationPageV2?>
 {
     public Task<SearchAnnotationPageV2?> Handle(SearchV2Request request, CancellationToken ct)
-        => HandleCore(request.Id, request.Query, request.SelfUrl, ct);
+        => HandleCore(request.Id, request.Query, request.SelfUrl, request.ResourceUrl, ct);
 
-    protected override SearchAnnotationPageV2 EmptyQueryResponse(string selfUrl) =>
+    protected override SearchAnnotationPageV2 EmptyQueryResponse(string selfUrl, string resourceUrl) =>
         new() { Id = selfUrl, Items = [], Annotations = null };
 
-    protected override SearchAnnotationPageV2 BuildResponse(Text text, List<ResultRect> rects, string selfUrl)
+    protected override SearchAnnotationPageV2 BuildResponse(Text text, List<ResultRect> rects, string selfUrl, string resourceUrl)
     {
         var items = new List<PaintingAnnotationV2>(rects.Count);
         var contexts = new List<ContextualizingAnnotation>();
@@ -40,13 +40,13 @@ public class SearchV2Handler(ITextCache cache)
 
             if (isTemporal)
             {
-                annoId = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-t{rect.StartMs},{rect.EndMs}";
+                annoId = $"{resourceUrl}/anno/h{rect.Hit}i{rect.Idx}-t{rect.StartMs},{rect.EndMs}";
                 target = $"{canvasId}#{BuildTemporalTarget(rect.StartMs, rect.EndMs)}";
                 motivation = "supplementing";
             }
             else
             {
-                annoId = $"{selfUrl}/anno/h{rect.Hit}i{rect.Idx}-{rect.X},{rect.Y},{rect.W},{rect.H}";
+                annoId = $"{resourceUrl}/anno/h{rect.Hit}i{rect.Idx}-{rect.X},{rect.Y},{rect.W},{rect.H}";
                 target = $"{canvasId}#xywh={rect.X},{rect.Y},{rect.W},{rect.H}";
                 motivation = "painting";
             }
@@ -65,7 +65,7 @@ public class SearchV2Handler(ITextCache cache)
                 if (currentHitIndex != -1 && firstAnnoId != null)
                 {
                     contexts.Add(MakeContextualizing(
-                        $"{selfUrl}/context/h{currentHitIndex}",
+                        $"{resourceUrl}/context/h{currentHitIndex}",
                         firstAnnoId, hitMatch, hitBefore, hitAfter));
                 }
 
@@ -83,7 +83,7 @@ public class SearchV2Handler(ITextCache cache)
         if (currentHitIndex != -1 && firstAnnoId != null)
         {
             contexts.Add(MakeContextualizing(
-                $"{selfUrl}/context/h{currentHitIndex}",
+                $"{resourceUrl}/context/h{currentHitIndex}",
                 firstAnnoId, hitMatch, hitBefore, hitAfter));
         }
 

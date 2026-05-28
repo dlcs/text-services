@@ -14,8 +14,8 @@ internal static class AutocompleteEndpoints
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"autocomplete/v1/{id}", q);
-            var result = await sender.Send(new AutocompleteRequest(id, q ?? string.Empty, selfUrl));
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "autocomplete/v1/", id, q);
+            var result = await sender.Send(new AutocompleteRequest(id, q ?? string.Empty, resolved.SelfUrl));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");
         });
@@ -26,8 +26,8 @@ internal static class AutocompleteEndpoints
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"autocomplete/v2/{id}", q);
-            var result = await sender.Send(new AutocompleteV2Request(id, q ?? string.Empty, selfUrl));
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "autocomplete/v2/", id, q);
+            var result = await sender.Send(new AutocompleteV2Request(id, q ?? string.Empty, resolved.SelfUrl));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");
         });

@@ -14,8 +14,8 @@ internal static class AnnotationEndpoints
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"annotations/manifest/v1/{id}", null);
-            var result = await sender.Send(new ManifestAnnotationsRequest(id, selfUrl));
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "annotations/manifest/v1/", id);
+            var result = await sender.Send(new ManifestAnnotationsRequest(id, resolved.SelfUrl));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");
         });
@@ -26,8 +26,8 @@ internal static class AnnotationEndpoints
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"annotations/lines/v1/{n}/{id}", null);
-            var result = await sender.Send(new LineAnnotationsRequest(id, n, selfUrl));
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, $"annotations/lines/v1/{n}/", id);
+            var result = await sender.Send(new LineAnnotationsRequest(id, n, resolved.SelfUrl));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");
         });
@@ -38,8 +38,8 @@ internal static class AnnotationEndpoints
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"annotations/words/v1/{n}/{id}", null);
-            var result = await sender.Send(new WordAnnotationsRequest(id, n, selfUrl));
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, $"annotations/words/v1/{n}/", id);
+            var result = await sender.Send(new WordAnnotationsRequest(id, n, resolved.SelfUrl));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");
         });

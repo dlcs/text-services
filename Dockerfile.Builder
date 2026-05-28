@@ -14,6 +14,8 @@ RUN dotnet publish TextServices.Builder.Api/TextServices.Builder.Api.csproj \
     -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+
+RUN apt-get update && apt-get install -y libgssapi-krb5-2 libkrb5-3 krb5-user
 WORKDIR /app
 COPY --from=build /app/publish .
 EXPOSE 8080
