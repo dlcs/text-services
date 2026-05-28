@@ -56,6 +56,7 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 // ---- Configuration ----------------------------------------------------------
 
 builder.Services.Configure<SearchApiOptions>(builder.Configuration.GetSection("TextServices"));
+builder.Services.ConfigureForwardedHeaders(builder.Configuration);
 
 // ---- Storage ----------------------------------------------------------------
 
@@ -96,6 +97,7 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 
+app.UseForwardedHeaders();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging(opts =>
     opts.GetLevel = (ctx, _, _) =>

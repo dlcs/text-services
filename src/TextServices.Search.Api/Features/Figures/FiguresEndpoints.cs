@@ -14,8 +14,8 @@ internal static class FiguresEndpoints
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"identified/figures/{id}", null);
-            var result = await sender.Send(new FiguresRequest(id, selfUrl));
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "identified/figures/", id);
+            var result = await sender.Send(new FiguresRequest(id, resolved.SelfUrl));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");
         });

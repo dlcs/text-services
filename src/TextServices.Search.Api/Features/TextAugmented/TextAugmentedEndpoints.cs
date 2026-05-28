@@ -14,12 +14,8 @@ internal static class TextAugmentedEndpoints
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"text-augmented/v3/{id}", null);
-            var searchBase = string.IsNullOrEmpty(options.Value.BaseUrl)
-                ? $"{ctx.Request.Scheme}://{ctx.Request.Host}"
-                : options.Value.BaseUrl.TrimEnd('/');
-
-            var result = await sender.Send(new TextAugmentedRequest(id, selfUrl, searchBase));
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "text-augmented/v3/", id);
+            var result = await sender.Send(new TextAugmentedRequest(id, resolved.SelfUrl, resolved.BaseUrl, UrlId: resolved.EffectiveId));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");
         });

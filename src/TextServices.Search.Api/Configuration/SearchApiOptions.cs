@@ -57,4 +57,12 @@ public class SearchApiOptions
     /// </para>
     /// </summary>
     public bool AllowFileImageProxy { get; set; } = false;
+
+    /// <summary>
+    /// Hostnames accepted from the <c>X-Forwarded-Host</c> request header (e.g. custom CloudFront distributions).
+    /// When a request carries <c>X-Forwarded-Host</c> and its value matches an entry here, that host
+    /// replaces the canonical host in generated IIIF URLs. An empty array (the default) means
+    /// <c>X-Forwarded-Host</c> is never honoured.
+    /// </summary>
+    public string[] AllowedCustomHosts { get; set; } = [];
 }

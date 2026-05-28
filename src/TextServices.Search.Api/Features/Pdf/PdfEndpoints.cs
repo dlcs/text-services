@@ -23,15 +23,12 @@ internal static class PdfEndpoints
             HttpContext ctx) =>
         {
             id = StripPdfExtension(id);
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "pdf/v1/", id);
             var result = await sender.Send(new PdfTriggerRequest(id));
             return result switch
             {
-                PdfTriggerResult.AlreadyExists => Results.Ok(new
-                {
-                    location = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null)
-                }),
-                PdfTriggerResult.Queued => Results.Accepted(
-                    EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null)),
+                PdfTriggerResult.AlreadyExists => Results.Ok(new { location = resolved.SelfUrl }),
+                PdfTriggerResult.Queued => Results.Accepted(resolved.SelfUrl),
                 PdfTriggerResult.ServiceBusy => new ServiceBusyResult(),
                 _ => Results.NotFound(),
             };
