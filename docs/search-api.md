@@ -393,9 +393,10 @@ pre-warming.
 
 | Status | Meaning |
 |---|---|
-| `202 Accepted` | PDF generation started. `Location` header contains the GET URL. |
+| `202 Accepted` | PDF generation queued or already in progress. `Location` header contains the GET URL. |
 | `200 OK` | PDF already exists. Body contains `{ "location": "..." }` with the download URL. |
-| `404 Not Found` | No text index for this `id`. |
+| `404 Not Found` | No text index for this `id`, or the source is temporal-only. |
+| `503 Service Unavailable` | Trigger queue is full. Retry after the `Retry-After` header interval (seconds). |
 
 ---
 
@@ -500,7 +501,9 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
     "CacheSlidingExpirationMinutes": 30,
     "CacheAbsoluteExpirationHours": 4,
     "CacheMaxEntries": 20,
-    "StorageRootPath": "/data/textservices"
+    "StorageRootPath": "/data/textservices",
+    "PdfTriggerQueueCapacity": 50,
+    "PdfTriggerMaxConcurrency": 2
   }
 }
 ```
@@ -512,5 +515,7 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
 | `CacheAbsoluteExpirationHours` | `4` | Hard upper limit on cache lifetime, regardless of access frequency. Prevents large objects from living in the LOH indefinitely. |
 | `CacheMaxEntries` | `20` | Maximum number of Text (and AutoComplete) objects held in memory simultaneously. Each object counts as one slot; LRU eviction applies when the limit is reached. Budget approximately 30–40 MB per large text when sizing container memory. |
 | `StorageRootPath` | `textservices-data` | Root directory of the text artefact store. Must point to the same location as the Builder API's `Storage:RootPath`. |
+| `PdfTriggerQueueCapacity` | `50` | Maximum number of PDF trigger requests that can be queued for background generation. Requests beyond this limit receive `503 Service Unavailable`. |
+| `PdfTriggerMaxConcurrency` | `2` | Maximum number of PDFs generated concurrently by the background trigger queue. Each in-flight generation buffers the full PDF in memory — keep this low on memory-constrained hosts. |
 
 All responses include `Access-Control-Allow-Origin: *`. The Search API is entirely read-only, so open CORS is required by the IIIF specification and safe without restriction.
