@@ -70,13 +70,7 @@ builder.Services.AddSingleton<ITextStore>(sp =>
 
 // ---- PDF --------------------------------------------------------------------
 
-builder.Services.AddSingleton<PdfBuilder>();
-builder.Services.AddHttpClient(PdfBuilder.HttpClientName)
-    .ConfigureHttpClient(c =>
-    {
-        c.Timeout = TimeSpan.FromSeconds(60);
-        c.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0 (+https://github.com/dlcs/text-services)");
-    });
+builder.Services.AddPdfServices();
 
 // ---- Cache ------------------------------------------------------------------
 

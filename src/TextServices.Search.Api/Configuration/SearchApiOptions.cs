@@ -32,6 +32,15 @@ public class SearchApiOptions
     /// <summary>Root path of the filesystem text store (must match the Builder API's storage path).</summary>
     public string StorageRootPath { get; set; } = "textservices-data";
 
+    /// <summary>Maximum number of background PDF trigger requests to queue. Requests beyond this capacity return 503.</summary>
+    public int PdfTriggerQueueCapacity { get; set; } = 50;
+
+    /// <summary>
+    /// Maximum number of PDF generations to run concurrently in the background trigger queue.
+    /// Each in-flight generation buffers the full PDF in memory, so keep this low on memory-constrained hosts.
+    /// </summary>
+    public int PdfTriggerMaxConcurrency { get; set; } = 2;
+
     /// <summary>
     /// Allow <c>GET /proxy/image</c> to serve <c>file://</c> image URIs.
     /// <para>

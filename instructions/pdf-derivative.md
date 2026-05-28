@@ -201,22 +201,72 @@ get an image-only page with no text layer. This is expected and not an error.
 ### `POST /pdf/v1/{**id}`
 
 1. `await textStore.LoadPdf(id)` — if non-null, return 200 (already done).
-2. If null: if generation already in progress for this key (lock is held), return 202.
-3. Otherwise: acquire lock, fire `Task.Run(() => BuildAsync(...))` without awaiting, return
-   202 with `Location: /pdf/v1/{id}` and `Retry-After: 30`.
+2. If generation is already in progress for this key (`AsyncKeyedLocker.IsInUse`), return 202.
+3. Otherwise: call `PdfGenerationQueue.TryEnqueue(id)`.
+   - Returns `true` → return 202 Accepted with `Location: /pdf/v1/{id}` and `Retry-After: 30`.
+   - Returns `false` (queue full) → return 503 Service Unavailable with `Retry-After: 30`.
+
+HTTP status mapping for the trigger endpoint:
+
+| `PdfTriggerResult` | Status | Meaning |
+|---|---|---|
+| `AlreadyExists` | 200 OK | PDF present; `location` in body |
+| `Queued` | 202 Accepted | Enqueued or in progress |
+| `ServiceBusy` | 503 Service Unavailable | Queue full; retry shortly |
+| `NotFound` | 404 Not Found | No text artefact or service disabled |
+
+---
+
+## Trigger Queue
+
+The POST trigger uses a `Channel<string>` + `BackgroundService` + `SemaphoreSlim` stack to provide
+backpressure without blocking the request thread.
+
+```
+PdfGenerationQueue        — bounded Channel<string>; TryEnqueue returns false when full
+PdfGenerationBackgroundService — BackgroundService draining the queue; SemaphoreSlim bounds concurrency
+PdfGenerationService      — shared generation logic used by both GET and background paths
+```
+
+**Layers and responsibilities:**
+
+- `PdfGenerationQueue` (singleton): owns the channel. `TryEnqueue` returns `false` when full
+  (using `BoundedChannelFullMode.Wait` so `Channel.Writer.TryWrite` gives a reliable false).
+- `PdfGenerationBackgroundService` (hosted service): reads IDs with `ReadAllAsync`,
+  acquires the semaphore before launching each `ProcessAsync` task. Concurrency is bounded
+  by `PdfTriggerMaxConcurrency`, which also bounds peak `MemoryStream` memory.
+- `PdfGenerationService` (singleton): acquires the `AsyncKeyedLocker` per-key, double-checks
+  whether the PDF already exists, then generates. Called by both the GET handler (blocking) and
+  the background service (fire-and-forget with `CancellationToken.None`).
+
+**Config keys** (under `TextServices:`):
+
+| Key | Default | Effect |
+|---|---|---|
+| `PdfTriggerQueueCapacity` | 50 | Max IDs waiting in the trigger queue before 503 |
+| `PdfTriggerMaxConcurrency` | 2 | Max concurrent background PDF builds |
+
+**Trade-offs:**
+
+- Queue is in-process: contents are lost on pod restart. Acceptable because the synchronous
+  `GET /pdf/v1/{**id}` endpoint is the guaranteed fallback — a lost queue entry simply
+  means the next GET generates the PDF on demand.
+- `CancellationToken.None` in background generation: in-flight builds survive ASP.NET shutdown
+  signals. Since each build is bounded in duration by network and I/O timeouts, this is benign.
 
 ---
 
 ## Concurrency guard detail
 
 ```
-Request A (GET, cold): acquires lock → generates → saves → releases → serves
+Request A (GET, cold): PdfGenerationService acquires lock → generates → saves → releases → serves
 Request B (GET, concurrent): waits on lock → load (now present) → serves
-Request C (POST, cold): acquires lock → fires background task → returns 202
-Request D (GET, arrives while C's background task runs): waits on lock → serves when done
+Request C (POST, cold): enqueued → returns 202
+Request D (POST, queue full): TryEnqueue returns false → returns 503
+Request E (GET, arrives while background task runs): waits on lock → serves when done
 ```
 
-The `AsyncKeyedLocker<string>` already present in the Search API for the `TextCache` is reused.
+`AsyncKeyedLocker<string>` (singleton) is shared between `PdfGenerationService` and `TextCache`.
 
 ---
 

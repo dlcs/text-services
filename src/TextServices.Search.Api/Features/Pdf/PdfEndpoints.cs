@@ -23,14 +23,18 @@ internal static class PdfEndpoints
             HttpContext ctx) =>
         {
             id = StripPdfExtension(id);
-            var started = await sender.Send(new PdfTriggerRequest(id));
-            if (!started)
+            var result = await sender.Send(new PdfTriggerRequest(id));
+            return result switch
             {
-                var location = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null);
-                return Results.Ok(new { location });
-            }
-            var locationUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null);
-            return Results.Accepted(locationUrl);
+                PdfTriggerResult.AlreadyExists => Results.Ok(new
+                {
+                    location = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null)
+                }),
+                PdfTriggerResult.Queued => Results.Accepted(
+                    EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null)),
+                PdfTriggerResult.ServiceBusy => new ServiceBusyResult(),
+                _ => Results.NotFound(),
+            };
         });
 
         return routes;
@@ -38,4 +42,14 @@ internal static class PdfEndpoints
 
     private static string StripPdfExtension(string id) =>
         id.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? id[..^4] : id;
+}
+
+file sealed class ServiceBusyResult : IResult
+{
+    public Task ExecuteAsync(HttpContext httpContext)
+    {
+        httpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        httpContext.Response.Headers.RetryAfter = "30";
+        return Task.CompletedTask;
+    }
 }
