@@ -26,7 +26,7 @@ public class SearchV2HandlerTests
         var handler = new SearchV2Handler(new StubTextCache(null));
 
         var result = await handler.Handle(
-            new SearchV2Request("missing/book", "hello", SelfUrl), CancellationToken.None);
+            new SearchV2Request("missing/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldBeNull();
     }
@@ -38,7 +38,7 @@ public class SearchV2HandlerTests
         var handler = new SearchV2Handler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchV2Request("test/book", "", SelfUrl), CancellationToken.None);
+            new SearchV2Request("test/book", "", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         result.Items.ShouldBeEmpty();
@@ -56,7 +56,7 @@ public class SearchV2HandlerTests
         var handler = new SearchV2Handler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchV2Request("test/book", "hello", SelfUrl), CancellationToken.None);
+            new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         result.Items.Count.ShouldBe(1);
@@ -71,7 +71,7 @@ public class SearchV2HandlerTests
         var handler = new SearchV2Handler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchV2Request("test/book", "hello", SelfUrl), CancellationToken.None);
+            new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         var target = result.Items[0].Target;
@@ -87,7 +87,7 @@ public class SearchV2HandlerTests
         var handler = new SearchV2Handler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchV2Request("test/book", "hello", SelfUrl), CancellationToken.None);
+            new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         var target = result.Items[0].Target;
@@ -106,7 +106,7 @@ public class SearchV2HandlerTests
         var handler = new SearchV2Handler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchV2Request("test/book", "hello", SelfUrl), CancellationToken.None);
+            new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         var target = result.Items[0].Target;
@@ -125,13 +125,49 @@ public class SearchV2HandlerTests
         var handler = new SearchV2Handler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchV2Request("test/book", "quick", SelfUrl), CancellationToken.None);
+            new SearchV2Request("test/book", "quick", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         result.Items.Count.ShouldBe(1);
         result.Items[0].Motivation.ShouldBe("painting");
         result.Items[0].Target.ShouldContain("#xywh=");
         result.Items[0].Target.ShouldNotContain("#t=");
+    }
+
+    [Fact]
+    public async Task Handle_WithQueryInSelfUrl_AnnotationIdDoesNotContainQueryString()
+    {
+        var selfUrlWithQuery = $"{SelfUrl}?q=quick";
+        var canvasId = "https://example.org/c/1";
+        var text = BuildSpatialText([(canvasId, 1000, 1500, "the quick brown fox")]);
+        var handler = new SearchV2Handler(new StubTextCache(text));
+
+        var result = await handler.Handle(
+            new SearchV2Request("test/book", "quick", selfUrlWithQuery, SelfUrl), CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result.Id.ShouldBe(selfUrlWithQuery);
+        var annoId = result.Items[0].Id;
+        annoId.ShouldNotContain("?q=");
+        annoId.ShouldStartWith(SelfUrl + "/anno/");
+    }
+
+    [Fact]
+    public async Task Handle_WithQueryInSelfUrl_ContextualizingAnnotationIdDoesNotContainQueryString()
+    {
+        var selfUrlWithQuery = $"{SelfUrl}?q=quick";
+        var canvasId = "https://example.org/c/1";
+        var text = BuildSpatialText([(canvasId, 1000, 1500, "the quick brown fox")]);
+        var handler = new SearchV2Handler(new StubTextCache(text));
+
+        var result = await handler.Handle(
+            new SearchV2Request("test/book", "quick", selfUrlWithQuery, SelfUrl), CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result.Annotations.ShouldNotBeNull();
+        var contextId = result.Annotations![0].Items[0].Id;
+        contextId.ShouldNotContain("?q=");
+        contextId.ShouldStartWith(SelfUrl + "/context/");
     }
 
     // -------------------------------------------------------------------------
@@ -146,7 +182,7 @@ public class SearchV2HandlerTests
         var handler = new SearchV2Handler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchV2Request("test/book", "hello", SelfUrl), CancellationToken.None);
+            new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         result.Annotations.ShouldNotBeNull();

@@ -11,8 +11,9 @@ namespace TextServices.Search.Api.Features;
 /// whitelisted host is present; otherwise equals the original route id.
 /// </param>
 /// <param name="SelfUrl">Absolute URL for this endpoint response (base + route prefix + effective id + query).</param>
+/// <param name="ResourceUrl">Absolute URL without query string. Used as the base for child resource IDs (e.g. annotations).</param>
 /// <param name="BaseUrl">Scheme + authority only (no path). Used by TextAugmented to build cross-endpoint service URLs.</param>
-internal record ResolvedRequest(string EffectiveId, string SelfUrl, string BaseUrl);
+internal record ResolvedRequest(string EffectiveId, string SelfUrl, string ResourceUrl, string BaseUrl);
 
 internal static class EndpointHelpers
 {
@@ -41,7 +42,7 @@ internal static class EndpointHelpers
         var url = $"{baseUrl}/{routePrefix.TrimEnd('/')}/{effectiveId}";
         var selfUrl = string.IsNullOrWhiteSpace(q) ? url : $"{url}?q={Uri.EscapeDataString(q)}";
 
-        return new ResolvedRequest(effectiveId, selfUrl, baseUrl);
+        return new ResolvedRequest(effectiveId, selfUrl, url, baseUrl);
     }
 
     internal static string[]? GetIgnoredParams(HttpContext ctx)

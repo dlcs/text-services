@@ -27,7 +27,7 @@ public class SearchHandlerTests
         var handler = new SearchHandler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchRequest("test/book", "", SelfUrl), CancellationToken.None);
+            new SearchRequest("test/book", "", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         result.Resources.ShouldBeEmpty();
@@ -42,7 +42,7 @@ public class SearchHandlerTests
         var handler = new SearchHandler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchRequest("test/book", "parliament", SelfUrl), CancellationToken.None);
+            new SearchRequest("test/book", "parliament", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         result.Resources.ShouldBeEmpty();
@@ -55,7 +55,7 @@ public class SearchHandlerTests
         var handler = new SearchHandler(new StubTextCache(null));
 
         var result = await handler.Handle(
-            new SearchRequest("missing/book", "hello", SelfUrl), CancellationToken.None);
+            new SearchRequest("missing/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldBeNull();
     }
@@ -72,7 +72,7 @@ public class SearchHandlerTests
         var handler = new SearchHandler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchRequest("test/book", "quick", SelfUrl), CancellationToken.None);
+            new SearchRequest("test/book", "quick", SelfUrl, SelfUrl), CancellationToken.None);
 
         result.ShouldNotBeNull();
         result.Resources.Count.ShouldBe(1);
@@ -94,7 +94,7 @@ public class SearchHandlerTests
         var handler = new SearchHandler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchRequest("test/book", "quick", SelfUrl), CancellationToken.None);
+            new SearchRequest("test/book", "quick", SelfUrl, SelfUrl), CancellationToken.None);
 
         result!.Hits.Count.ShouldBe(1);
 
@@ -115,7 +115,7 @@ public class SearchHandlerTests
         var handler = new SearchHandler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchRequest("test/book", "hello", SelfUrl), CancellationToken.None);
+            new SearchRequest("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
 
         result!.Id.ShouldBe(SelfUrl);
         result.Context.ShouldBe("http://iiif.io/api/search/1/context.json");
@@ -130,11 +130,28 @@ public class SearchHandlerTests
         var handler = new SearchHandler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchRequest("test/book", "the", SelfUrl), CancellationToken.None);
+            new SearchRequest("test/book", "the", SelfUrl, SelfUrl), CancellationToken.None);
 
         result!.Resources.Count.ShouldBe(2);
         result.Hits.Count.ShouldBe(2);
         result.Within.Total.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task Handle_WithQueryInSelfUrl_AnnotationIdDoesNotContainQueryString()
+    {
+        var selfUrlWithQuery = $"{SelfUrl}?q=quick";
+        var text = BuildText([("https://example.org/c/1", 1000, 1500, "the quick brown fox")]);
+        var handler = new SearchHandler(new StubTextCache(text));
+
+        var result = await handler.Handle(
+            new SearchRequest("test/book", "quick", selfUrlWithQuery, SelfUrl), CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result.Id.ShouldBe(selfUrlWithQuery);
+        var annoId = result.Resources[0].Id;
+        annoId.ShouldNotContain("?q=");
+        annoId.ShouldStartWith(SelfUrl + "/anno/");
     }
 
     [Fact]
@@ -149,7 +166,7 @@ public class SearchHandlerTests
         var handler = new SearchHandler(new StubTextCache(text));
 
         var result = await handler.Handle(
-            new SearchRequest("test/book", "parliament", SelfUrl), CancellationToken.None);
+            new SearchRequest("test/book", "parliament", SelfUrl, SelfUrl), CancellationToken.None);
 
         result!.Resources.Count.ShouldBe(1);
         result.Resources[0].On.ShouldStartWith(canvas2);
