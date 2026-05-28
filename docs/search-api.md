@@ -517,5 +517,37 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
 | `StorageRootPath` | `textservices-data` | Root directory of the text artefact store. Must point to the same location as the Builder API's `Storage:RootPath`. |
 | `PdfTriggerQueueCapacity` | `50` | Maximum number of PDF trigger requests that can be queued for background generation. Requests beyond this limit receive `503 Service Unavailable`. |
 | `PdfTriggerMaxConcurrency` | `2` | Maximum number of PDFs generated concurrently by the background trigger queue. Each in-flight generation buffers the full PDF in memory — keep this low on memory-constrained hosts. |
+| `AllowFileImageProxy` | `false` | When `true`, the `/proxy/image` endpoint streams local `file://` images. Only enable in trusted local-dev environments where those files are not access-controlled. |
+| `AllowedCustomHosts` | `[]` | Hostnames accepted from the `X-Forwarded-Host` request header (e.g. custom CloudFront distributions). See [Forwarded-header URL rewriting](#forwarded-header-url-rewriting) below. |
+
+---
+
+## Forwarded-header URL rewriting
+
+When the Search API sits behind a reverse proxy that rewrites the public URL (e.g. a CloudFront
+distribution with a custom domain), the `id` values in IIIF responses must reflect the
+public-facing URL rather than the internal one.
+
+Configure `AllowedCustomHosts` with the public hostnames you trust:
+
+```json
+{
+  "TextServices": {
+    "AllowedCustomHosts": ["custom.example.org"]
+  }
+}
+```
+
+When a request arrives carrying `X-Forwarded-Host: custom.example.org` and that value matches
+an entry in `AllowedCustomHosts`:
+
+- The host in all generated IIIF URLs is replaced with the forwarded host.
+- If `X-Forwarded-Path` is also present, the Search API extracts the effective job ID from it
+  (stripping the route prefix), so the `id` values in the response reflect the public path
+  rather than the internal route. This is useful when the proxy maps a path like
+  `/iiif/search/my-book` to the internal `/search/v2/my-book`.
+
+Hosts not in `AllowedCustomHosts` are always ignored, regardless of what headers the request
+carries. The default empty array means `X-Forwarded-Host` is never honoured.
 
 All responses include `Access-Control-Allow-Origin: *`. The Search API is entirely read-only, so open CORS is required by the IIIF specification and safe without restriction.
