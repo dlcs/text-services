@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.0.0" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.6.8" />
     <PackageReference Include="AWSSDK.SimpleNotificationService" Version="4.0.2.34" />
     <PackageReference Include="EFCore.NamingConventions" Version="10.0.1" />
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.23" />

@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="AsyncKeyedLock" Version="8.0.2" />
     <PackageReference Include="AWSSDK.Extensions.NETCore.Setup" Version="4.0.0.0" />
+    <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.6.8" />
     <PackageReference Include="MediatR" Version="14.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
