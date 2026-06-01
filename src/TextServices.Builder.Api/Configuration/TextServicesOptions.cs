@@ -58,8 +58,26 @@ public class TextServicesOptions
 
 public class StorageOptions
 {
+    /// <summary>Options for the filesystem text store.</summary>
+    public FileSystemStorageOptions FileSystem { get; set; } = new();
+
+    /// <summary>Options for S3 storage. When <see cref="S3StorageOptions.BucketName"/> is set, S3 is used instead of the filesystem.</summary>
+    public S3StorageOptions S3 { get; set; } = new();
+}
+
+public class FileSystemStorageOptions
+{
     /// <summary>Root path under which text artefacts are stored on the filesystem.</summary>
     public string RootPath { get; set; } = "textservices-data";
+}
+
+public class S3StorageOptions
+{
+    /// <summary>S3 bucket for stored artefacts.</summary>
+    public string BucketName { get; set; } = string.Empty;
+
+    /// <summary>Optional prefix for all S3 object keys (e.g. "textservices/"). A trailing / is added automatically if omitted.</summary>
+    public string KeyPrefix { get; set; } = string.Empty;
 }
 
 public class NotificationsOptions

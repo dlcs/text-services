@@ -83,7 +83,7 @@ public static class ServiceCollectionExtensions
             var storage = sp.GetRequiredService<IOptions<TextServicesOptions>>().Value.Storage;
             return ActivatorUtilities.CreateInstance<FileSystemTextStore>(
                 sp,
-                new FileSystemTextStoreOptions { RootPath = storage.RootPath });
+                new FileSystemTextStoreOptions { RootPath = storage.FileSystem.RootPath });
         });
 
         return services;

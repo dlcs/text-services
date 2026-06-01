@@ -24,7 +24,7 @@ public class SearchApiFactory(string storageRoot) : WebApplicationFactory<TextCa
         builder.ConfigureAppConfiguration((_, config) =>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["TextServices:StorageRootPath"] = storageRoot,
+                ["TextServices:Storage:FileSystem:RootPath"] = storageRoot,
                 ["TextServices:BaseUrl"] = "http://localhost"
             }));
 

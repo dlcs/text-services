@@ -29,9 +29,6 @@ public class SearchApiOptions
     /// </summary>
     public int CacheMaxEntries { get; set; } = 20;
 
-    /// <summary>Root path of the filesystem text store (must match the Builder API's storage path).</summary>
-    public string StorageRootPath { get; set; } = "textservices-data";
-
     /// <summary>Maximum number of background PDF trigger requests to queue. Requests beyond this capacity return 503.</summary>
     public int PdfTriggerQueueCapacity { get; set; } = 50;
 
@@ -65,4 +62,31 @@ public class SearchApiOptions
     /// <c>X-Forwarded-Host</c> is never honoured.
     /// </summary>
     public string[] AllowedCustomHosts { get; set; } = [];
+
+    /// <summary>Options for the text artefact store.</summary>
+    public SearchStorageOptions Storage { get; set; } = new();
+}
+
+public class SearchStorageOptions
+{
+    /// <summary>Options for the filesystem text store.</summary>
+    public FileSystemStorageOptions FileSystem { get; set; } = new();
+
+    /// <summary>Options for S3 storage. When <see cref="S3StorageOptions.BucketName"/> is set, S3 is used instead of the filesystem.</summary>
+    public S3StorageOptions S3 { get; set; } = new();
+}
+
+public class FileSystemStorageOptions
+{
+    /// <summary>Root directory for stored text artefacts.</summary>
+    public string RootPath { get; set; } = "textservices-data";
+}
+
+public class S3StorageOptions
+{
+    /// <summary>S3 bucket for stored artefacts. When set, the S3 store is used instead of the filesystem store.</summary>
+    public string BucketName { get; set; } = string.Empty;
+
+    /// <summary>Optional prefix for all S3 object keys (e.g. "textservices/"). A trailing / is added automatically if omitted.</summary>
+    public string KeyPrefix { get; set; } = string.Empty;
 }
