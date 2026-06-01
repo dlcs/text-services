@@ -13,7 +13,7 @@ namespace TextServices.Storage;
 /// Job key segments (split on <c>/</c>) become S3 key path components, so the key
 /// <c>"2/books/my-book"</c> is stored under <c>{KeyPrefix}2/books/my-book/</c>.
 /// </remarks>
-public class S3TextStore : ITextStore, IDisposable
+public class S3TextStore(IOptions<S3TextStoreOptions> options, IAmazonS3 s3) : ITextStore, IDisposable
 {
     private const string TextFileName = "text.bin";
     private const string AutoCompleteFileName = "autocomplete.bin";
@@ -25,18 +25,10 @@ public class S3TextStore : ITextStore, IDisposable
     private const string CapabilitiesFileName = "capabilities.json";
     private const string PageSequenceFileName = "pagesequence.json";
 
-    private readonly IAmazonS3 _s3;
-    private readonly string _bucket;
-    private readonly string _prefix;
-
-    public S3TextStore(IOptions<S3TextStoreOptions> options, IAmazonS3 s3)
-    {
-        _s3 = s3;
-        _bucket = options.Value.BucketName;
-        _prefix = string.IsNullOrEmpty(options.Value.KeyPrefix)
-            ? string.Empty
-            : options.Value.KeyPrefix.TrimEnd('/') + '/';
-    }
+    private readonly string _bucket = options.Value.BucketName;
+    private readonly string _prefix = string.IsNullOrEmpty(options.Value.KeyPrefix)
+        ? string.Empty
+        : options.Value.KeyPrefix.TrimEnd('/') + '/';
 
     /// <inheritdoc/>
     public async Task SaveText(string key, Text text)
@@ -154,7 +146,7 @@ public class S3TextStore : ITextStore, IDisposable
     {
         try
         {
-            await _s3.GetObjectMetadataAsync(_bucket, GetS3Key(key, TextFileName));
+            await s3.GetObjectMetadataAsync(_bucket, GetS3Key(key, TextFileName));
             return true;
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -209,7 +201,7 @@ public class S3TextStore : ITextStore, IDisposable
         {
             try
             {
-                await _s3.DeleteObjectAsync(_bucket, GetS3Key(key, fileName));
+                await s3.DeleteObjectAsync(_bucket, GetS3Key(key, fileName));
             }
             catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
@@ -218,7 +210,7 @@ public class S3TextStore : ITextStore, IDisposable
         }
     }
 
-    public void Dispose() => _s3.Dispose();
+    public void Dispose() => s3.Dispose();
 
     // -------------------------------------------------------------------------
     // Helpers
@@ -230,7 +222,7 @@ public class S3TextStore : ITextStore, IDisposable
     private async Task PutObjectAsync(string s3Key, MemoryStream stream, string contentType)
     {
         stream.Position = 0;
-        await _s3.PutObjectAsync(new PutObjectRequest
+        await s3.PutObjectAsync(new PutObjectRequest
         {
             BucketName = _bucket,
             Key = s3Key,
@@ -243,7 +235,7 @@ public class S3TextStore : ITextStore, IDisposable
     {
         try
         {
-            var response = await _s3.GetObjectAsync(_bucket, s3Key);
+            var response = await s3.GetObjectAsync(_bucket, s3Key);
             return response.ResponseStream;
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)

@@ -5,18 +5,20 @@ using TextServices.Search.Api.Services;
 
 namespace TextServices.Search.Api.Features.Search;
 
-public record SearchRequest(string Id, string Query, string SelfUrl, string ResourceUrl) : IRequest<SearchAnnotationList?>;
+public record SearchRequest(string Id, string Query, string SelfUrl, string ResourceUrl)
+    : IRequest<SearchAnnotationList?>;
 
-public class SearchHandler(ITextCache cache)
-    : SearchHandlerBase<SearchAnnotationList>(cache), IRequestHandler<SearchRequest, SearchAnnotationList?>
+public class SearchHandler(ITextCache cache, ILogger<SearchHandler> logger)
+    : SearchHandlerBase<SearchAnnotationList>(cache, logger), IRequestHandler<SearchRequest, SearchAnnotationList?>
 {
     public Task<SearchAnnotationList?> Handle(SearchRequest request, CancellationToken ct)
         => HandleCore(request.Id, request.Query, request.SelfUrl, request.ResourceUrl, ct);
 
-    protected override SearchAnnotationList EmptyQueryResponse(string selfUrl, string resourceUrl) =>
+    protected override SearchAnnotationList EmptyQueryResponse(string selfUrl) =>
         new() { Id = selfUrl, Within = new SearchLayer { Total = 0 }, Resources = [], Hits = [] };
 
-    protected override SearchAnnotationList BuildResponse(Text text, List<ResultRect> rects, string selfUrl, string resourceUrl)
+    protected override SearchAnnotationList BuildResponse(Text text, List<ResultRect> rects, string selfUrl,
+        string resourceUrl)
     {
         var resources = new List<SearchAnnotation>(rects.Count);
         var hits = new List<SearchHit>();

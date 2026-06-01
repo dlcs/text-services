@@ -31,7 +31,7 @@ public class CapabilityGatingTests
     [Fact]
     public async Task Search_WhenSearchFlagAbsent_ReturnsNull()
     {
-        var handler = new SearchHandler(new StubTextCache(JobServices.Autocomplete));
+        var handler = new SearchHandler(new StubTextCache(JobServices.Autocomplete), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest(Id, "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -43,7 +43,7 @@ public class CapabilityGatingTests
     public async Task Search_WhenCapabilitiesNull_ProceedsToTextLookup()
     {
         // null capabilities = all enabled; text = null → null result (text not found)
-        var handler = new SearchHandler(new StubTextCache(null));
+        var handler = new SearchHandler(new StubTextCache(null), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest(Id, "hello", SelfUrl, SelfUrl), CancellationToken.None);
