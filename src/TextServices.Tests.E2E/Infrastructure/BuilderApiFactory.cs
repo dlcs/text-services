@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Services;
@@ -34,33 +35,47 @@ public class BuilderApiFactory(string connectionString, string storageRoot, stri
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.ConfigureAppConfiguration((_, config) =>
+        builder.ConfigureTestServices(services =>
+            {
+                // ---- Hangfire: replace PostgreSQL storage with InMemory --------------
+                services.AddHangfire(config => config.UseInMemoryStorage());
+
+                // ---- Storage: use shared temp directory -----------------------------
+                services.AddSingleton<ITextStore>(_ =>
+                    new FileSystemTextStore(
+                        new FileSystemTextStoreOptions { RootPath = StorageRoot },
+                        NullLogger<FileSystemTextStore>.Instance));
+
+                // ---- Fetchers: replace with fixture-based stubs ---------------------
+                services.AddScoped<IAltoFetcher>(_ =>
+                    new FixtureAltoFetcher(FixturesRoot));
+
+                services.AddScoped<IManifestFetcher>(sp =>
+                    new FixtureManifestFetcher(
+                        FixturesRoot,
+                        sp.GetRequiredService<IManifestReducer>()));
+            })
+            .UseEnvironment("Test")
+            .UseDefaultServiceProvider((_, options) =>
+            {
+                options.ValidateScopes = true;
+            });
+    }
+
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var projectDir = Directory.GetCurrentDirectory();
+        var configPath = Path.Combine(projectDir, "appsettings.Test.json");
+
+        builder.ConfigureHostConfiguration(config =>
+        {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:BuilderDb"] = connectionString,
-                ["TextServices:Storage:RootPath"] = StorageRoot,
-                ["RunMigrations"] = "false"
-            }));
-
-        builder.ConfigureTestServices(services =>
-        {
-            // ---- Hangfire: replace PostgreSQL storage with InMemory --------------
-            services.AddHangfire(config => config.UseInMemoryStorage());
-
-            // ---- Storage: use shared temp directory -----------------------------
-            services.AddSingleton<ITextStore>(_ =>
-                new FileSystemTextStore(
-                    new FileSystemTextStoreOptions { RootPath = StorageRoot },
-                    NullLogger<FileSystemTextStore>.Instance));
-
-            // ---- Fetchers: replace with fixture-based stubs ---------------------
-            services.AddScoped<IAltoFetcher>(_ =>
-                new FixtureAltoFetcher(FixturesRoot));
-
-            services.AddScoped<IManifestFetcher>(sp =>
-                new FixtureManifestFetcher(
-                    FixturesRoot,
-                    sp.GetRequiredService<IManifestReducer>()));
+                ["TextServices:Storage:FileSystem:RootPath"] = StorageRoot,
+            });
+            config.AddJsonFile(configPath);
         });
+        return base.CreateHost(builder);
     }
 }
