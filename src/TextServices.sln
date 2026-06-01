@@ -21,6 +21,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextServices.Pdf", "TextSer
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextServices.Infrastructure", "TextServices.Infrastructure\TextServices.Infrastructure.csproj", "{209A6FAD-0476-42F5-92CC-624C677D661A}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Testing", "Testing", "{680666A5-6A80-48E3-AEC8-158909FF5FE4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -142,5 +144,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{AA561B8F-C37B-41A5-808B-489CA2513BB6} = {680666A5-6A80-48E3-AEC8-158909FF5FE4}
+		{C2A377B6-A433-4BBF-BA0C-A8E8F8A9D6FB} = {680666A5-6A80-48E3-AEC8-158909FF5FE4}
 	EndGlobalSection
 EndGlobal
