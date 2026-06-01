@@ -46,57 +46,60 @@ public class TextBuildJob(
     [JobDisplayName("TextBuild: {0}")]
     public async Task ExecuteAsync(string jobId, IJobCancellationToken cancellationToken)
     {
-        var job = await db.Jobs.FindAsync(jobId);
-        if (job == null)
+        using (LogContextHelpers.SetCorrelationId(jobId))
         {
-            logger.LogWarning("TextBuildJob invoked for unknown job {JobId}", jobId);
-            return;
-        }
+            var job = await db.Jobs.FindAsync(jobId);
+            if (job == null)
+            {
+                logger.LogWarning("TextBuildJob invoked for unknown job {JobId}", jobId);
+                return;
+            }
 
-        job.Status = JobStatus.Running;
-        job.Started = DateTimeOffset.UtcNow;
-        await db.SaveChangesAsync();
-
-        try
-        {
-            var pages = await GetPages(job, cancellationToken.ShutdownToken);
-            job.TotalPages = pages.Count;
+            job.Status = JobStatus.Running;
+            job.Started = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
 
-            var (wordCount, imageCount, errors, fulfilled) =
-                await ProcessPages(job, pages, cancellationToken);
+            try
+            {
+                var pages = await GetPages(job, cancellationToken.ShutdownToken);
+                job.TotalPages = pages.Count;
+                await db.SaveChangesAsync();
 
-            job.TotalWordCount = wordCount;
-            job.TotalImageCount = imageCount;
-            job.Errors = errors.Count > 0 ? string.Join('\n', errors) : null;
-            job.FulfilledServices = (int)fulfilled;
-            job.Status = JobStatus.Completed;
-            job.Finished = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
+                var (wordCount, imageCount, errors, fulfilled) =
+                    await ProcessPages(job, pages, cancellationToken);
 
-            logger.LogInformation(
-                "TextBuildJob completed for {JobId}: {WordCount} words, {ImageCount} images, " +
-                "{ErrorCount} page error(s)",
-                jobId, wordCount, imageCount, errors.Count);
+                job.TotalWordCount = wordCount;
+                job.TotalImageCount = imageCount;
+                job.Errors = errors.Count > 0 ? string.Join('\n', errors) : null;
+                job.FulfilledServices = (int)fulfilled;
+                job.Status = JobStatus.Completed;
+                job.Finished = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync();
 
-            await jobNotifier.Notify(
-                new JobCompletionNotification(job.Id, job.Status, job.Finished,
-                    job.TotalPages, job.TotalWordCount, job.Errors),
-                cancellationToken.ShutdownToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "TextBuildJob failed for {JobId}", jobId);
-            job.Status = JobStatus.Failed;
-            job.Errors = ex.Message;
-            job.FulfilledServices = (int)JobServices.None;
-            job.Finished = DateTimeOffset.UtcNow;
-            await db.SaveChangesAsync();
+                logger.LogInformation(
+                    "TextBuildJob completed for {JobId}: {WordCount} words, {ImageCount} images, " +
+                    "{ErrorCount} page error(s)",
+                    jobId, wordCount, imageCount, errors.Count);
 
-            await jobNotifier.Notify(
-                new JobCompletionNotification(job.Id, job.Status, job.Finished,
-                    job.TotalPages, job.TotalWordCount, job.Errors),
-                cancellationToken.ShutdownToken);
+                await jobNotifier.Notify(
+                    new JobCompletionNotification(job.Id, job.Status, job.Finished,
+                        job.TotalPages, job.TotalWordCount, job.Errors),
+                    cancellationToken.ShutdownToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "TextBuildJob failed for {JobId}", jobId);
+                job.Status = JobStatus.Failed;
+                job.Errors = ex.Message;
+                job.FulfilledServices = (int)JobServices.None;
+                job.Finished = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync();
+
+                await jobNotifier.Notify(
+                    new JobCompletionNotification(job.Id, job.Status, job.Finished,
+                        job.TotalPages, job.TotalWordCount, job.Errors),
+                    cancellationToken.ShutdownToken);
+            }
         }
     }
 
