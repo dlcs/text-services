@@ -12,7 +12,7 @@ namespace TextServices.Search.Api.Features;
 /// </param>
 /// <param name="SelfUrl">Absolute URL for this endpoint response (base + route prefix + effective id + query).</param>
 /// <param name="ResourceUrl">Absolute URL without query string. Used as the base for child resource IDs (e.g. annotations).</param>
-/// <param name="BaseUrl">Scheme + authority only (no path). Used by TextAugmented to build cross-endpoint service URLs.</param>
+/// <param name="BaseUrl">Scheme + authority only (no path). Configured URL or based on x-forwarded-host if valid.</param>
 internal record ResolvedRequest(string EffectiveId, string SelfUrl, string ResourceUrl, string BaseUrl);
 
 internal static class EndpointHelpers

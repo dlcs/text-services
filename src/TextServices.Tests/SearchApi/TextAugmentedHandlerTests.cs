@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Core.Providers;
@@ -421,7 +422,8 @@ public class TextAugmentedHandlerTests
         string? annotationsJson = null,
         string? figuresJson = null,
         Text? cachedText = null)
-        => new(new StubTextStore(manifestJson, annotationsJson, figuresJson), new StubTextCache(cachedText));
+        => new(new StubTextStore(manifestJson, annotationsJson, figuresJson), new StubTextCache(cachedText),
+            new NullLogger<TextAugmentedHandler>());
 
     /// <summary>A Text with one spatial (image-based) canvas.</summary>
     private static Text SpatialText()

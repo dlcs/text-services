@@ -14,6 +14,10 @@ namespace TextServices.Search.Api.Features.TextAugmented;
 /// No @context is emitted inside service blocks — it belongs only at document level.
 /// </summary>
 /// <param name="Id">Storage key used to load artefacts from the text store.</param>
+/// <param name="SelfUrl">Absolute URL for this endpoint response (base + route prefix + effective id + query).</param>
+/// <param name="SearchBaseUrl">
+/// Scheme + authority only (no path). Used by TextAugmented to build cross-endpoint service URLs
+/// </param>
 /// <param name="UrlId">
 /// Id to use when generating IIIF service URLs. Differs from <see cref="Id"/> when the
 /// request arrived via a proxy that rewrites the path (X-Forwarded-Path). Defaults to
@@ -22,17 +26,29 @@ namespace TextServices.Search.Api.Features.TextAugmented;
 public record TextAugmentedRequest(string Id, string SelfUrl, string SearchBaseUrl, string? UrlId = null)
     : IRequest<JsonNode?>;
 
-public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
+public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, ILogger<TextAugmentedHandler> logger)
     : IRequestHandler<TextAugmentedRequest, JsonNode?>
 {
     public async Task<JsonNode?> Handle(TextAugmentedRequest request, CancellationToken ct)
     {
-        if (!await textCache.IsEnabledAsync(request.Id, JobServices.TextAugmented, ct)) return null;
+        if (!await textCache.IsEnabledAsync(request.Id, JobServices.TextAugmented, ct))
+        {
+            logger.LogDebug("Text augmentation is not enabled: {Id}", request.Id);
+            return null;
+        }
         var json = await textStore.LoadManifest(request.Id);
-        if (json == null) return null;
+        if (json == null)
+        {
+            logger.LogDebug("Manifest not found: {Id}", request.Id);
+            return null;
+        }
 
         var node = JsonNode.Parse(json);
-        if (node is not JsonObject manifest) return null;
+        if (node is not JsonObject manifest)
+        {
+            logger.LogDebug("Manifest not JSON: {Id}", request.Id);
+            return null;
+        }
 
         var baseUrl = request.SearchBaseUrl;
         var id = request.UrlId ?? request.Id;
@@ -42,8 +58,8 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         InjectSearchServices(manifest, baseUrl, id);
         InjectRenderingLinks(manifest, baseUrl, id, text);
         InjectCanvasAnnotationRefs(manifest, baseUrl, id, text);
-        await InjectManifestAnnotationsRefAsync(manifest, baseUrl, id, request.Id, ct);
-        await InjectFiguresRefAsync(manifest, baseUrl, id, request.Id, ct);
+        await InjectManifestAnnotationsRefAsync(manifest, baseUrl, id, request.Id);
+        await InjectFiguresRefAsync(manifest, baseUrl, id, request.Id);
 
         return manifest;
     }
@@ -56,8 +72,9 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
             manifest["id"] = selfUrl;
     }
 
-    private static void InjectSearchServices(JsonObject manifest, string baseUrl, string id)
+    private void InjectSearchServices(JsonObject manifest, string baseUrl, string id)
     {
+        logger.LogDebug("Adding search-services: {Id}", id);
         var searchServiceV2 = new JsonObject
         {
             ["id"] = $"{baseUrl}/search/v2/{id}", // TODO - can we build these from a central place?
@@ -104,9 +121,11 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         }
     }
 
-    private static void InjectRenderingLinks(JsonObject manifest, string baseUrl, string id, Text? text)
+    private void InjectRenderingLinks(JsonObject manifest, string baseUrl, string id, Text? text)
     {
         if (text == null) return;
+
+        logger.LogDebug("Adding rendering: {Id}", id);
 
         // PDF is only added when at least one canvas is image-based (IsTemporalContent == false);
         // temporal-only manifests (VTT/audio/video) have no page images to render into a PDF.
@@ -140,9 +159,11 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         }
     }
 
-    private static void InjectCanvasAnnotationRefs(JsonObject manifest, string baseUrl, string id, Text? text)
+    private void InjectCanvasAnnotationRefs(JsonObject manifest, string baseUrl, string id, Text? text)
     {
         if (text == null || manifest["items"] is not JsonArray canvases) return;
+
+        logger.LogDebug("Adding canvas annotations: {Id}", id);
 
         // Build a set of canvas indices that have at least one word, in O(words).
         var canvasesWithWords = text.Words.Values.Select(w => w.Idx).ToHashSet();
@@ -184,11 +205,12 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         }
     }
 
-    private async Task InjectManifestAnnotationsRefAsync(
-        JsonObject manifest, string baseUrl, string id, string key, CancellationToken ct)
+    private async Task InjectManifestAnnotationsRefAsync(JsonObject manifest, string baseUrl, string id, string key)
     {
         var annotationsJson = await textStore.LoadAnnotations(key);
         if (annotationsJson == null) return;
+
+        logger.LogDebug("Adding Manifest annotations: {Id}", id);
 
         var annotationsRef = new JsonObject
         {
@@ -214,11 +236,12 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         }
     }
 
-    private async Task InjectFiguresRefAsync(
-        JsonObject manifest, string baseUrl, string id, string key, CancellationToken ct)
+    private async Task InjectFiguresRefAsync(JsonObject manifest, string baseUrl, string id, string key)
     {
         var figuresJson = await textStore.LoadFigures(key);
         if (figuresJson == null) return;
+
+        logger.LogDebug("Adding figures: {Id}", id);
 
         var figuresRef = new JsonObject
         {

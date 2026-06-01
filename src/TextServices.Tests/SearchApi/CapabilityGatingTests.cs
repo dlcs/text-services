@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Search.Api.Features.Annotations;
@@ -159,8 +160,8 @@ public class CapabilityGatingTests
     [Fact]
     public async Task TextAugmented_WhenTextAugmentedFlagAbsent_ReturnsNull()
     {
-        var handler = new TextAugmentedHandler(
-            new AllNullStore(), new StubTextCache(JobServices.Search));
+        var handler = new TextAugmentedHandler(new AllNullStore(), new StubTextCache(JobServices.Search),
+            new NullLogger<TextAugmentedHandler>());
 
         var result = await handler.Handle(
             new TextAugmentedRequest(Id, SelfUrl, SearchBase), CancellationToken.None);
