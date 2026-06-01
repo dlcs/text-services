@@ -5,8 +5,11 @@ using Amazon.SimpleNotificationService;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.Extensions.Options;
+using Serilog;
+using Serilog.Extensions.Logging;
 using TextServices.Builder.Api.Services;
 using TextServices.Builder.Api.Services.Notifications;
+using TextServices.Infrastructure.Http;
 using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Configuration;
@@ -31,6 +34,8 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAwsServices(this IServiceCollection services, IConfiguration configuration)
     {
+        var logger = new SerilogLoggerFactory(Log.Logger).CreateLogger(nameof(ServiceCollectionExtensions));
+
         services.AddDefaultAWSOptions(configuration.GetAWSOptions());
         services.Configure<S3TextStoreOptions>(configuration.GetSection("TextServices:Storage:S3"));
 
@@ -38,11 +43,13 @@ public static class ServiceCollectionExtensions
         // chain at startup, which hangs in test environments without real credentials.
         if (!string.IsNullOrEmpty(configuration["TextServices:Storage:S3:BucketName"]))
         {
+            logger.LogDebug("Using S3 storage for text artefacts");
             services.AddAWSService<IAmazonS3>();
         }
 
         if (!string.IsNullOrEmpty(configuration["TextServices:Notifications:TopicArn"]))
         {
+            logger.LogDebug("Configuring SNS notifications for job status changes");
             services.AddAWSService<IAmazonSimpleNotificationService>();
         }
 
@@ -53,7 +60,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddHttpClient("Resource", client =>
         {
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgents.Builder);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*", 0.8));

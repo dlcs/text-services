@@ -64,7 +64,10 @@ builder.Services.ConfigureForwardedHeaders(builder.Configuration);
 builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
 
 if (!string.IsNullOrEmpty(builder.Configuration["TextServices:Storage:S3:BucketName"]))
+{
+    Log.Debug("Using S3 storage for text artefacts");
     builder.Services.AddAWSService<IAmazonS3>();
+}
 
 builder.Services.AddSingleton<ITextStore>(sp =>
 {

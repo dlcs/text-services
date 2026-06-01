@@ -9,7 +9,6 @@ public class TextServicesOptions
     /// </summary>
     public string SearchApiBaseUrl { get; set; } = string.Empty;
 
-
     /// <summary>
     /// Allow the Search API's <c>/proxy/image</c> endpoint to serve <c>file://</c> image URIs
     /// supplied in <c>sourceData</c> pages.
@@ -26,7 +25,7 @@ public class TextServicesOptions
     /// referenced by <c>imageUri</c> are not access-controlled.
     /// </para>
     /// </summary>
-    public bool AllowFileImageProxy { get; set; } = false;
+    public bool AllowFileImageProxy { get; set; }
 
     /// <summary>
     /// Maximum number of text files (ALTO, VTT, AnnotationPage) fetched concurrently within a single job.
