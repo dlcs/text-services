@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Services;
 using TextServices.Storage;
@@ -48,7 +49,9 @@ public class BuilderApiFactory(string connectionString, string storageRoot, stri
 
             // ---- Storage: use shared temp directory -----------------------------
             services.AddSingleton<ITextStore>(_ =>
-                new FileSystemTextStore(new FileSystemTextStoreOptions { RootPath = StorageRoot }));
+                new FileSystemTextStore(
+                    new FileSystemTextStoreOptions { RootPath = StorageRoot },
+                    NullLogger<FileSystemTextStore>.Instance));
 
             // ---- Fetchers: replace with fixture-based stubs ---------------------
             services.AddScoped<IAltoFetcher>(_ =>

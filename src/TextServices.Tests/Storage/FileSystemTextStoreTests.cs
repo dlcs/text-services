@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Storage;
@@ -16,7 +17,7 @@ public sealed class FileSystemTextStoreTests : IDisposable
     public FileSystemTextStoreTests()
     {
         _tempDir = Path.Combine(Path.GetTempPath(), $"TextServicesTests_{Guid.NewGuid():N}");
-        _store = new FileSystemTextStore(new FileSystemTextStoreOptions { RootPath = _tempDir });
+        _store = new FileSystemTextStore(new FileSystemTextStoreOptions { RootPath = _tempDir }, NullLogger<FileSystemTextStore>.Instance);
     }
 
     public void Dispose()

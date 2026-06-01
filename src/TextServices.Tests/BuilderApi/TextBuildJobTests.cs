@@ -36,7 +36,8 @@ public sealed class TextBuildJobTests : IDisposable
         _db = new BuilderDbContext(options);
 
         _textStore = new FileSystemTextStore(
-            new FileSystemTextStoreOptions { RootPath = _tempDir });
+            new FileSystemTextStoreOptions { RootPath = _tempDir },
+            NullLogger<FileSystemTextStore>.Instance);
     }
 
     public void Dispose()
@@ -653,6 +654,7 @@ public sealed class TextBuildJobTests : IDisposable
             _textStore,
             jobNotifier ?? new NoOpJobNotifier(),
             Options.Create(new TextServicesOptions()),
+            NullLoggerFactory.Instance,
             NullLogger<TextBuildJob>.Instance);
     }
 

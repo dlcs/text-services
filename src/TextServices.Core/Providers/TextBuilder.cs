@@ -1,4 +1,6 @@
 using System.Xml.Linq;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using TextServices.Core.Models;
 
 namespace TextServices.Core.Providers;
@@ -23,15 +25,25 @@ public class TextBuilder
     private readonly IReadOnlyList<ITextFormatProvider> _providers;
     private readonly IReadOnlyList<IStringFormatProvider> _transcriptProviders;
     private readonly TextAccumulator _accumulator = new();
+    private readonly ILogger<TextBuilder> _logger;
 
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with the default set of providers
     /// (ALTO ns-v2 / ns-v3, hOCR, and VTT).
     /// </summary>
-    public TextBuilder() : this(
-        [new AltoTextFormatProvider(), new HocrTextFormatProvider()],
-        [new VttTextFormatProvider(), new W3cAnnotationTextFormatProvider()])
-    { }
+    public TextBuilder(ILoggerFactory? loggerFactory = null)
+    {
+        loggerFactory ??= NullLoggerFactory.Instance;
+        _logger = loggerFactory.CreateLogger<TextBuilder>();
+        _providers = [
+            new AltoTextFormatProvider(loggerFactory.CreateLogger<AltoTextFormatProvider>()),
+            new HocrTextFormatProvider(loggerFactory.CreateLogger<HocrTextFormatProvider>()),
+        ];
+        _transcriptProviders = [
+            new VttTextFormatProvider(loggerFactory.CreateLogger<VttTextFormatProvider>()),
+            new W3cAnnotationTextFormatProvider(loggerFactory.CreateLogger<W3cAnnotationTextFormatProvider>()),
+        ];
+    }
 
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with an explicit list of providers,
@@ -40,6 +52,7 @@ public class TextBuilder
     /// </summary>
     public TextBuilder(IReadOnlyList<ITextFormatProvider> providers, IReadOnlyList<IStringFormatProvider>? transcriptProviders = null)
     {
+        _logger = NullLogger<TextBuilder>.Instance;
         _providers = providers;
         _transcriptProviders = transcriptProviders ?? [];
     }
@@ -66,7 +79,11 @@ public class TextBuilder
         if (root == null) return;
 
         var provider = _providers.FirstOrDefault(p => p.Supports(profile, label));
-        if (provider == null) return;
+        if (provider == null)
+        {
+            _logger.LogWarning("No provider found for page '{Id}' (profile='{Profile}', label='{Label}')", id, profile, label);
+            return;
+        }
 
         provider.ProcessPage(_accumulator, root, id, canvasWidth, canvasHeight);
     }
@@ -85,7 +102,11 @@ public class TextBuilder
     {
         if (rawContent == null) return;
         var provider = _transcriptProviders.FirstOrDefault(p => p.Supports(profile, format, label));
-        if (provider == null) return;
+        if (provider == null)
+        {
+            _logger.LogWarning("No provider found for transcript page '{Id}' (profile='{Profile}', format='{Format}', label='{Label}')", id, profile, format, label);
+            return;
+        }
         provider.ProcessPage(_accumulator, rawContent, id, canvasWidth, canvasHeight);
     }
 

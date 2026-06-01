@@ -61,10 +61,12 @@ builder.Services.ConfigureForwardedHeaders(builder.Configuration);
 // ---- Storage ----------------------------------------------------------------
 
 builder.Services.AddSingleton<ITextStore>(sp =>
-    new FileSystemTextStore(new FileSystemTextStoreOptions
-    {
-        RootPath = sp.GetRequiredService<IOptions<SearchApiOptions>>().Value.StorageRootPath
-    }));
+    ActivatorUtilities.CreateInstance<FileSystemTextStore>(
+        sp,
+        new FileSystemTextStoreOptions
+        {
+            RootPath = sp.GetRequiredService<IOptions<SearchApiOptions>>().Value.StorageRootPath
+        }));
 
 // ITextStore is also injected directly into TextAugmentedHandler (manifest is plain JSON,
 // not routed through the Text/AutoComplete cache).

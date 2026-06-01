@@ -81,7 +81,9 @@ public static class ServiceCollectionExtensions
             if (!string.IsNullOrEmpty(configuration["TextServices:Storage:S3:BucketName"]))
                 return ActivatorUtilities.CreateInstance<S3TextStore>(sp);
             var storage = sp.GetRequiredService<IOptions<TextServicesOptions>>().Value.Storage;
-            return new FileSystemTextStore(new FileSystemTextStoreOptions { RootPath = storage.RootPath });
+            return ActivatorUtilities.CreateInstance<FileSystemTextStore>(
+                sp,
+                new FileSystemTextStoreOptions { RootPath = storage.RootPath });
         });
 
         return services;

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
@@ -29,6 +30,8 @@ public class SearchApiFactory(string storageRoot) : WebApplicationFactory<TextCa
 
         builder.ConfigureTestServices(services =>
             services.AddSingleton<ITextStore>(_ =>
-                new FileSystemTextStore(new FileSystemTextStoreOptions { RootPath = storageRoot })));
+                new FileSystemTextStore(
+                    new FileSystemTextStoreOptions { RootPath = storageRoot },
+                    NullLogger<FileSystemTextStore>.Instance)));
     }
 }

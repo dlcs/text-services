@@ -35,6 +35,7 @@ public class TextBuildJob(
     ITextStore textStore,
     IJobNotifier jobNotifier,
     IOptions<TextServicesOptions> options,
+    ILoggerFactory loggerFactory,
     ILogger<TextBuildJob> logger)
 {
     private const int ProgressBatchSize = 10;
@@ -170,7 +171,7 @@ public class TextBuildJob(
             async (i, ct) => { fetched[i] = await FetchPageAsync(pagesToFetch[i], ct); });
 
         // Build text in original canvas order (TextBuilder requires sequential input).
-        var textBuilder = new TextBuilder();
+        var textBuilder = new TextBuilder(loggerFactory);
         var errors = fetched.Where(r => r.Error != null).Select(r => r.Error!).ToList();
         int completed = 0;
 

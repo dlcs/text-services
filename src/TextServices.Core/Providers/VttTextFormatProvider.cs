@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using TextServices.Core.Models;
 
 namespace TextServices.Core.Providers;
@@ -6,8 +8,10 @@ namespace TextServices.Core.Providers;
 /// Processes WebVTT caption/subtitle files into the text index.
 /// Each VTT cue becomes a set of words sharing the same time range and line number.
 /// </summary>
-public class VttTextFormatProvider : IStringFormatProvider
+public class VttTextFormatProvider(ILogger<VttTextFormatProvider>? logger = null) : IStringFormatProvider
 {
+    private readonly ILogger<VttTextFormatProvider> _logger = logger ?? NullLogger<VttTextFormatProvider>.Instance;
+
     public bool Supports(string? profile, string? format, string? label) =>
         ContainsIgnoreCase(profile, "text/vtt") || ContainsIgnoreCase(format, "text/vtt") ||
         ContainsIgnoreCase(profile, "vtt") || ContainsIgnoreCase(format, "vtt") ||
@@ -43,7 +47,15 @@ public class VttTextFormatProvider : IStringFormatProvider
 
             // Timing line
             var timingLine = lines[i++];
-            var (startMs, endMs) = ParseTimingLine(timingLine);
+            int startMs = 0, endMs = 0;
+            try
+            {
+                (startMs, endMs) = ParseTimingLine(timingLine);
+            }
+            catch (Exception)
+            {
+                _logger.LogWarning("Failed to parse VTT timing line on page '{Id}': {Value}", imageIdentifier, timingLine);
+            }
 
             // Collect cue text lines until blank line
             var cueLines = new List<string>();
@@ -83,25 +95,21 @@ public class VttTextFormatProvider : IStringFormatProvider
     private static int ParseTimestamp(string s)
     {
         // Accepts HH:MM:SS.mmm or MM:SS.mmm
-        try
+        var dotIdx = s.IndexOf('.');
+        var ms = dotIdx >= 0 ? int.Parse(s[(dotIdx + 1)..].PadRight(3, '0')[..3]) : 0;
+        var timePart = dotIdx >= 0 ? s[..dotIdx] : s;
+        var colonParts = timePart.Split(':');
+        return colonParts.Length switch
         {
-            var dotIdx = s.IndexOf('.');
-            var ms = dotIdx >= 0 ? int.Parse(s[(dotIdx + 1)..].PadRight(3, '0')[..3]) : 0;
-            var timePart = dotIdx >= 0 ? s[..dotIdx] : s;
-            var colonParts = timePart.Split(':');
-            return colonParts.Length switch
-            {
-                3 => int.Parse(colonParts[0]) * 3_600_000
-                   + int.Parse(colonParts[1]) * 60_000
-                   + int.Parse(colonParts[2]) * 1_000
-                   + ms,
-                2 => int.Parse(colonParts[0]) * 60_000
-                   + int.Parse(colonParts[1]) * 1_000
-                   + ms,
-                _ => 0,
-            };
-        }
-        catch { return 0; }
+            3 => int.Parse(colonParts[0]) * 3_600_000
+               + int.Parse(colonParts[1]) * 60_000
+               + int.Parse(colonParts[2]) * 1_000
+               + ms,
+            2 => int.Parse(colonParts[0]) * 60_000
+               + int.Parse(colonParts[1]) * 1_000
+               + ms,
+            _ => 0,
+        };
     }
 
     /// <summary>Strips VTT inline markup tags (speaker tags, timestamp tags, class tags).</summary>
