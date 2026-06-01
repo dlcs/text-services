@@ -296,6 +296,126 @@ public class TextAugmentedHandlerTests
         result!["annotations"].ShouldBeNull();
     }
 
+    // -------------------------------------------------------------------------
+    // Service deduplication
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_ServiceArrayAlreadyContainsSearchV2_DoesNotDuplicateV2()
+    {
+        var handler = MakeHandler(V3ManifestWithExistingSearchV2());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service.Count.ShouldBe(2); // original v2 stays; v1 added; no duplicate v2
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV2).ShouldBe(1);
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV1).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_ServiceArrayAlreadyContainsBothSearchServices_NeitherDuplicated()
+    {
+        var handler = MakeHandler(V3ManifestWithBothSearchServices());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service.Count.ShouldBe(2); // unchanged — both already present
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV2).ShouldBe(1);
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV1).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_ServiceObjectMatchesSearchV2_PromotesToArrayWithoutDuplicatingV2()
+    {
+        var handler = MakeHandler(V3ManifestWithSearchV2ServiceObject());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service.Count.ShouldBe(2); // v1 added; original v2 kept; no duplicate v2
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV2).ShouldBe(1);
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV1).ShouldBe(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // Rendering deduplication
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_RenderingArrayAlreadyContainsTextRef_DoesNotDuplicateTextRef()
+    {
+        var handler = MakeHandler(V3ManifestWithExistingTextRef(), cachedText: SpatialText());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count(n => n?["id"]?.GetValue<string>() == ExpectedRawTextUrl).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_RenderingArrayAlreadyContainsPdfRef_DoesNotDuplicatePdfRef()
+    {
+        var handler = MakeHandler(V3ManifestWithExistingPdfRef(), cachedText: SpatialText());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count(n => n?["id"]?.GetValue<string>() == ExpectedPdfUrl).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_RenderingArrayAlreadyContainsBothRefs_NeitherDuplicated()
+    {
+        var handler = MakeHandler(V3ManifestWithExistingPdfAndTextRefs(), cachedText: SpatialText());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count.ShouldBe(2); // unchanged
+        rendering.Count(n => n?["id"]?.GetValue<string>() == ExpectedPdfUrl).ShouldBe(1);
+        rendering.Count(n => n?["id"]?.GetValue<string>() == ExpectedRawTextUrl).ShouldBe(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // Annotations deduplication
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_AnnotationsArrayAlreadyContainsAnnotationsRef_DoesNotDuplicate()
+    {
+        const string annotationsJson = """{"type":"AnnotationPage","items":[]}""";
+        var handler = MakeHandler(V3ManifestWithExistingAnnotationsRef(), annotationsJson: annotationsJson);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var annotations = result!["annotations"].ShouldBeOfType<JsonArray>();
+        annotations.Count(n => n?["id"]?.GetValue<string>() ==
+            "https://search.example.org/annotations/manifest/v1/test/book").ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_AnnotationsArrayAlreadyContainsFiguresRef_DoesNotDuplicate()
+    {
+        const string figuresJson = """{"type":"AnnotationPage","items":[]}""";
+        var handler = MakeHandler(V3ManifestWithExistingFiguresRef(), figuresJson: figuresJson);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var annotations = result!["annotations"].ShouldBeOfType<JsonArray>();
+        annotations.Count(n => n?["id"]?.GetValue<string>() ==
+            "https://search.example.org/identified/figures/test/book").ShouldBe(1);
+    }
+
     private static TextAugmentedHandler MakeHandler(
         string? manifestJson,
         string? annotationsJson = null,
@@ -335,6 +455,30 @@ public class TextAugmentedHandlerTests
 
     private static string V3ManifestWithRendering()
         => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://example.org/pdf","type":"Text","format":"application/pdf"}]}""";
+
+    private static string V3ManifestWithExistingSearchV2()
+        => """{"id":"https://example.org/m/1","type":"Manifest","service":[{"id":"https://search.example.org/search/v2/test/book","type":"SearchService2"}]}""";
+
+    private static string V3ManifestWithBothSearchServices()
+        => """{"id":"https://example.org/m/1","type":"Manifest","service":[{"id":"https://search.example.org/search/v2/test/book","type":"SearchService2"},{"id":"https://search.example.org/search/v1/test/book","type":"SearchService1"}]}""";
+
+    private static string V3ManifestWithSearchV2ServiceObject()
+        => """{"id":"https://example.org/m/1","type":"Manifest","service":{"id":"https://search.example.org/search/v2/test/book","type":"SearchService2"}}""";
+
+    private static string V3ManifestWithExistingTextRef()
+        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/text/v1/test/book","type":"Text","format":"text/plain"}]}""";
+
+    private static string V3ManifestWithExistingPdfRef()
+        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/pdf/v1/test/book","type":"Text","format":"application/pdf"}]}""";
+
+    private static string V3ManifestWithExistingPdfAndTextRefs()
+        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/pdf/v1/test/book","type":"Text","format":"application/pdf"},{"id":"https://search.example.org/text/v1/test/book","type":"Text","format":"text/plain"}]}""";
+
+    private static string V3ManifestWithExistingAnnotationsRef()
+        => """{"id":"https://example.org/m/1","type":"Manifest","annotations":[{"id":"https://search.example.org/annotations/manifest/v1/test/book","type":"AnnotationPage"}]}""";
+
+    private static string V3ManifestWithExistingFiguresRef()
+        => """{"id":"https://example.org/m/1","type":"Manifest","annotations":[{"id":"https://search.example.org/identified/figures/test/book","type":"AnnotationPage"}]}""";
 
     private sealed class StubTextStore(
         string? manifestJson,

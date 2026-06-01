@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using MediatR;
+using TextServices.Core.Models;
 using TextServices.Search.Api.Services;
 using TextServices.Storage;
 
@@ -33,38 +34,49 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
         var node = JsonNode.Parse(json);
         if (node is not JsonObject manifest) return null;
 
-        // Replace @id / id with the text-augmented URL for this manifest.
-        if (manifest.ContainsKey("@id"))
-            manifest["@id"] = request.SelfUrl;
-        else
-            manifest["id"] = request.SelfUrl;
-
-        // Build service descriptors using Presentation 3 id/type conventions.
-        // v2 is listed first; v1 follows for backward-compatible clients.
-
-        // TODO - de-duplicate when adding services
-        var base_ = request.SearchBaseUrl;
+        var baseUrl = request.SearchBaseUrl;
         var id = request.UrlId ?? request.Id;
+        var text = await textCache.GetTextAsync(request.Id, ct);
 
+        ReplaceSelfUrl(manifest, request.SelfUrl);
+        InjectSearchServices(manifest, baseUrl, id);
+        InjectRenderingLinks(manifest, baseUrl, id, text);
+        InjectCanvasAnnotationRefs(manifest, baseUrl, id, text);
+        await InjectManifestAnnotationsRefAsync(manifest, baseUrl, id, request.Id, ct);
+        await InjectFiguresRefAsync(manifest, baseUrl, id, request.Id, ct);
+
+        return manifest;
+    }
+
+    private static void ReplaceSelfUrl(JsonObject manifest, string selfUrl)
+    {
+        if (manifest.ContainsKey("@id"))
+            manifest["@id"] = selfUrl;
+        else
+            manifest["id"] = selfUrl;
+    }
+
+    private static void InjectSearchServices(JsonObject manifest, string baseUrl, string id)
+    {
         var searchServiceV2 = new JsonObject
         {
-            ["id"] = $"{base_}/search/v2/{id}", // TODO - can we build these from a central place?
+            ["id"] = $"{baseUrl}/search/v2/{id}", // TODO - can we build these from a central place?
             ["type"] = "SearchService2",
             ["service"] = new JsonArray(new JsonObject
             {
-                ["id"] = $"{base_}/autocomplete/v2/{id}",
+                ["id"] = $"{baseUrl}/autocomplete/v2/{id}",
                 ["type"] = "AutoCompleteService2",
             }),
         };
 
         var searchServiceV1 = new JsonObject
         {
-            ["id"] = $"{base_}/search/v1/{id}",
+            ["id"] = $"{baseUrl}/search/v1/{id}",
             ["type"] = "SearchService1",
             ["profile"] = "http://iiif.io/api/search/1/search",
             ["service"] = new JsonArray(new JsonObject
             {
-                ["id"] = $"{base_}/autocomplete/v1/{id}",
+                ["id"] = $"{baseUrl}/autocomplete/v1/{id}",
                 ["type"] = "AutoCompleteService1",
                 ["profile"] = "http://iiif.io/api/search/1/autocomplete",
             }),
@@ -72,161 +84,173 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache)
 
         // Insert v2 then v1 at position 0 so v2 appears first.
         // Existing services (e.g. IIIF Image services) are pushed down, not displaced.
+        // Deduplication: skip insertion when a service with the same "id" already exists.
         if (manifest["service"] is JsonArray existingArray)
         {
-            existingArray.Insert(0, searchServiceV1);
-            existingArray.Insert(0, searchServiceV2);
+            AddIfNew(existingArray, searchServiceV1);
+            AddIfNew(existingArray, searchServiceV2);
         }
         else if (manifest["service"] is JsonObject existingObject)
         {
             // Spec allows service to be a single object — promote to array.
-            manifest["service"] = new JsonArray(
-                searchServiceV2, searchServiceV1, existingObject.DeepClone());
+            var arr = new JsonArray(existingObject.DeepClone());
+            AddIfNew(arr, searchServiceV1);
+            AddIfNew(arr, searchServiceV2);
+            manifest["service"] = arr;
         }
         else
         {
             manifest["service"] = new JsonArray(searchServiceV2, searchServiceV1);
         }
+    }
 
-        // ---- rendering links (PDF + plain text) ---------------------------------
-        // Plain text is always added when text artefacts exist.
+    private static void InjectRenderingLinks(JsonObject manifest, string baseUrl, string id, Text? text)
+    {
+        if (text == null) return;
+
         // PDF is only added when at least one canvas is image-based (IsTemporalContent == false);
         // temporal-only manifests (VTT/audio/video) have no page images to render into a PDF.
-        var text = await textCache.GetTextAsync(request.Id, ct);
-        if (text != null)
+        var hasImageCanvases = text.Images.Any(img => !img.IsTemporalContent);
+
+        var textRef = new JsonObject
         {
-            var hasImageCanvases = text.Images.Any(img => !img.IsTemporalContent);
+            ["id"] = $"{baseUrl}/text/v1/{id}",
+            ["type"] = "Text",
+            ["label"] = new JsonObject { ["en"] = new JsonArray("View as plain text") },
+            ["format"] = "text/plain",
+        };
 
-            var textRef = new JsonObject
-            {
-                ["id"] = $"{base_}/text/v1/{id}",
-                ["type"] = "Text",
-                ["label"] = new JsonObject { ["en"] = new JsonArray("View as plain text") },
-                ["format"] = "text/plain",
-            };
-
-            if (manifest["rendering"] is JsonArray existingRendering)
-            {
-                existingRendering.Insert(0, textRef);
-                if (hasImageCanvases)
-                {
-                    var pdfRef = BuildPdfRef(base_, id);
-                    existingRendering.Insert(0, pdfRef);
-                }
-            }
-            else if (manifest["rendering"] is JsonObject singleRendering)
-            {
-                manifest["rendering"] = hasImageCanvases
-                    ? new JsonArray(BuildPdfRef(base_, id), textRef, singleRendering.DeepClone())
-                    : new JsonArray(textRef, singleRendering.DeepClone());
-            }
-            else
-            {
-                manifest["rendering"] = hasImageCanvases
-                    ? new JsonArray(BuildPdfRef(base_, id), textRef)
-                    : new JsonArray(textRef);
-            }
+        if (manifest["rendering"] is JsonArray existingRendering)
+        {
+            AddIfNew(existingRendering, textRef);
+            if (hasImageCanvases) AddIfNew(existingRendering, BuildPdfRef(baseUrl, id));
         }
-
-        // ---- per-canvas line and word annotation page references ----------------
-        // Inject line-level and word-level annotation page links into each canvas's
-        // annotations array so harvesting clients can discover and fetch them.
-        // Only canvases that actually have words are decorated; sparse canvases are skipped.
-        if (text != null && manifest["items"] is JsonArray canvases)
+        else if (manifest["rendering"] is JsonObject singleRendering)
         {
-            // Build a set of canvas indices that have at least one word, in O(words).
-            var canvasesWithWords = text.Words.Values.Select(w => w.Idx).ToHashSet();
-
-            for (var i = 0; i < canvases.Count && i < text.Images.Length; i++)
-            {
-                if (!canvasesWithWords.Contains(i)) continue;
-                if (canvases[i] is not JsonObject canvas) continue;
-
-                var linesRef = new JsonObject
-                {
-                    ["id"] = $"{base_}/annotations/lines/v1/{i}/{id}",
-                    ["type"] = "AnnotationPage",
-                    ["label"] = new JsonObject { ["en"] = new JsonArray("Line-level transcription") },
-                };
-                var wordsRef = new JsonObject
-                {
-                    ["id"] = $"{base_}/annotations/words/v1/{i}/{id}",
-                    ["type"] = "AnnotationPage",
-                    ["label"] = new JsonObject { ["en"] = new JsonArray("Word-level transcription") },
-                };
-
-                if (canvas["annotations"] is JsonArray existingAnnos)
-                {
-                    existingAnnos.Insert(0, wordsRef);
-                    existingAnnos.Insert(0, linesRef);
-                }
-                else if (canvas["annotations"] is JsonObject singleAnno)
-                {
-                    canvas["annotations"] = new JsonArray(
-                        linesRef, wordsRef, singleAnno.DeepClone());
-                }
-                else
-                {
-                    canvas["annotations"] = new JsonArray(linesRef, wordsRef);
-                }
-            }
+            var arr = new JsonArray(singleRendering.DeepClone());
+            AddIfNew(arr, textRef);
+            if (hasImageCanvases) AddIfNew(arr, BuildPdfRef(baseUrl, id));
+            manifest["rendering"] = arr;
         }
-
-        // ---- manifest-level line annotations reference --------------------------
-        // If the builder stored an annotations.json (all canvases, line granularity),
-        // add a manifest-level annotations reference so clients can discover it.
-        var annotationsUrl = $"{base_}/annotations/manifest/v1/{id}";
-        var annotationsJson = await textStore.LoadAnnotations(request.Id);
-        if (annotationsJson != null)
+        else
         {
-            var annotationsRef = new JsonObject
+            manifest["rendering"] = hasImageCanvases
+                ? new JsonArray(BuildPdfRef(baseUrl, id), textRef)
+                : new JsonArray(textRef);
+        }
+    }
+
+    private static void InjectCanvasAnnotationRefs(JsonObject manifest, string baseUrl, string id, Text? text)
+    {
+        if (text == null || manifest["items"] is not JsonArray canvases) return;
+
+        // Build a set of canvas indices that have at least one word, in O(words).
+        var canvasesWithWords = text.Words.Values.Select(w => w.Idx).ToHashSet();
+
+        for (var i = 0; i < canvases.Count && i < text.Images.Length; i++)
+        {
+            if (!canvasesWithWords.Contains(i)) continue;
+            if (canvases[i] is not JsonObject canvas) continue;
+
+            var linesRef = new JsonObject
             {
-                ["id"] = annotationsUrl,
+                ["id"] = $"{baseUrl}/annotations/lines/v1/{i}/{id}",
                 ["type"] = "AnnotationPage",
-                ["profile"] = "https://dlcs.io/profiles/all-text",
-                ["label"] = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
+                ["label"] = new JsonObject { ["en"] = new JsonArray("Line-level transcription") },
             };
-
-            if (manifest["annotations"] is JsonArray existingAnnos)
-                existingAnnos.Insert(0, annotationsRef);
-            else if (manifest["annotations"] is JsonObject singleAnno)
-                manifest["annotations"] = new JsonArray(annotationsRef, singleAnno.DeepClone());
-            else
-                manifest["annotations"] = new JsonArray(annotationsRef);
-        }
-
-        // ---- figures annotation page reference ----------------------------------
-        // If the builder stored a figures.json (ComposedBlocks with non-zero area),
-        // add a manifest-level annotations reference so clients can discover it.
-        var figuresUrl = $"{base_}/identified/figures/{id}";
-        var figuresJson = await textStore.LoadFigures(request.Id);
-        if (figuresJson != null)
-        {
-            var figuresRef = new JsonObject
+            var wordsRef = new JsonObject
             {
-                ["id"] = figuresUrl,
+                ["id"] = $"{baseUrl}/annotations/words/v1/{i}/{id}",
                 ["type"] = "AnnotationPage",
-                ["label"] = new JsonObject
-                {
-                    ["en"] = new JsonArray("Figures, tables and illustrations"),
-                },
+                ["label"] = new JsonObject { ["en"] = new JsonArray("Word-level transcription") },
             };
 
-            if (manifest["annotations"] is JsonArray existingAnnos)
+            if (canvas["annotations"] is JsonArray existingAnnos)
             {
-                existingAnnos.Add(figuresRef);
+                AddIfNew(existingAnnos, wordsRef);
+                AddIfNew(existingAnnos, linesRef);
             }
-            else if (manifest["annotations"] is JsonObject singleAnno)
+            else if (canvas["annotations"] is JsonObject singleAnno)
             {
-                manifest["annotations"] = new JsonArray(singleAnno.DeepClone(), figuresRef);
+                var arr = new JsonArray(singleAnno.DeepClone());
+                AddIfNew(arr, wordsRef);
+                AddIfNew(arr, linesRef);
+                canvas["annotations"] = arr;
             }
             else
             {
-                manifest["annotations"] = new JsonArray(figuresRef);
+                canvas["annotations"] = new JsonArray(linesRef, wordsRef);
             }
         }
+    }
 
-        return manifest;
+    private async Task InjectManifestAnnotationsRefAsync(
+        JsonObject manifest, string baseUrl, string id, string key, CancellationToken ct)
+    {
+        var annotationsJson = await textStore.LoadAnnotations(key);
+        if (annotationsJson == null) return;
+
+        var annotationsRef = new JsonObject
+        {
+            ["id"] = $"{baseUrl}/annotations/manifest/v1/{id}",
+            ["type"] = "AnnotationPage",
+            ["profile"] = "https://dlcs.io/profiles/all-text",
+            ["label"] = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
+        };
+
+        if (manifest["annotations"] is JsonArray existingAnnos)
+        {
+            AddIfNew(existingAnnos, annotationsRef);
+        }
+        else if (manifest["annotations"] is JsonObject singleAnno)
+        {
+            var arr = new JsonArray(singleAnno.DeepClone());
+            AddIfNew(arr, annotationsRef);
+            manifest["annotations"] = arr;
+        }
+        else
+        {
+            manifest["annotations"] = new JsonArray(annotationsRef);
+        }
+    }
+
+    private async Task InjectFiguresRefAsync(
+        JsonObject manifest, string baseUrl, string id, string key, CancellationToken ct)
+    {
+        var figuresJson = await textStore.LoadFigures(key);
+        if (figuresJson == null) return;
+
+        var figuresRef = new JsonObject
+        {
+            ["id"] = $"{baseUrl}/identified/figures/{id}",
+            ["type"] = "AnnotationPage",
+            ["label"] = new JsonObject
+            {
+                ["en"] = new JsonArray("Figures, tables and illustrations"),
+            },
+        };
+
+        if (manifest["annotations"] is JsonArray existingAnnos)
+        {
+            AddIfNew(existingAnnos, figuresRef, prepend: false);
+        }
+        else if (manifest["annotations"] is JsonObject singleAnno)
+        {
+            var arr = new JsonArray(singleAnno.DeepClone());
+            AddIfNew(arr, figuresRef, prepend: false);
+            manifest["annotations"] = arr;
+        }
+        else
+        {
+            manifest["annotations"] = new JsonArray(figuresRef);
+        }
+    }
+
+    private static void AddIfNew(JsonArray array, JsonObject item, bool prepend = true)
+    {
+        if (array.Any(n => n?["id"]?.GetValue<string>() == item["id"]?.GetValue<string>())) return;
+        if (prepend) array.Insert(0, item);
+        else array.Add(item);
     }
 
     private static JsonObject BuildPdfRef(string baseUrl, string id) => new()
