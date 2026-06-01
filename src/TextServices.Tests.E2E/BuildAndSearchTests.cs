@@ -38,6 +38,30 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     }
 
     [Fact]
+    public async Task PostJob_IdStartingWithSlash_Returns400()
+    {
+        var response = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id = "/bad-id",
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PostJob_IdWithInternalSlashes_Returns202()
+    {
+        var response = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id = "e2e/slash/in/id",
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+    }
+
+    [Fact]
     public async Task PostJob_DuplicateId_Returns409()
     {
         var id = "e2e/duplicate-test";

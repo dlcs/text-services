@@ -46,6 +46,13 @@ public class JobInstruction : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        if (Id.StartsWith('/'))
+        {
+            yield return new ValidationResult(
+                "Job ID must not start with '/'.",
+                [nameof(Id)]);
+        }
+
         var hasUri = !string.IsNullOrWhiteSpace(SourceUri);
         var hasData = SourceData is { Count: > 0 };
 
@@ -63,9 +70,9 @@ public class JobInstruction : IValidatableObject
                 [nameof(SourceUri), nameof(SourceData)]);
         }
 
-        if (SourceData != null)
+        if (hasData)
         {
-            foreach (var page in SourceData)
+            foreach (var page in SourceData!)
             {
                 if (!string.Equals(page.Type, "pdf", StringComparison.OrdinalIgnoreCase)
                     && string.IsNullOrEmpty(page.Id))
