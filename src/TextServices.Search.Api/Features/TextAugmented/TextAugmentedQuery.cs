@@ -55,9 +55,17 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
         var text = await textCache.GetTextAsync(request.Id, ct);
 
         ReplaceSelfUrl(manifest, request.SelfUrl);
-        InjectSearchServices(manifest, baseUrl, id);
-        InjectRenderingLinks(manifest, baseUrl, id, text);
-        InjectCanvasAnnotationRefs(manifest, baseUrl, id, text);
+        if (text != null)
+        {
+            InjectSearchServices(manifest, baseUrl, id);
+            InjectRenderingLinks(manifest, baseUrl, id, text);
+            InjectCanvasAnnotationRefs(manifest, baseUrl, id, text);
+        }
+        else
+        {
+            logger.LogDebug("Text not found: {Id}", request.Id);
+        }
+
         await InjectManifestAnnotationsRefAsync(manifest, baseUrl, id, request.Id);
         await InjectFiguresRefAsync(manifest, baseUrl, id, request.Id);
 
@@ -119,12 +127,13 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
         {
             manifest["service"] = new JsonArray(searchServiceV2, searchServiceV1);
         }
+
+        AppendContext(manifest, "http://iiif.io/api/search/2/context.json");
+        AppendContext(manifest, "http://iiif.io/api/search/1/context.json");
     }
 
-    private void InjectRenderingLinks(JsonObject manifest, string baseUrl, string id, Text? text)
+    private void InjectRenderingLinks(JsonObject manifest, string baseUrl, string id, Text text)
     {
-        if (text == null) return;
-
         logger.LogDebug("Adding rendering: {Id}", id);
 
         // PDF is only added when at least one canvas is image-based (IsTemporalContent == false);
@@ -159,9 +168,9 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
         }
     }
 
-    private void InjectCanvasAnnotationRefs(JsonObject manifest, string baseUrl, string id, Text? text)
+    private void InjectCanvasAnnotationRefs(JsonObject manifest, string baseUrl, string id, Text text)
     {
-        if (text == null || manifest["items"] is not JsonArray canvases) return;
+        if (manifest["items"] is not JsonArray canvases) return;
 
         logger.LogDebug("Adding canvas annotations: {Id}", id);
 
@@ -274,6 +283,23 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
         if (array.Any(n => n?["id"]?.GetValue<string>() == item["id"]?.GetValue<string>())) return;
         if (prepend) array.Insert(0, item);
         else array.Add(item);
+    }
+
+    private static void AppendContext(JsonObject manifest, string url)
+    {
+        if (manifest["@context"] is JsonArray arr)
+        {
+            if (!arr.Any(n => n?.GetValue<string>() == url))
+                arr.Add(url);
+        }
+        else if (manifest["@context"] is JsonValue str)
+        {
+            manifest["@context"] = new JsonArray(str.GetValue<string>(), url);
+        }
+        else
+        {
+            manifest["@context"] = new JsonArray(url);
+        }
     }
 
     private static JsonObject BuildPdfRef(string baseUrl, string id) => new()

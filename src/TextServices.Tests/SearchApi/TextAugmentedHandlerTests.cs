@@ -35,6 +35,19 @@ public class TextAugmentedHandlerTests
         result.ShouldBeNull();
     }
 
+    [Fact]
+    public async Task Handle_NoText_ReturnsManifestWithoutSearchServicesOrContext()
+    {
+        var handler = MakeHandler(V3Manifest(), noText: true);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result["service"].ShouldBeNull();
+        result["@context"]!.GetValue<string>().ShouldBe("http://iiif.io/api/presentation/3/context.json");
+    }
+
     // -------------------------------------------------------------------------
     // @id replacement
     // -------------------------------------------------------------------------
@@ -209,7 +222,7 @@ public class TextAugmentedHandlerTests
     [Fact]
     public async Task Handle_TextNotBuilt_NoRenderingLinks()
     {
-        var handler = MakeHandler(V3Manifest(), cachedText: null);
+        var handler = MakeHandler(V3Manifest(), noText: true);
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
@@ -417,12 +430,81 @@ public class TextAugmentedHandlerTests
             "https://search.example.org/identified/figures/test/book").ShouldBe(1);
     }
 
+    // -------------------------------------------------------------------------
+    // @context injection
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_NoContext_AddsSearchContexts()
+    {
+        var handler = MakeHandler("""{"id":"https://example.org/m/1","type":"Manifest"}""");
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
+        ctx.Select(n => n!.GetValue<string>()).ShouldBe(
+        [
+            "http://iiif.io/api/search/2/context.json",
+            "http://iiif.io/api/search/1/context.json",
+        ]);
+    }
+
+    [Fact]
+    public async Task Handle_StringContext_PromotesToArrayAndAppendsSearchContexts()
+    {
+        var handler = MakeHandler(V3Manifest());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
+        ctx.Select(n => n!.GetValue<string>()).ShouldBe(
+        [
+            "http://iiif.io/api/presentation/3/context.json",
+            "http://iiif.io/api/search/2/context.json",
+            "http://iiif.io/api/search/1/context.json",
+        ]);
+    }
+
+    [Fact]
+    public async Task Handle_ArrayContext_AppendsSearchContexts()
+    {
+        var handler = MakeHandler("""{"id":"https://example.org/m/1","type":"Manifest","@context":["http://iiif.io/api/presentation/3/context.json"]}""");
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
+        ctx.Select(n => n!.GetValue<string>()).ShouldBe(
+        [
+            "http://iiif.io/api/presentation/3/context.json",
+            "http://iiif.io/api/search/2/context.json",
+            "http://iiif.io/api/search/1/context.json",
+        ]);
+    }
+
+    [Fact]
+    public async Task Handle_ContextAlreadyContainsSearchUrls_DoesNotDuplicate()
+    {
+        var handler = MakeHandler(V3ManifestWithSearchContexts());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+
+        var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
+        ctx.Count(n => n!.GetValue<string>() == "http://iiif.io/api/search/2/context.json").ShouldBe(1);
+        ctx.Count(n => n!.GetValue<string>() == "http://iiif.io/api/search/1/context.json").ShouldBe(1);
+    }
+
     private static TextAugmentedHandler MakeHandler(
         string? manifestJson,
         string? annotationsJson = null,
         string? figuresJson = null,
-        Text? cachedText = null)
-        => new(new StubTextStore(manifestJson, annotationsJson, figuresJson), new StubTextCache(cachedText),
+        Text? cachedText = null,
+        bool noText = false)
+        => new(new StubTextStore(manifestJson, annotationsJson, figuresJson),
+            new StubTextCache(noText ? null : (cachedText ?? SpatialText())),
             new NullLogger<TextAugmentedHandler>());
 
     /// <summary>A Text with one spatial (image-based) canvas.</summary>
@@ -481,6 +563,9 @@ public class TextAugmentedHandlerTests
 
     private static string V3ManifestWithExistingFiguresRef()
         => """{"id":"https://example.org/m/1","type":"Manifest","annotations":[{"id":"https://search.example.org/identified/figures/test/book","type":"AnnotationPage"}]}""";
+
+    private static string V3ManifestWithSearchContexts()
+        => """{"id":"https://example.org/m/1","type":"Manifest","@context":["http://iiif.io/api/presentation/3/context.json","http://iiif.io/api/search/2/context.json","http://iiif.io/api/search/1/context.json"]}""";
 
     private sealed class StubTextStore(
         string? manifestJson,
