@@ -34,8 +34,6 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAwsServices(this IServiceCollection services, IConfiguration configuration)
     {
-        var logger = new SerilogLoggerFactory(Log.Logger).CreateLogger(nameof(ServiceCollectionExtensions));
-
         services.AddDefaultAWSOptions(configuration.GetAWSOptions());
         services.Configure<S3TextStoreOptions>(configuration.GetSection("TextServices:Storage:S3"));
 
@@ -43,13 +41,11 @@ public static class ServiceCollectionExtensions
         // chain at startup, which hangs in test environments without real credentials.
         if (!string.IsNullOrEmpty(configuration["TextServices:Storage:S3:BucketName"]))
         {
-            logger.LogDebug("Using S3 storage for text artefacts");
             services.AddAWSService<IAmazonS3>();
         }
 
         if (!string.IsNullOrEmpty(configuration["TextServices:Notifications:TopicArn"]))
         {
-            logger.LogDebug("Configuring SNS notifications for job status changes");
             services.AddAWSService<IAmazonSimpleNotificationService>();
         }
 
