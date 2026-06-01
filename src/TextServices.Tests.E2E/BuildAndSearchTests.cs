@@ -401,6 +401,35 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     }
 
     // -------------------------------------------------------------------------
+    // Route safety — ID is required on all mutation / resource endpoints
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("/textbuilder/", "DELETE")]
+    [InlineData("/textbuilder/", "PUT")]
+    public async Task BuilderApi_MutationWithoutId_Returns404(string path, string method)
+    {
+        var request = new HttpRequestMessage(new HttpMethod(method), path);
+        var response = await ctx.BuilderClient.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Theory]
+    [InlineData("/search/v1/")]
+    [InlineData("/search/v2/")]
+    [InlineData("/autocomplete/v1/")]
+    [InlineData("/autocomplete/v2/")]
+    [InlineData("/text-augmented/v3/")]
+    [InlineData("/text/v1/")]
+    [InlineData("/annotations/manifest/v1/")]
+    public async Task SearchApi_ResourceEndpointWithoutId_Returns404(string path)
+    {
+        var response = await ctx.SearchClient.GetAsync(path);
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 

@@ -8,7 +8,7 @@ internal static class SearchEndpoints
 {
     internal static IEndpointRouteBuilder MapSearchEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/search/v1/{**id}", async (
+        routes.MapGet("/search/v1/{*id:minlength(1)}", async (
             string id, string? q,
             ISender sender,
             IOptions<SearchApiOptions> options,
@@ -21,7 +21,7 @@ internal static class SearchEndpoints
             return Results.Json(result, contentType: "application/ld+json");
         });
 
-        routes.MapGet("/search/v2/{**id}", async (
+        routes.MapGet("/search/v2/{*id:minlength(1)}", async (
             string id, string? q,
             ISender sender,
             IOptions<SearchApiOptions> options,

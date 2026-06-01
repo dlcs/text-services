@@ -8,7 +8,7 @@ internal static class PdfEndpoints
 {
     internal static IEndpointRouteBuilder MapPdfEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/pdf/v1/{**id}", async (string id, ISender sender) =>
+        routes.MapGet("/pdf/v1/{*id:minlength(1)}", async (string id, ISender sender) =>
         {
             id = StripPdfExtension(id);
             var stream = await sender.Send(new PdfRequest(id));
@@ -16,7 +16,7 @@ internal static class PdfEndpoints
             return Results.Stream(stream, "application/pdf", enableRangeProcessing: false);
         });
 
-        routes.MapPost("/pdf/v1/{**id}", async (
+        routes.MapPost("/pdf/v1/{*id:minlength(1)}", async (
             string id,
             ISender sender,
             IOptions<SearchApiOptions> options,

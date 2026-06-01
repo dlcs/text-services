@@ -8,7 +8,7 @@ internal static class AnnotationEndpoints
 {
     internal static IEndpointRouteBuilder MapAnnotationEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/annotations/manifest/v1/{**id}", async (
+        routes.MapGet("/annotations/manifest/v1/{*id:minlength(1)}", async (
             string id,
             ISender sender,
             IOptions<SearchApiOptions> options,
@@ -20,7 +20,7 @@ internal static class AnnotationEndpoints
             return Results.Json(result, contentType: "application/ld+json");
         });
 
-        routes.MapGet("/annotations/lines/v1/{n:int}/{**id}", async (
+        routes.MapGet("/annotations/lines/v1/{n:int}/{*id:minlength(1)}", async (
             int n, string id,
             ISender sender,
             IOptions<SearchApiOptions> options,
@@ -32,7 +32,7 @@ internal static class AnnotationEndpoints
             return Results.Json(result, contentType: "application/ld+json");
         });
 
-        routes.MapGet("/annotations/words/v1/{n:int}/{**id}", async (
+        routes.MapGet("/annotations/words/v1/{n:int}/{*id:minlength(1)}", async (
             int n, string id,
             ISender sender,
             IOptions<SearchApiOptions> options,

@@ -35,13 +35,13 @@ internal static class JobEndpoints
             return Results.Ok(result);
         });
 
-        routes.MapGet("/textbuilder/{**id}", async (string id, ISender sender) =>
+        routes.MapGet("/textbuilder/{*id:minlength(1)}", async (string id, ISender sender) =>
         {
             var response = await sender.Send(new GetJobRequest(id));
             return response == null ? Results.NotFound() : Results.Ok(response);
         });
 
-        routes.MapPut("/textbuilder/{**id}", async (string id, ISender sender) =>
+        routes.MapPut("/textbuilder/{*id:minlength(1)}", async (string id, ISender sender) =>
         {
             var result = await sender.Send(new ReprocessJobRequest(id));
             return result.Status switch
@@ -52,7 +52,7 @@ internal static class JobEndpoints
             };
         });
 
-        routes.MapDelete("/textbuilder/{**id}", async (string id, ISender sender) =>
+        routes.MapDelete("/textbuilder/{*id:minlength(1)}", async (string id, ISender sender) =>
         {
             var found = await sender.Send(new DeleteJobRequest(id));
             return found ? Results.NoContent() : Results.NotFound();

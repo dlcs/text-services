@@ -8,7 +8,7 @@ internal static class TextAugmentedEndpoints
 {
     internal static IEndpointRouteBuilder MapTextAugmentedEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/text-augmented/v3/{**id}", async (
+        routes.MapGet("/text-augmented/v3/{*id:minlength(1)}", async (
             string id,
             ISender sender,
             IOptions<SearchApiOptions> options,
