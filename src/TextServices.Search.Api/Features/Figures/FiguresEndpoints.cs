@@ -8,7 +8,7 @@ internal static class FiguresEndpoints
 {
     internal static IEndpointRouteBuilder MapFiguresEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/identified/figures/{**id}", async (
+        routes.MapGet("/identified/figures/{*id:minlength(1)}", async (
             string id,
             ISender sender,
             IOptions<SearchApiOptions> options,

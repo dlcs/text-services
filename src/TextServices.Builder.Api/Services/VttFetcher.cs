@@ -1,10 +1,8 @@
-using Microsoft.Extensions.Logging;
-
 namespace TextServices.Builder.Api.Services;
 
 public sealed class VttFetcher(IResourceFetcher fetcher, ILogger<VttFetcher> logger) : IVttFetcher
 {
-    public async Task<string?> FetchAsync(string uri, CancellationToken ct = default)
+    public async Task<string?> FetchAsync(string uri, CancellationToken ct)
     {
         logger.LogDebug("Fetching VTT: {Uri}", uri);
         await using var stream = await fetcher.FetchAsync(uri, ct);

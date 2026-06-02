@@ -1,7 +1,9 @@
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Core.Providers;
+using TextServices.Search.Api.Features;
 using TextServices.Search.Api.Features.TextAugmented;
 using TextServices.Search.Api.Services;
 using TextServices.Storage;
@@ -29,9 +31,22 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(null);
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("missing/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("missing/book", DefaultResolved("missing/book")), CancellationToken.None);
 
         result.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_NoText_ReturnsManifestWithoutSearchServicesOrContext()
+    {
+        var handler = MakeHandler(V3Manifest(), noText: true);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result["service"].ShouldBeNull();
+        result["@context"]!.GetValue<string>().ShouldBe("http://iiif.io/api/presentation/3/context.json");
     }
 
     // -------------------------------------------------------------------------
@@ -44,7 +59,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest("https://original.example.org/manifest/1"));
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         result.ShouldNotBeNull();
         result!["id"]!.GetValue<string>().ShouldBe(SelfUrl);
@@ -56,7 +71,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V2Manifest("https://original.example.org/manifest/1"));
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         result.ShouldNotBeNull();
         result!["@id"]!.GetValue<string>().ShouldBe(SelfUrl);
@@ -72,7 +87,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var service = result!["service"].ShouldBeOfType<JsonArray>();
         service.Count.ShouldBe(2); // v2 + v1
@@ -84,7 +99,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3ManifestWithServiceArray());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var service = result!["service"].ShouldBeOfType<JsonArray>();
         service.Count.ShouldBe(3); // v2 + v1 + original
@@ -96,7 +111,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3ManifestWithServiceObject());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var service = result!["service"].ShouldBeOfType<JsonArray>();
         service.Count.ShouldBe(3); // v2 + v1 + original
@@ -109,7 +124,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3ManifestWithServiceArray());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var service = result!["service"].ShouldBeOfType<JsonArray>();
         service[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV2);
@@ -123,7 +138,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var searchServiceV2 = result!["service"]![0]!;
         searchServiceV2["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV2);
@@ -136,7 +151,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var searchServiceV1 = result!["service"]![1]!;
         searchServiceV1["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV1);
@@ -150,7 +165,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var autocomplete = result!["service"]![0]!["service"]![0]!;
         autocomplete["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV2);
@@ -163,7 +178,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var autocomplete = result!["service"]![1]!["service"]![0]!;
         autocomplete["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV1);
@@ -181,7 +196,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest(), cachedText: SpatialText());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
         rendering.Count.ShouldBe(2);
@@ -197,7 +212,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest(), cachedText: TemporalText());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
         rendering.Count.ShouldBe(1);
@@ -208,10 +223,10 @@ public class TextAugmentedHandlerTests
     [Fact]
     public async Task Handle_TextNotBuilt_NoRenderingLinks()
     {
-        var handler = MakeHandler(V3Manifest(), cachedText: null);
+        var handler = MakeHandler(V3Manifest(), noText: true);
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         result!["rendering"].ShouldBeNull();
     }
@@ -222,7 +237,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3ManifestWithRendering(), cachedText: SpatialText());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
         rendering.Count.ShouldBe(3); // PDF + plain text + original
@@ -236,7 +251,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3ManifestWithRendering(), cachedText: TemporalText());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
         rendering.Count.ShouldBe(2); // plain text + original (no PDF)
@@ -258,7 +273,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest(), annotationsJson: annotationsJson);
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var annotations = result!["annotations"].ShouldBeOfType<JsonArray>();
         var ref0 = annotations[0]!;
@@ -277,7 +292,7 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest(), annotationsJson: annotationsJson, figuresJson: figuresJson);
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         var annotations = result!["annotations"].ShouldBeOfType<JsonArray>();
         annotations.Count.ShouldBe(2);
@@ -291,17 +306,210 @@ public class TextAugmentedHandlerTests
         var handler = MakeHandler(V3Manifest());
 
         var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", SelfUrl, SearchBase), CancellationToken.None);
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         result!["annotations"].ShouldBeNull();
     }
+
+    // -------------------------------------------------------------------------
+    // Service deduplication
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_ServiceArrayAlreadyContainsSearchV2_DoesNotDuplicateV2()
+    {
+        var handler = MakeHandler(V3ManifestWithExistingSearchV2());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service.Count.ShouldBe(2); // original v2 stays; v1 added; no duplicate v2
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV2).ShouldBe(1);
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV1).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_ServiceArrayAlreadyContainsBothSearchServices_NeitherDuplicated()
+    {
+        var handler = MakeHandler(V3ManifestWithBothSearchServices());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service.Count.ShouldBe(2); // unchanged — both already present
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV2).ShouldBe(1);
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV1).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_ServiceObjectMatchesSearchV2_PromotesToArrayWithoutDuplicatingV2()
+    {
+        var handler = MakeHandler(V3ManifestWithSearchV2ServiceObject());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service.Count.ShouldBe(2); // v1 added; original v2 kept; no duplicate v2
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV2).ShouldBe(1);
+        service.Count(n => n?["id"]?.GetValue<string>() == ExpectedSearchV1).ShouldBe(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // Rendering deduplication
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_RenderingArrayAlreadyContainsTextRef_DoesNotDuplicateTextRef()
+    {
+        var handler = MakeHandler(V3ManifestWithExistingTextRef(), cachedText: SpatialText());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count(n => n?["id"]?.GetValue<string>() == ExpectedRawTextUrl).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_RenderingArrayAlreadyContainsPdfRef_DoesNotDuplicatePdfRef()
+    {
+        var handler = MakeHandler(V3ManifestWithExistingPdfRef(), cachedText: SpatialText());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count(n => n?["id"]?.GetValue<string>() == ExpectedPdfUrl).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_RenderingArrayAlreadyContainsBothRefs_NeitherDuplicated()
+    {
+        var handler = MakeHandler(V3ManifestWithExistingPdfAndTextRefs(), cachedText: SpatialText());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count.ShouldBe(2); // unchanged
+        rendering.Count(n => n?["id"]?.GetValue<string>() == ExpectedPdfUrl).ShouldBe(1);
+        rendering.Count(n => n?["id"]?.GetValue<string>() == ExpectedRawTextUrl).ShouldBe(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // Annotations deduplication
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_AnnotationsArrayAlreadyContainsAnnotationsRef_DoesNotDuplicate()
+    {
+        const string annotationsJson = """{"type":"AnnotationPage","items":[]}""";
+        var handler = MakeHandler(V3ManifestWithExistingAnnotationsRef(), annotationsJson: annotationsJson);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var annotations = result!["annotations"].ShouldBeOfType<JsonArray>();
+        annotations.Count(n => n?["id"]?.GetValue<string>() ==
+            "https://search.example.org/annotations/manifest/v1/test/book").ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_AnnotationsArrayAlreadyContainsFiguresRef_DoesNotDuplicate()
+    {
+        const string figuresJson = """{"type":"AnnotationPage","items":[]}""";
+        var handler = MakeHandler(V3ManifestWithExistingFiguresRef(), figuresJson: figuresJson);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var annotations = result!["annotations"].ShouldBeOfType<JsonArray>();
+        annotations.Count(n => n?["id"]?.GetValue<string>() ==
+            "https://search.example.org/identified/figures/test/book").ShouldBe(1);
+    }
+
+    // -------------------------------------------------------------------------
+    // @context injection
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_NoContext_AddsSearchContexts()
+    {
+        var handler = MakeHandler("""{"id":"https://example.org/m/1","type":"Manifest"}""");
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
+        ctx.Select(n => n!.GetValue<string>()).ShouldBe(
+        [
+            "http://iiif.io/api/search/2/context.json",
+            "http://iiif.io/api/search/1/context.json",
+        ]);
+    }
+
+    [Fact]
+    public async Task Handle_StringContext_PromotesToArrayAndAppendsSearchContexts()
+    {
+        var handler = MakeHandler(V3Manifest());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
+        ctx.Select(n => n!.GetValue<string>()).ShouldBe(
+        [
+            "http://iiif.io/api/presentation/3/context.json",
+            "http://iiif.io/api/search/2/context.json",
+            "http://iiif.io/api/search/1/context.json",
+        ]);
+    }
+
+    [Fact]
+    public async Task Handle_ArrayContext_AppendsSearchContexts()
+    {
+        var handler = MakeHandler("""{"id":"https://example.org/m/1","type":"Manifest","@context":["http://iiif.io/api/presentation/3/context.json"]}""");
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
+        ctx.Select(n => n!.GetValue<string>()).ShouldBe(
+        [
+            "http://iiif.io/api/presentation/3/context.json",
+            "http://iiif.io/api/search/2/context.json",
+            "http://iiif.io/api/search/1/context.json",
+        ]);
+    }
+
+    [Fact]
+    public async Task Handle_ContextAlreadyContainsSearchUrls_DoesNotDuplicate()
+    {
+        var handler = MakeHandler(V3ManifestWithSearchContexts());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
+        ctx.Count(n => n!.GetValue<string>() == "http://iiif.io/api/search/2/context.json").ShouldBe(1);
+        ctx.Count(n => n!.GetValue<string>() == "http://iiif.io/api/search/1/context.json").ShouldBe(1);
+    }
+
+    private static ResolvedRequest DefaultResolved(string id = "test/book")
+        => new(id, SelfUrl, SelfUrl, SearchBase);
 
     private static TextAugmentedHandler MakeHandler(
         string? manifestJson,
         string? annotationsJson = null,
         string? figuresJson = null,
-        Text? cachedText = null)
-        => new(new StubTextStore(manifestJson, annotationsJson, figuresJson), new StubTextCache(cachedText));
+        Text? cachedText = null,
+        bool noText = false)
+        => new(new StubTextStore(manifestJson, annotationsJson, figuresJson),
+            new StubTextCache(noText ? null : (cachedText ?? SpatialText())),
+            new NullLogger<TextAugmentedHandler>());
 
     /// <summary>A Text with one spatial (image-based) canvas.</summary>
     private static Text SpatialText()
@@ -335,6 +543,33 @@ public class TextAugmentedHandlerTests
 
     private static string V3ManifestWithRendering()
         => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://example.org/pdf","type":"Text","format":"application/pdf"}]}""";
+
+    private static string V3ManifestWithExistingSearchV2()
+        => """{"id":"https://example.org/m/1","type":"Manifest","service":[{"id":"https://search.example.org/search/v2/test/book","type":"SearchService2"}]}""";
+
+    private static string V3ManifestWithBothSearchServices()
+        => """{"id":"https://example.org/m/1","type":"Manifest","service":[{"id":"https://search.example.org/search/v2/test/book","type":"SearchService2"},{"id":"https://search.example.org/search/v1/test/book","type":"SearchService1"}]}""";
+
+    private static string V3ManifestWithSearchV2ServiceObject()
+        => """{"id":"https://example.org/m/1","type":"Manifest","service":{"id":"https://search.example.org/search/v2/test/book","type":"SearchService2"}}""";
+
+    private static string V3ManifestWithExistingTextRef()
+        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/text/v1/test/book","type":"Text","format":"text/plain"}]}""";
+
+    private static string V3ManifestWithExistingPdfRef()
+        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/pdf/v1/test/book","type":"Text","format":"application/pdf"}]}""";
+
+    private static string V3ManifestWithExistingPdfAndTextRefs()
+        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/pdf/v1/test/book","type":"Text","format":"application/pdf"},{"id":"https://search.example.org/text/v1/test/book","type":"Text","format":"text/plain"}]}""";
+
+    private static string V3ManifestWithExistingAnnotationsRef()
+        => """{"id":"https://example.org/m/1","type":"Manifest","annotations":[{"id":"https://search.example.org/annotations/manifest/v1/test/book","type":"AnnotationPage"}]}""";
+
+    private static string V3ManifestWithExistingFiguresRef()
+        => """{"id":"https://example.org/m/1","type":"Manifest","annotations":[{"id":"https://search.example.org/identified/figures/test/book","type":"AnnotationPage"}]}""";
+
+    private static string V3ManifestWithSearchContexts()
+        => """{"id":"https://example.org/m/1","type":"Manifest","@context":["http://iiif.io/api/presentation/3/context.json","http://iiif.io/api/search/2/context.json","http://iiif.io/api/search/1/context.json"]}""";
 
     private sealed class StubTextStore(
         string? manifestJson,

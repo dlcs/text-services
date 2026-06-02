@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.HttpOverrides;
 using Serilog;
 using Serilog.Extensions.Logging;
+using TextServices.Infrastructure.Http;
 using TextServices.Pdf;
 using TextServices.Search.Api.Features.Pdf;
 
@@ -18,7 +19,7 @@ internal static class ServiceCollectionExtensions
             .ConfigureHttpClient(c =>
             {
                 c.Timeout = TimeSpan.FromSeconds(60);
-                c.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0 (+https://github.com/dlcs/text-services)");
+                c.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgents.Search);
             });
 
         return services;

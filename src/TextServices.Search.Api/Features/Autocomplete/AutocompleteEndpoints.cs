@@ -8,7 +8,7 @@ internal static class AutocompleteEndpoints
 {
     internal static IEndpointRouteBuilder MapAutocompleteEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/autocomplete/v1/{**id}", async (
+        routes.MapGet("/autocomplete/v1/{*id:minlength(1)}", async (
             string id, string? q,
             ISender sender,
             IOptions<SearchApiOptions> options,
@@ -20,7 +20,7 @@ internal static class AutocompleteEndpoints
             return Results.Json(result, contentType: "application/ld+json");
         });
 
-        routes.MapGet("/autocomplete/v2/{**id}", async (
+        routes.MapGet("/autocomplete/v2/{*id:minlength(1)}", async (
             string id, string? q,
             ISender sender,
             IOptions<SearchApiOptions> options,

@@ -5,8 +5,11 @@ using Amazon.SimpleNotificationService;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.Extensions.Options;
+using Serilog;
+using Serilog.Extensions.Logging;
 using TextServices.Builder.Api.Services;
 using TextServices.Builder.Api.Services.Notifications;
+using TextServices.Infrastructure.Http;
 using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Configuration;
@@ -53,7 +56,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddHttpClient("Resource", client =>
         {
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgents.Builder);
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*", 0.8));
@@ -81,7 +84,9 @@ public static class ServiceCollectionExtensions
             if (!string.IsNullOrEmpty(configuration["TextServices:Storage:S3:BucketName"]))
                 return ActivatorUtilities.CreateInstance<S3TextStore>(sp);
             var storage = sp.GetRequiredService<IOptions<TextServicesOptions>>().Value.Storage;
-            return new FileSystemTextStore(new FileSystemTextStoreOptions { RootPath = storage.RootPath });
+            return ActivatorUtilities.CreateInstance<FileSystemTextStore>(
+                sp,
+                new FileSystemTextStoreOptions { RootPath = storage.FileSystem.RootPath });
         });
 
         return services;

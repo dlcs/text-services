@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using TextServices.Core.Models;
 
 namespace TextServices.Core.Providers;
@@ -15,8 +17,11 @@ namespace TextServices.Core.Providers;
 /// <para>All words within one annotation share the same bounding box (or time range)
 /// and the same line number, so they coalesce correctly in search results.</para>
 /// </summary>
-public class W3cAnnotationTextFormatProvider : IStringFormatProvider
+public class W3cAnnotationTextFormatProvider(ILogger<W3cAnnotationTextFormatProvider>? logger = null) : IStringFormatProvider
 {
+    private readonly ILogger<W3cAnnotationTextFormatProvider> _logger =
+        logger ?? NullLogger<W3cAnnotationTextFormatProvider>.Instance;
+
     /// <summary>
     /// Internal sentinel value written into <c>PageInstruction.Format</c> by
     /// <c>ManifestReducer</c> when an externally-referenced AnnotationPage is
@@ -45,7 +50,11 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
 
         foreach (var anno in items.EnumerateArray())
         {
-            if (!HasSupplementingMotivation(anno)) continue;
+            if (!HasSupplementingMotivation(anno))
+            {
+                _logger.LogTrace("Skipped annotation without 'supplementing' motivation on page '{Id}'", imageIdentifier);
+                continue;
+            }
             if (!anno.TryGetProperty("body", out var bodyEl)) continue;
 
             var body = bodyEl.ValueKind == JsonValueKind.Array
@@ -65,7 +74,11 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
 
             if (!anno.TryGetProperty("target", out var targetEl)) continue;
             var target = ParseTarget(targetEl);
-            if (target == null) continue;
+            if (target == null)
+            {
+                _logger.LogDebug("Could not parse target for annotation on page '{Id}'; skipping", imageIdentifier);
+                continue;
+            }
 
             entries.Add((text, target.Value));
         }
@@ -180,7 +193,7 @@ public class W3cAnnotationTextFormatProvider : IStringFormatProvider
             if (coords.StartsWith("pixel:", StringComparison.OrdinalIgnoreCase))
                 coords = coords[6..];
             else if (coords.StartsWith("percent:", StringComparison.OrdinalIgnoreCase))
-                return null; // percentage coordinates not supported
+                return null; // percentage coordinates not supported — logged by caller
 
             var parts = coords.Split(',');
             if (parts.Length != 4) return null;

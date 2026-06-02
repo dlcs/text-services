@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using Amazon.S3;
 using AsyncKeyedLock;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Options;
@@ -60,11 +61,30 @@ builder.Services.ConfigureForwardedHeaders(builder.Configuration);
 
 // ---- Storage ----------------------------------------------------------------
 
+builder.Services.AddDefaultAWSOptions(builder.Configuration.GetAWSOptions());
+
+if (!string.IsNullOrEmpty(builder.Configuration["TextServices:Storage:S3:BucketName"]))
+{
+    Log.Debug("Using S3 storage for text artefacts");
+    builder.Services.AddAWSService<IAmazonS3>();
+}
+
 builder.Services.AddSingleton<ITextStore>(sp =>
-    new FileSystemTextStore(new FileSystemTextStoreOptions
+{
+    var opts = sp.GetRequiredService<IOptions<SearchApiOptions>>().Value;
+    if (!string.IsNullOrEmpty(opts.Storage.S3.BucketName))
     {
-        RootPath = sp.GetRequiredService<IOptions<SearchApiOptions>>().Value.StorageRootPath
-    }));
+        var s3Opts = Options.Create(new S3TextStoreOptions
+        {
+            BucketName = opts.Storage.S3.BucketName,
+            KeyPrefix = opts.Storage.S3.KeyPrefix
+        });
+        return ActivatorUtilities.CreateInstance<S3TextStore>(sp, s3Opts);
+    }
+    return ActivatorUtilities.CreateInstance<FileSystemTextStore>(
+        sp,
+        new FileSystemTextStoreOptions { RootPath = opts.Storage.FileSystem.RootPath });
+});
 
 // ITextStore is also injected directly into TextAugmentedHandler (manifest is plain JSON,
 // not routed through the Text/AutoComplete cache).

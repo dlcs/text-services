@@ -1,4 +1,6 @@
 using System.Xml.Linq;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using TextServices.Core.Models;
 
 namespace TextServices.Core.Providers;
@@ -14,8 +16,10 @@ namespace TextServices.Core.Providers;
 /// engine producing <c>ocr_word</c> spans.  Well-formed XHTML input is required;
 /// <see cref="XElement.Parse"/> is used by the fetcher before this provider receives the root.
 /// </summary>
-public class HocrTextFormatProvider : ITextFormatProvider
+public class HocrTextFormatProvider(ILogger<HocrTextFormatProvider>? logger = null) : ITextFormatProvider
 {
+    private readonly ILogger<HocrTextFormatProvider> _logger = logger ?? NullLogger<HocrTextFormatProvider>.Instance;
+
     /// <inheritdoc/>
     /// <remarks>
     /// Detects hOCR by looking for "hocr" in the seeAlso <paramref name="profile"/> URI
@@ -39,7 +43,12 @@ public class HocrTextFormatProvider : ITextFormatProvider
         int canvasHeight)
     {
         // Locate the ocr_page element — may be the root itself or a descendant.
-        var pageEl = FindByClass(root, "ocr_page").FirstOrDefault() ?? root;
+        var foundPage = FindByClass(root, "ocr_page").FirstOrDefault();
+        if (foundPage == null)
+        {
+            _logger.LogDebug("No ocr_page element found for page '{Id}'; using root element", imageIdentifier);
+        }
+        var pageEl = foundPage ?? root;
 
         // Derive the coordinate scale from the page-level bbox when present.
         // hOCR bbox coords are x0 y0 x1 y1; for a page starting at 0,0 x1=pageW, y1=pageH.
@@ -66,8 +75,13 @@ public class HocrTextFormatProvider : ITextFormatProvider
 
             foreach (var wordEl in wordEls)
             {
-                var bbox = ParseBbox(wordEl.Attribute("title")?.Value);
-                if (bbox is null) continue;
+                var wordTitle = wordEl.Attribute("title")?.Value;
+                var bbox = ParseBbox(wordTitle);
+                if (bbox is null)
+                {
+                    if (wordTitle != null) _logger.LogDebug("Could not parse bbox for word on page '{Id}'; skipping", imageIdentifier);
+                    continue;
+                }
 
                 // Collect all text under this element, ignoring child markup.
                 var rawWord = string.Concat(

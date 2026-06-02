@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Core.Providers;
@@ -24,7 +25,7 @@ public class SearchHandlerTests
     public async Task Handle_EmptyQuery_ReturnsEmptyResponse()
     {
         var text = BuildText([("https://example.org/c/1", 1000, 1500, "hello world")]);
-        var handler = new SearchHandler(new StubTextCache(text));
+        var handler = new SearchHandler(new StubTextCache(text), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest("test/book", "", SelfUrl, SelfUrl), CancellationToken.None);
@@ -39,7 +40,7 @@ public class SearchHandlerTests
     public async Task Handle_QueryNotFound_ReturnsEmptyResponse()
     {
         var text = BuildText([("https://example.org/c/1", 1000, 1500, "hello world")]);
-        var handler = new SearchHandler(new StubTextCache(text));
+        var handler = new SearchHandler(new StubTextCache(text), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest("test/book", "parliament", SelfUrl, SelfUrl), CancellationToken.None);
@@ -52,7 +53,7 @@ public class SearchHandlerTests
     [Fact]
     public async Task Handle_TextNotFound_ReturnsNull()
     {
-        var handler = new SearchHandler(new StubTextCache(null));
+        var handler = new SearchHandler(new StubTextCache(null), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest("missing/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -69,7 +70,7 @@ public class SearchHandlerTests
     {
         var canvasId = "https://example.org/c/1";
         var text = BuildText([(canvasId, 1000, 1500, "the quick brown fox")]);
-        var handler = new SearchHandler(new StubTextCache(text));
+        var handler = new SearchHandler(new StubTextCache(text), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest("test/book", "quick", SelfUrl, SelfUrl), CancellationToken.None);
@@ -91,7 +92,7 @@ public class SearchHandlerTests
     public async Task Handle_SingleHit_CorrectHitShape()
     {
         var text = BuildText([("https://example.org/c/1", 1000, 1500, "the quick brown fox")]);
-        var handler = new SearchHandler(new StubTextCache(text));
+        var handler = new SearchHandler(new StubTextCache(text), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest("test/book", "quick", SelfUrl, SelfUrl), CancellationToken.None);
@@ -112,7 +113,7 @@ public class SearchHandlerTests
     public async Task Handle_ResponseHasCorrectId()
     {
         var text = BuildText([("https://example.org/c/1", 1000, 1500, "hello world")]);
-        var handler = new SearchHandler(new StubTextCache(text));
+        var handler = new SearchHandler(new StubTextCache(text), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -127,7 +128,7 @@ public class SearchHandlerTests
     {
         // "the" appears twice in this text
         var text = BuildText([("https://example.org/c/1", 1000, 1500, "the quick brown the fox")]);
-        var handler = new SearchHandler(new StubTextCache(text));
+        var handler = new SearchHandler(new StubTextCache(text), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest("test/book", "the", SelfUrl, SelfUrl), CancellationToken.None);
@@ -142,7 +143,7 @@ public class SearchHandlerTests
     {
         var selfUrlWithQuery = $"{SelfUrl}?q=quick";
         var text = BuildText([("https://example.org/c/1", 1000, 1500, "the quick brown fox")]);
-        var handler = new SearchHandler(new StubTextCache(text));
+        var handler = new SearchHandler(new StubTextCache(text), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest("test/book", "quick", selfUrlWithQuery, SelfUrl), CancellationToken.None);
@@ -163,7 +164,7 @@ public class SearchHandlerTests
             (canvas1, 1000, 1500, "hello world"),
             (canvas2, 1000, 1500, "parliament square"),
         ]);
-        var handler = new SearchHandler(new StubTextCache(text));
+        var handler = new SearchHandler(new StubTextCache(text), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest("test/book", "parliament", SelfUrl, SelfUrl), CancellationToken.None);

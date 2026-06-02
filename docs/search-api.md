@@ -501,7 +501,11 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
     "CacheSlidingExpirationMinutes": 30,
     "CacheAbsoluteExpirationHours": 4,
     "CacheMaxEntries": 20,
-    "StorageRootPath": "/data/textservices",
+    "Storage": {
+      "FileSystem": {
+        "RootPath": "/data/textservices"
+      }
+    },
     "PdfTriggerQueueCapacity": 50,
     "PdfTriggerMaxConcurrency": 2
   }
@@ -510,15 +514,17 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
 
 | Setting | Default | Description |
 |---|---|---|
-| `BaseUrl` | `""` | Public base URL of this API. Required when running behind a reverse proxy; without it, self-referencing URLs in responses will use the incoming `Host` header, which may be internal. |
-| `CacheSlidingExpirationMinutes` | `30` | How long a text object stays in the memory cache after its last access. |
-| `CacheAbsoluteExpirationHours` | `4` | Hard upper limit on cache lifetime, regardless of access frequency. Prevents large objects from living in the LOH indefinitely. |
-| `CacheMaxEntries` | `20` | Maximum number of Text (and AutoComplete) objects held in memory simultaneously. Each object counts as one slot; LRU eviction applies when the limit is reached. Budget approximately 30–40 MB per large text when sizing container memory. |
-| `StorageRootPath` | `textservices-data` | Root directory of the text artefact store. Must point to the same location as the Builder API's `Storage:RootPath`. |
-| `PdfTriggerQueueCapacity` | `50` | Maximum number of PDF trigger requests that can be queued for background generation. Requests beyond this limit receive `503 Service Unavailable`. |
-| `PdfTriggerMaxConcurrency` | `2` | Maximum number of PDFs generated concurrently by the background trigger queue. Each in-flight generation buffers the full PDF in memory — keep this low on memory-constrained hosts. |
-| `AllowFileImageProxy` | `false` | When `true`, the `/proxy/image` endpoint streams local `file://` images. Only enable in trusted local-dev environments where those files are not access-controlled. |
-| `AllowedCustomHosts` | `[]` | Hostnames accepted from the `X-Forwarded-Host` request header (e.g. custom CloudFront distributions). See [Forwarded-header URL rewriting](#forwarded-header-url-rewriting) below. |
+| `TextServices:BaseUrl` | `""` | Public base URL of this API. Required when running behind a reverse proxy; without it, self-referencing URLs in responses will use the incoming `Host` header, which may be internal. |
+| `TextServices:CacheSlidingExpirationMinutes` | `30` | How long a text object stays in the memory cache after its last access. |
+| `TextServices:CacheAbsoluteExpirationHours` | `4` | Hard upper limit on cache lifetime, regardless of access frequency. Prevents large objects from living in the LOH indefinitely. |
+| `TextServices:CacheMaxEntries` | `20` | Maximum number of Text (and AutoComplete) objects held in memory simultaneously. Each object counts as one slot; LRU eviction applies when the limit is reached. Budget approximately 30–40 MB per large text when sizing container memory. |
+| `TextServices:Storage:FileSystem:RootPath` | `textservices-data` | Root directory of the text artefact store. Must match the Builder API's `TextServices:Storage:FileSystem:RootPath`. Ignored when S3 storage is configured. |
+| `TextServices:Storage:S3:BucketName` | `""` | S3 bucket for stored artefacts. When set, the S3 store is used instead of the filesystem store. Must match the Builder API's `TextServices:Storage:S3:BucketName`. |
+| `TextServices:Storage:S3:KeyPrefix` | `""` | Optional prefix for all S3 object keys (e.g. `"textservices/"`). A trailing `/` is added automatically if omitted. Must match the Builder API's `TextServices:Storage:S3:KeyPrefix`. |
+| `TextServices:PdfTriggerQueueCapacity` | `50` | Maximum number of PDF trigger requests that can be queued for background generation. Requests beyond this limit receive `503 Service Unavailable`. |
+| `TextServices:PdfTriggerMaxConcurrency` | `2` | Maximum number of PDFs generated concurrently by the background trigger queue. Each in-flight generation buffers the full PDF in memory — keep this low on memory-constrained hosts. |
+| `TextServices:AllowFileImageProxy` | `false` | When `true`, the `/proxy/image` endpoint streams local `file://` images. Only enable in trusted local-dev environments where those files are not access-controlled. |
+| `TextServices:AllowedCustomHosts` | `[]` | Hostnames accepted from the `X-Forwarded-Host` request header (e.g. custom CloudFront distributions). See [Forwarded-header URL rewriting](#forwarded-header-url-rewriting) below. |
 
 ---
 

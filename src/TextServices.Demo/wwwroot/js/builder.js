@@ -96,7 +96,6 @@ async function refreshJobs() {
     let apiJobs = [];
     let apiReachable = true;
     try {
-        // TODO: add paging controls — pageSize=100 is a temporary workaround
         const res = await fetch(`${config.builderApi}/textbuilder?pageSize=100`);
         if (res.ok) {
             const data = await res.json();

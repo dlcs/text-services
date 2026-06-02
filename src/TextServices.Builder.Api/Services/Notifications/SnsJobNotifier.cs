@@ -20,6 +20,7 @@ internal sealed class SnsJobNotifier(
         try
         {
             var messageType = notification.Status == JobStatus.Completed ? "JobCompleted" : "JobFailed";
+            logger.LogDebug("Raising {MessageType} notification: {JobId}", messageType, notification.JobId);
 
             await sns.PublishAsync(new PublishRequest
             {

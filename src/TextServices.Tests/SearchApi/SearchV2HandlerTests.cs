@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Core.Providers;
@@ -23,7 +24,7 @@ public class SearchV2HandlerTests
     [Fact]
     public async Task Handle_TextNotFound_ReturnsNull()
     {
-        var handler = new SearchV2Handler(new StubTextCache(null));
+        var handler = GetSearchV2Handler(null);
 
         var result = await handler.Handle(
             new SearchV2Request("missing/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -35,7 +36,7 @@ public class SearchV2HandlerTests
     public async Task Handle_EmptyQuery_ReturnsEmptyResponse()
     {
         var text = BuildSpatialText([("https://example.org/c/1", 1000, 1500, "hello world")]);
-        var handler = new SearchV2Handler(new StubTextCache(text));
+        var handler = GetSearchV2Handler(text);
 
         var result = await handler.Handle(
             new SearchV2Request("test/book", "", SelfUrl, SelfUrl), CancellationToken.None);
@@ -53,7 +54,7 @@ public class SearchV2HandlerTests
     {
         var canvasId = "https://example.org/c/audio";
         var text = BuildTemporalText(canvasId, "00:00:05.000 --> 00:00:08.500\nHello world\n");
-        var handler = new SearchV2Handler(new StubTextCache(text));
+        var handler = GetSearchV2Handler(text);
 
         var result = await handler.Handle(
             new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -68,7 +69,7 @@ public class SearchV2HandlerTests
     {
         var canvasId = "https://example.org/c/audio";
         var text = BuildTemporalText(canvasId, "00:00:05.000 --> 00:00:08.500\nHello world\n");
-        var handler = new SearchV2Handler(new StubTextCache(text));
+        var handler = GetSearchV2Handler(text);
 
         var result = await handler.Handle(
             new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -84,7 +85,7 @@ public class SearchV2HandlerTests
     {
         var canvasId = "https://example.org/c/audio";
         var text = BuildTemporalText(canvasId, "00:00:05.500 --> 00:00:08.750\nHello world\n");
-        var handler = new SearchV2Handler(new StubTextCache(text));
+        var handler = GetSearchV2Handler(text);
 
         var result = await handler.Handle(
             new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -103,7 +104,7 @@ public class SearchV2HandlerTests
         var canvasId = "https://example.org/c/audio";
         // StartMs = 5000 → 5 seconds
         var text = BuildTemporalText(canvasId, "00:00:05.000 --> 00:00:08.500\nHello world\n");
-        var handler = new SearchV2Handler(new StubTextCache(text));
+        var handler = GetSearchV2Handler(text);
 
         var result = await handler.Handle(
             new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -122,7 +123,7 @@ public class SearchV2HandlerTests
     {
         var canvasId = "https://example.org/c/1";
         var text = BuildSpatialText([(canvasId, 1000, 1500, "the quick brown fox")]);
-        var handler = new SearchV2Handler(new StubTextCache(text));
+        var handler = GetSearchV2Handler(text);
 
         var result = await handler.Handle(
             new SearchV2Request("test/book", "quick", SelfUrl, SelfUrl), CancellationToken.None);
@@ -140,7 +141,7 @@ public class SearchV2HandlerTests
         var selfUrlWithQuery = $"{SelfUrl}?q=quick";
         var canvasId = "https://example.org/c/1";
         var text = BuildSpatialText([(canvasId, 1000, 1500, "the quick brown fox")]);
-        var handler = new SearchV2Handler(new StubTextCache(text));
+        var handler = GetSearchV2Handler(text);
 
         var result = await handler.Handle(
             new SearchV2Request("test/book", "quick", selfUrlWithQuery, SelfUrl), CancellationToken.None);
@@ -158,7 +159,7 @@ public class SearchV2HandlerTests
         var selfUrlWithQuery = $"{SelfUrl}?q=quick";
         var canvasId = "https://example.org/c/1";
         var text = BuildSpatialText([(canvasId, 1000, 1500, "the quick brown fox")]);
-        var handler = new SearchV2Handler(new StubTextCache(text));
+        var handler = GetSearchV2Handler(text);
 
         var result = await handler.Handle(
             new SearchV2Request("test/book", "quick", selfUrlWithQuery, SelfUrl), CancellationToken.None);
@@ -179,7 +180,7 @@ public class SearchV2HandlerTests
     {
         var canvasId = "https://example.org/c/audio";
         var text = BuildTemporalText(canvasId, "00:00:05.000 --> 00:00:08.500\nHello world\n");
-        var handler = new SearchV2Handler(new StubTextCache(text));
+        var handler = GetSearchV2Handler(text);
 
         var result = await handler.Handle(
             new SearchV2Request("test/book", "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -193,6 +194,10 @@ public class SearchV2HandlerTests
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+    private static SearchV2Handler GetSearchV2Handler(Text? text)
+    {
+        return new SearchV2Handler(new StubTextCache(text), new NullLogger<SearchV2Handler>());
+    }
 
     /// <summary>
     /// Builds a temporal <see cref="Text"/> from a canvas id and raw VTT cue block

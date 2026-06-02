@@ -38,14 +38,14 @@ public class PdfGenerationService(
         var text = await textStore.LoadText(id);
         if (text == null)
         {
-            logger.LogWarning("PDF generation: no Text artefact for {Id}", id);
+            logger.LogWarning("No Text artefact for {Id}", id);
             return;
         }
 
         var manifestJson = await textStore.LoadManifest(id);
         if (manifestJson == null)
         {
-            logger.LogWarning("PDF generation: no Manifest for {Id}", id);
+            logger.LogWarning("No Manifest for {Id}", id);
             return;
         }
 
