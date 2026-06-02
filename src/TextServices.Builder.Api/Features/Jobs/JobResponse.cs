@@ -1,5 +1,6 @@
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
+using TextServices.Infrastructure;
 using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Features.Jobs;
@@ -76,30 +77,30 @@ public class JobResponse
 
             if (fulfilled.HasFlag(JobServices.Search))
             {
-                searchV1 = $"{baseUrl}/search/v1/{job.Id}";
-                searchV2 = $"{baseUrl}/search/v2/{job.Id}";
+                searchV1 = SearchApiRoutes.SearchV1(baseUrl, job.Id);
+                searchV2 = SearchApiRoutes.SearchV2(baseUrl, job.Id);
             }
 
             if (fulfilled.HasFlag(JobServices.Autocomplete))
             {
-                autocompleteV1 = $"{baseUrl}/autocomplete/v1/{job.Id}";
-                autocompleteV2 = $"{baseUrl}/autocomplete/v2/{job.Id}";
+                autocompleteV1 = SearchApiRoutes.AutocompleteV1(baseUrl, job.Id);
+                autocompleteV2 = SearchApiRoutes.AutocompleteV2(baseUrl, job.Id);
             }
 
             if (fulfilled.HasFlag(JobServices.FullText))
-                fullText = $"{baseUrl}/text/v1/{job.Id}";
+                fullText = SearchApiRoutes.FullText(baseUrl, job.Id);
 
             if (fulfilled.HasFlag(JobServices.Pdf))
-                pdf = $"{baseUrl}/pdf/v1/{job.Id}";
+                pdf = SearchApiRoutes.Pdf(baseUrl, job.Id);
 
             if (fulfilled.HasFlag(JobServices.TextAugmented))
-                textAugmented = $"{baseUrl}/text-augmented/v3/{job.Id}";
+                textAugmented = SearchApiRoutes.TextAugmented(baseUrl, job.Id);
 
             if (fulfilled.HasFlag(JobServices.Annotations))
-                annotations = $"{baseUrl}/annotations/manifest/v1/{job.Id}";
+                annotations = SearchApiRoutes.AnnotationsManifest(baseUrl, job.Id);
 
             if (fulfilled.HasFlag(JobServices.Figures))
-                figures = $"{baseUrl}/identified/figures/{job.Id}";
+                figures = SearchApiRoutes.Figures(baseUrl, job.Id);
         }
 
         return new JobResponse

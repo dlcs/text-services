@@ -2,19 +2,6 @@ using TextServices.Search.Api.Configuration;
 
 namespace TextServices.Search.Api.Features;
 
-/// <summary>
-/// Holds the resolved URL components for a single endpoint request, accounting for
-/// <c>X-Forwarded-Host</c> and <c>X-Forwarded-Path</c> proxy headers.
-/// </summary>
-/// <param name="EffectiveId">
-/// Job id to use in generated IIIF URLs. Extracted from <c>X-Forwarded-Path</c> when a
-/// whitelisted host is present; otherwise equals the original route id.
-/// </param>
-/// <param name="SelfUrl">Absolute URL for this endpoint response (base + route prefix + effective id + query).</param>
-/// <param name="ResourceUrl">Absolute URL without query string. Used as the base for child resource IDs (e.g. annotations).</param>
-/// <param name="BaseUrl">Scheme + authority only (no path). Configured URL or based on x-forwarded-host if valid.</param>
-internal record ResolvedRequest(string EffectiveId, string SelfUrl, string ResourceUrl, string BaseUrl);
-
 internal static class EndpointHelpers
 {
     /// <summary>

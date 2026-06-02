@@ -15,19 +15,15 @@ namespace TextServices.Search.Api.Features.TextAugmented;
 /// No @context is emitted inside service blocks — it belongs only at document level.
 /// </summary>
 /// <param name="Id">Storage key used to load artefacts from the text store.</param>
-/// <param name="SelfUrl">Absolute URL for this endpoint response (base + route prefix + effective id + query).</param>
-/// <param name="SearchBaseUrl">
-/// Scheme + authority only (no path). Used by TextAugmented to build cross-endpoint service URLs
+/// <param name="Resolved">
+/// Resolved URL components for this request. <see cref="ResolvedRequest.EffectiveId"/> is used
+/// for generated IIIF service URLs; it may differ from <see cref="Id"/> when the request arrived
+/// via a proxy that rewrites the path (X-Forwarded-Path).
 /// </param>
-/// <param name="UrlId">
-/// Id to use when generating IIIF service URLs. Differs from <see cref="Id"/> when the
-/// request arrived via a proxy that rewrites the path (X-Forwarded-Path). Defaults to
-/// <see cref="Id"/> when null.
-/// </param>
-public record TextAugmentedRequest(string Id, string SelfUrl, string SearchBaseUrl, string? UrlId = null)
+internal record TextAugmentedRequest(string Id, ResolvedRequest Resolved)
     : IRequest<JsonNode?>;
 
-public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, ILogger<TextAugmentedHandler> logger)
+internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, ILogger<TextAugmentedHandler> logger)
     : IRequestHandler<TextAugmentedRequest, JsonNode?>
 {
     public async Task<JsonNode?> Handle(TextAugmentedRequest request, CancellationToken ct)
@@ -51,24 +47,23 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
             return null;
         }
 
-        var baseUrl = request.SearchBaseUrl;
-        var id = request.UrlId ?? request.Id;
         var text = await textCache.GetTextAsync(request.Id, ct);
 
-        ReplaceSelfUrl(manifest, request.SelfUrl);
+        var resolvedRequestUris = request.Resolved;
+        ReplaceSelfUrl(manifest, resolvedRequestUris.SelfUrl);
         if (text != null)
         {
-            InjectSearchServices(manifest, baseUrl, id);
-            InjectRenderingLinks(manifest, baseUrl, id, text);
-            InjectCanvasAnnotationRefs(manifest, baseUrl, id, text);
+            InjectSearchServices(manifest, resolvedRequestUris);
+            InjectRenderingLinks(manifest, resolvedRequestUris, text);
+            InjectCanvasAnnotationRefs(manifest, resolvedRequestUris, text);
         }
         else
         {
             logger.LogDebug("Text not found: {Id}", request.Id);
         }
 
-        await InjectManifestAnnotationsRefAsync(manifest, baseUrl, id, request.Id);
-        await InjectFiguresRefAsync(manifest, baseUrl, id, request.Id);
+        await InjectManifestAnnotationsRefAsync(manifest, resolvedRequestUris, request.Id);
+        await InjectFiguresRefAsync(manifest, resolvedRequestUris, request.Id);
 
         return manifest;
     }
@@ -81,28 +76,28 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
             manifest["id"] = selfUrl;
     }
 
-    private void InjectSearchServices(JsonObject manifest, string baseUrl, string id)
+    private void InjectSearchServices(JsonObject manifest, ResolvedRequest resolved)
     {
-        logger.LogDebug("Adding search-services: {Id}", id);
+        logger.LogDebug("Adding search-services: {Id}", resolved.EffectiveId);
         var searchServiceV2 = new JsonObject
         {
-            ["id"] = $"{baseUrl}/search/v2/{id}", // TODO - can we build these from a central place?
+            ["id"] = resolved.SearchV2Url(),
             ["type"] = "SearchService2",
             ["service"] = new JsonArray(new JsonObject
             {
-                ["id"] = $"{baseUrl}/autocomplete/v2/{id}",
+                ["id"] = resolved.AutocompleteV2Url(),
                 ["type"] = "AutoCompleteService2",
             }),
         };
 
         var searchServiceV1 = new JsonObject
         {
-            ["id"] = $"{baseUrl}/search/v1/{id}",
+            ["id"] = resolved.SearchV1Url(),
             ["type"] = "SearchService1",
             ["profile"] = "http://iiif.io/api/search/1/search",
             ["service"] = new JsonArray(new JsonObject
             {
-                ["id"] = $"{baseUrl}/autocomplete/v1/{id}",
+                ["id"] = resolved.AutocompleteV1Url(),
                 ["type"] = "AutoCompleteService1",
                 ["profile"] = "http://iiif.io/api/search/1/autocomplete",
             }),
@@ -133,9 +128,9 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
         AppendContext(manifest, "http://iiif.io/api/search/1/context.json");
     }
 
-    private void InjectRenderingLinks(JsonObject manifest, string baseUrl, string id, Text text)
+    private void InjectRenderingLinks(JsonObject manifest, ResolvedRequest resolved, Text text)
     {
-        logger.LogDebug("Adding rendering: {Id}", id);
+        logger.LogDebug("Adding rendering: {Id}", resolved.EffectiveId);
 
         // PDF is only added when at least one canvas is image-based (IsTemporalContent == false);
         // temporal-only manifests (VTT/audio/video) have no page images to render into a PDF.
@@ -143,7 +138,7 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
 
         var textRef = new JsonObject
         {
-            ["id"] = $"{baseUrl}/text/v1/{id}",
+            ["id"] = resolved.FullTextUrl(),
             ["type"] = "Text",
             ["label"] = new JsonObject { ["en"] = new JsonArray("View as plain text") },
             ["format"] = "text/plain",
@@ -152,28 +147,28 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
         if (manifest["rendering"] is JsonArray existingRendering)
         {
             AddIfNew(existingRendering, textRef);
-            if (hasImageCanvases) AddIfNew(existingRendering, BuildPdfRef(baseUrl, id));
+            if (hasImageCanvases) AddIfNew(existingRendering, BuildPdfRef(resolved));
         }
         else if (manifest["rendering"] is JsonObject singleRendering)
         {
             var arr = new JsonArray(singleRendering.DeepClone());
             AddIfNew(arr, textRef);
-            if (hasImageCanvases) AddIfNew(arr, BuildPdfRef(baseUrl, id));
+            if (hasImageCanvases) AddIfNew(arr, BuildPdfRef(resolved));
             manifest["rendering"] = arr;
         }
         else
         {
             manifest["rendering"] = hasImageCanvases
-                ? new JsonArray(BuildPdfRef(baseUrl, id), textRef)
+                ? new JsonArray(BuildPdfRef(resolved), textRef)
                 : new JsonArray(textRef);
         }
     }
 
-    private void InjectCanvasAnnotationRefs(JsonObject manifest, string baseUrl, string id, Text text)
+    private void InjectCanvasAnnotationRefs(JsonObject manifest, ResolvedRequest resolved, Text text)
     {
         if (manifest["items"] is not JsonArray canvases) return;
 
-        logger.LogDebug("Adding canvas annotations: {Id}", id);
+        logger.LogDebug("Adding canvas annotations: {Id}", resolved.EffectiveId);
 
         // Build a set of canvas indices that have at least one word, in O(words).
         var canvasesWithWords = text.Words.Values.Select(w => w.Idx).ToHashSet();
@@ -185,13 +180,13 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
 
             var linesRef = new JsonObject
             {
-                ["id"] = $"{baseUrl}/annotations/lines/v1/{i}/{id}",
+                ["id"] = resolved.AnnotationsLinesUrl(i),
                 ["type"] = "AnnotationPage",
                 ["label"] = new JsonObject { ["en"] = new JsonArray("Line-level transcription") },
             };
             var wordsRef = new JsonObject
             {
-                ["id"] = $"{baseUrl}/annotations/words/v1/{i}/{id}",
+                ["id"] = resolved.AnnotationsWordsUrl(i),
                 ["type"] = "AnnotationPage",
                 ["label"] = new JsonObject { ["en"] = new JsonArray("Word-level transcription") },
             };
@@ -215,16 +210,16 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
         }
     }
 
-    private async Task InjectManifestAnnotationsRefAsync(JsonObject manifest, string baseUrl, string id, string key)
+    private async Task InjectManifestAnnotationsRefAsync(JsonObject manifest, ResolvedRequest resolved, string key)
     {
         var annotationsJson = await textStore.LoadAnnotations(key);
         if (annotationsJson == null) return;
 
-        logger.LogDebug("Adding Manifest annotations: {Id}", id);
+        logger.LogDebug("Adding Manifest annotations: {Id}", resolved.EffectiveId);
 
         var annotationsRef = new JsonObject
         {
-            ["id"] = $"{baseUrl}/annotations/manifest/v1/{id}",
+            ["id"] = resolved.AnnotationsManifestUrl(),
             ["type"] = "AnnotationPage",
             ["profile"] = "https://dlcs.io/profiles/all-text",
             ["label"] = new JsonObject { ["en"] = new JsonArray("Text of all canvases") },
@@ -246,16 +241,16 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
         }
     }
 
-    private async Task InjectFiguresRefAsync(JsonObject manifest, string baseUrl, string id, string key)
+    private async Task InjectFiguresRefAsync(JsonObject manifest, ResolvedRequest resolved, string key)
     {
         var figuresJson = await textStore.LoadFigures(key);
         if (figuresJson == null) return;
 
-        logger.LogDebug("Adding figures: {Id}", id);
+        logger.LogDebug("Adding figures: {Id}", resolved.EffectiveId);
 
         var figuresRef = new JsonObject
         {
-            ["id"] = $"{baseUrl}/identified/figures/{id}",
+            ["id"] = resolved.FiguresUrl(),
             ["type"] = "AnnotationPage",
             ["label"] = new JsonObject
             {
@@ -303,9 +298,9 @@ public class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, IL
         }
     }
 
-    private static JsonObject BuildPdfRef(string baseUrl, string id) => new()
+    private static JsonObject BuildPdfRef(ResolvedRequest resolved) => new()
     {
-        ["id"] = $"{baseUrl}/pdf/v1/{id}",
+        ["id"] = resolved.PdfUrl(),
         ["type"] = "Text",
         ["label"] = new JsonObject { ["en"] = new JsonArray("Download as PDF") },
         ["format"] = "application/pdf",
