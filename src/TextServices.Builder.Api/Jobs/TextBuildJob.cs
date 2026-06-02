@@ -147,18 +147,6 @@ public class TextBuildJob(
         // Fetch all pages concurrently, bounded by MaxConcurrentPageFetches.
         // Results are stored into a pre-allocated array so TextBuilder receives
         // canvases in the correct sequence.
-        //
-        // TODO: The right concurrency limit depends on where the text files live.
-        //   - Third-party HTTP (e.g. Wellcome, Internet Archive): keep low (4–8) for
-        //     politeness and to avoid rate-limiting.
-        //   - Internal/trusted HTTP: can be higher (16–32).
-        //   - S3 (s3:// or https://*.s3.amazonaws.com): S3 supports very high
-        //     parallelism on the same bucket; 64–128 is reasonable. When an S3
-        //     ITextStore is in use the ALTO URIs will typically be pre-signed HTTPS
-        //     URLs or s3:// keys fetched via the AWS SDK — detect by scheme or
-        //     hostname pattern and use a higher limit for those.
-        //   Consider deriving the limit from the scheme/host of pages[0].Text, or
-        //   adding a per-host override table to TextServicesOptions.
 
         // pdf-type pages embed an existing PDF; they have no text to build.
         // Custom-type pages are generated at PDF render time; no text to fetch.

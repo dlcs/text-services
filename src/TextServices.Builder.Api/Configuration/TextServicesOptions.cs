@@ -29,14 +29,6 @@ public class TextServicesOptions
 
     /// <summary>
     /// Maximum number of text files (ALTO, VTT, AnnotationPage) fetched concurrently within a single job.
-    /// The right value depends on the source:
-    /// <list type="bullet">
-    ///   <item>Third-party HTTP (Wellcome, Internet Archive, etc.): 4–8 for politeness.</item>
-    ///   <item>Internal/trusted HTTP: 16–32.</item>
-    ///   <item>S3 (same-region, same-bucket): 64–128 — S3 handles high parallelism well.</item>
-    /// </list>
-    /// TODO: When S3 storage is added, consider deriving the limit automatically from
-    /// the URI scheme/host of the text links, or adding a per-host override table here.
     /// </summary>
     public int MaxConcurrentPageFetches { get; set; } = 8;
 
