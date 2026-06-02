@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.Json.Serialization;
 using Amazon.S3;
 using AsyncKeyedLock;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -111,6 +112,8 @@ builder.Services
     .AddHttpContextAccessor()
     .AddCorrelationIdHeaderPropagation()
     .AddOpenApi();
+builder.Services.ConfigureHttpJsonOptions(o =>
+    o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
 
 var app = builder.Build();
 

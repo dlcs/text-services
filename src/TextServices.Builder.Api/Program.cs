@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -58,6 +59,8 @@ builder.Services
     .AddHttpContextAccessor()
     .AddCorrelationIdHeaderPropagation();
 builder.Services.AddOpenApi();
+builder.Services.ConfigureHttpJsonOptions(o =>
+    o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<BuilderDbContext>();
 
