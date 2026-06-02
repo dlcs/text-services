@@ -12,7 +12,7 @@ public interface IManifestFetcher
     /// Downloads the manifest at <paramref name="uri"/>, stores the raw JSON, and
     /// returns both the JSON string and the reduced page sequence.
     /// </summary>
-    Task<ManifestFetchResult> FetchAndReduce(string uri, CancellationToken ct = default);
+    Task<ManifestFetchResult> FetchAndReduce(string uri, CancellationToken ct);
 }
 
 /// <param name="Json">The raw manifest JSON as returned by the server.</param>

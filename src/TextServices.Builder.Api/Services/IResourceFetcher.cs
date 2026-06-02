@@ -15,5 +15,5 @@ public interface IResourceFetcher
     /// <exception cref="InvalidOperationException">
     /// <c>s3://</c> URI was given but S3 is not configured.
     /// </exception>
-    Task<Stream?> FetchAsync(string uri, CancellationToken ct = default);
+    Task<Stream?> FetchAsync(string uri, CancellationToken ct);
 }

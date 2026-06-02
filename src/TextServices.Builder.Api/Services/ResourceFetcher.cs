@@ -22,8 +22,7 @@ public sealed class ResourceFetcher(IHttpClientFactory httpClientFactory, IAmazo
             "file" => Task.FromResult(FetchFile(parsed)),
             "s3" => FetchS3Async(parsed, ct),
             "http" or "https" => FetchHttpAsync(uri, ct),
-            var scheme => throw new NotSupportedException(
-                                    $"Unsupported URI scheme '{scheme}': {uri}"),
+            var scheme => throw new NotSupportedException($"Unsupported URI scheme '{scheme}': {uri}"),
         };
     }
 
@@ -44,8 +43,7 @@ public sealed class ResourceFetcher(IHttpClientFactory httpClientFactory, IAmazo
     {
         if (s3 is null)
         {
-            throw new InvalidOperationException(
-                $"s3:// URI encountered but IAmazonS3 is not configured: {uri}");
+            throw new InvalidOperationException($"s3:// URI encountered but IAmazonS3 is not configured: {uri}");
         }
 
         var bucket = uri.Host;
@@ -53,8 +51,7 @@ public sealed class ResourceFetcher(IHttpClientFactory httpClientFactory, IAmazo
 
         try
         {
-            var response = await s3.GetObjectAsync(
-                new GetObjectRequest { BucketName = bucket, Key = key }, ct);
+            var response = await s3.GetObjectAsync(new GetObjectRequest { BucketName = bucket, Key = key }, ct);
             return response.ResponseStream;
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == HttpStatusCode.NotFound)

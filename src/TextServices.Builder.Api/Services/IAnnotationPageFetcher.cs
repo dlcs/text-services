@@ -10,5 +10,5 @@ public interface IAnnotationPageFetcher
     /// or <see langword="null"/> if the resource returns HTTP 404.
     /// Throws for other failure status codes.
     /// </summary>
-    Task<string?> FetchAsync(string uri, CancellationToken ct = default);
+    Task<string?> FetchAsync(string uri, CancellationToken ct);
 }

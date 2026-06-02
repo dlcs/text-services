@@ -503,7 +503,7 @@ public class TextBuildJob(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to fetch page {CanvasId} from {Url}", page.Id, page.TextUri);
+            logger.LogWarning(ex, "Failed to fetch {Url} for canvas {CanvasId}", page.TextUri, page.Id);
             return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
         }
     }

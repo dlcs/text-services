@@ -10,5 +10,5 @@ public interface IVttFetcher
     /// Returns <see langword="null"/> for HTTP 404 (sparse page).
     /// Throws for other failure conditions.
     /// </summary>
-    Task<string?> FetchAsync(string uri, CancellationToken ct = default);
+    Task<string?> FetchAsync(string uri, CancellationToken ct);
 }
