@@ -124,8 +124,8 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
             manifest["service"] = new JsonArray(searchServiceV2, searchServiceV1);
         }
 
-        AppendContext(manifest, "http://iiif.io/api/search/2/context.json");
-        AppendContext(manifest, "http://iiif.io/api/search/1/context.json");
+        PrependContext(manifest, "http://iiif.io/api/search/1/context.json");
+        PrependContext(manifest, "http://iiif.io/api/search/2/context.json");
     }
 
     private void InjectRenderingLinks(JsonObject manifest, ResolvedRequest resolved, Text text)
@@ -281,16 +281,16 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         else array.Add(item);
     }
 
-    private static void AppendContext(JsonObject manifest, string url)
+    private static void PrependContext(JsonObject manifest, string url)
     {
         if (manifest["@context"] is JsonArray arr)
         {
-            if (!arr.Any(n => n?.GetValue<string>() == url))
-                arr.Add(url);
+            if (arr.All(n => n?.GetValue<string>() != url))
+                arr.Insert(0, url);
         }
         else if (manifest["@context"] is JsonValue str)
         {
-            manifest["@context"] = new JsonArray(str.GetValue<string>(), url);
+            manifest["@context"] = new JsonArray(url, str.GetValue<string>());
         }
         else
         {

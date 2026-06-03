@@ -452,7 +452,7 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
-    public async Task Handle_StringContext_PromotesToArrayAndAppendsSearchContexts()
+    public async Task Handle_StringContext_PromotesToArrayAndPrependsSearchContexts()
     {
         var handler = MakeHandler(V3Manifest());
 
@@ -462,14 +462,14 @@ public class TextAugmentedHandlerTests
         var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
         ctx.Select(n => n!.GetValue<string>()).ShouldBe(
         [
-            "http://iiif.io/api/presentation/3/context.json",
             "http://iiif.io/api/search/2/context.json",
             "http://iiif.io/api/search/1/context.json",
+            "http://iiif.io/api/presentation/3/context.json",
         ]);
     }
 
     [Fact]
-    public async Task Handle_ArrayContext_AppendsSearchContexts()
+    public async Task Handle_ArrayContext_PrependsSearchContexts()
     {
         var handler = MakeHandler("""{"id":"https://example.org/m/1","type":"Manifest","@context":["http://iiif.io/api/presentation/3/context.json"]}""");
 
@@ -479,9 +479,9 @@ public class TextAugmentedHandlerTests
         var ctx = result!["@context"].ShouldBeOfType<JsonArray>();
         ctx.Select(n => n!.GetValue<string>()).ShouldBe(
         [
-            "http://iiif.io/api/presentation/3/context.json",
             "http://iiif.io/api/search/2/context.json",
             "http://iiif.io/api/search/1/context.json",
+            "http://iiif.io/api/presentation/3/context.json",
         ]);
     }
 
