@@ -111,7 +111,8 @@ builder.Services.AddMediatR(cfg =>
 builder.Services
     .AddHttpContextAccessor()
     .AddCorrelationIdHeaderPropagation()
-    .AddOpenApi();
+    .AddOpenApi()
+    .AddHealthChecks();
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
 
@@ -133,6 +134,7 @@ app.UseHttpsRedirection();
 
 // ---- Endpoints --------------------------------------------------------------
 
+app.MapHealthChecks("/health");
 app.MapCacheEndpoints()
    .MapSearchEndpoints()
    .MapAutocompleteEndpoints()
