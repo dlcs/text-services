@@ -82,7 +82,7 @@ public class TextBuildJob(
                     jobId, wordCount, imageCount, errors.Count);
 
                 await jobNotifier.Notify(
-                    new JobCompletionNotification(job.Id, job.Status, job.Created, job.Finished,
+                    new JobCompletionNotification(job.Id, job.Status, job.Finished,
                         job.TotalPages, job.TotalWordCount, job.Errors),
                     cancellationToken.ShutdownToken);
             }
@@ -96,7 +96,7 @@ public class TextBuildJob(
                 await db.SaveChangesAsync();
 
                 await jobNotifier.Notify(
-                    new JobCompletionNotification(job.Id, job.Status, job.Created, job.Finished,
+                    new JobCompletionNotification(job.Id, job.Status, job.Finished,
                         job.TotalPages, job.TotalWordCount, job.Errors),
                     cancellationToken.ShutdownToken);
             }
