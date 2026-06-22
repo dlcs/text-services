@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Amazon.SimpleNotificationService;
 using Amazon.SimpleNotificationService.Model;
 using Microsoft.Extensions.Options;
@@ -12,6 +13,13 @@ internal sealed class SnsJobNotifier(
     IOptions<TextServicesOptions> options,
     ILogger<SnsJobNotifier> logger) : IJobNotifier
 {
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() },
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
     public async Task Notify(JobCompletionNotification notification, CancellationToken ct = default)
     {
         var topicArn = options.Value.Notifications.TopicArn;
@@ -25,7 +33,7 @@ internal sealed class SnsJobNotifier(
             await sns.PublishAsync(new PublishRequest
             {
                 TopicArn = topicArn,
-                Message = JsonSerializer.Serialize(notification),
+                Message = JsonSerializer.Serialize(notification, SerializerOptions),
                 MessageAttributes = new Dictionary<string, MessageAttributeValue>
                 {
                     ["MessageType"] = new()

@@ -78,6 +78,26 @@ public sealed class SnsJobNotifierTests
             .MustHaveHappenedOnceExactly();
     }
 
+    [Fact]
+    public async Task Notify_SerialisesMessageWithCamelCaseStringEnumAndOmitsNullErrors()
+    {
+        var sns = A.Fake<IAmazonSimpleNotificationService>();
+        PublishRequest? captured = null;
+        A.CallTo(() => sns.PublishAsync(A<PublishRequest>._, A<CancellationToken>._))
+            .Invokes((PublishRequest r, CancellationToken _) => captured = r)
+            .Returns(new PublishResponse());
+
+        var sut = MakeNotifier(sns, "arn:aws:sns:eu-west-1:123:test-topic");
+
+        await sut.Notify(MakeNotification("books/b123", JobStatus.Waiting));
+
+        captured.ShouldNotBeNull();
+        var message = captured.Message;
+        message.ShouldContain("\"jobId\":\"books/b123\"");
+        message.ShouldContain("\"status\":\"Waiting\"");
+        message.ShouldNotContain("errors");
+    }
+
     // -------------------------------------------------------------------------
     // Error handling
     // -------------------------------------------------------------------------
