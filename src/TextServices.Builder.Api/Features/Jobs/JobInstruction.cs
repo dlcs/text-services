@@ -44,6 +44,13 @@ public class JobInstruction : IValidatableObject
     /// </summary>
     public Dictionary<string, CustomPageType>? CustomTypes { get; set; }
 
+    /// <summary>
+    /// Opaque identifier supplied by the caller (e.g. a pipelineJob GUID). Stored against
+    /// the job and echoed back in <see cref="JobResponse"/> and completion notifications so
+    /// callers can tie a job through to the request that created it.
+    /// </summary>
+    public string? CorrelationId { get; set; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (Id.StartsWith('/'))

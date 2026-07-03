@@ -8,4 +8,5 @@ public record JobCompletionNotification(
     DateTimeOffset? Finished,
     int TotalPages,
     int TotalWordCount,
-    string? Errors);
+    string? Errors,
+    string? CorrelationId);

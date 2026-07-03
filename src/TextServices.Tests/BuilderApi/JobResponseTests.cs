@@ -23,6 +23,28 @@ public class JobResponseTests
         };
 
     // -------------------------------------------------------------------------
+    // CorrelationId — echoed back unchanged
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void From_JobWithCorrelationId_EchoesCorrelationId()
+    {
+        var job = CompletedJob();
+        job.CorrelationId = "caller-supplied-guid";
+
+        var response = JobResponse.From(job, Options());
+
+        response.CorrelationId.ShouldBe("caller-supplied-guid");
+    }
+
+    [Fact]
+    public void From_JobWithoutCorrelationId_CorrelationIdIsNull()
+    {
+        var response = JobResponse.From(CompletedJob(), Options());
+        response.CorrelationId.ShouldBeNull();
+    }
+
+    // -------------------------------------------------------------------------
     // FulfilledServices field
     // -------------------------------------------------------------------------
 

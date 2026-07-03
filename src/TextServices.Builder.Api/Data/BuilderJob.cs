@@ -58,4 +58,11 @@ public class BuilderJob
     /// A value of 0 means processing completed but no derivatives could be produced.
     /// </summary>
     public int? FulfilledServices { get; set; }
+
+    /// <summary>
+    /// Opaque identifier supplied by the caller when the job was created (e.g. a
+    /// pipelineJob GUID). Echoed back in <see cref="Services.Notifications.JobCompletionNotification"/>
+    /// so callers can tie a completion notification to the request that created the job.
+    /// </summary>
+    public string? CorrelationId { get; set; }
 }

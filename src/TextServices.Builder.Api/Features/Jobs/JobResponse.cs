@@ -26,6 +26,12 @@ public class JobResponse
     public string? Errors { get; set; }
 
     /// <summary>
+    /// Opaque identifier supplied by the caller when the job was created. Echoed back
+    /// unchanged so callers can tie this job to the request that created it.
+    /// </summary>
+    public string? CorrelationId { get; set; }
+
+    /// <summary>
     /// The services that were actually produced during the most recent run.
     /// Null for jobs processed before this field was introduced.
     /// Use <see cref="Services"/> to see what was requested.
@@ -119,6 +125,7 @@ public class JobResponse
             TotalWordCount = job.TotalWordCount,
             TotalImageCount = job.TotalImageCount,
             Errors = job.Errors,
+            CorrelationId = job.CorrelationId,
             SearchV1 = searchV1,
             AutocompleteV1 = autocompleteV1,
             SearchV2 = searchV2,
