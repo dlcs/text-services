@@ -26,6 +26,12 @@ public class JobResponse
     public string? Errors { get; set; }
 
     /// <summary>
+    /// Number of times the job processor has been invoked for this job. 1 on initial
+    /// creation, incremented on every reprocess (<c>PUT</c>).
+    /// </summary>
+    public int InvocationCount { get; set; } = 1;
+
+    /// <summary>
     /// The services that were actually produced during the most recent run.
     /// Null for jobs processed before this field was introduced.
     /// Use <see cref="Services"/> to see what was requested.
@@ -119,6 +125,7 @@ public class JobResponse
             TotalWordCount = job.TotalWordCount,
             TotalImageCount = job.TotalImageCount,
             Errors = job.Errors,
+            InvocationCount = job.InvocationCount,
             SearchV1 = searchV1,
             AutocompleteV1 = autocompleteV1,
             SearchV2 = searchV2,

@@ -23,6 +23,28 @@ public class JobResponseTests
         };
 
     // -------------------------------------------------------------------------
+    // InvocationCount — reflects the job's current run count
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void From_NewJob_InvocationCountIsOne()
+    {
+        var response = JobResponse.From(CompletedJob(), Options());
+        response.InvocationCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public void From_ReprocessedJob_InvocationCountReflectsJobValue()
+    {
+        var job = CompletedJob();
+        job.InvocationCount = 3;
+
+        var response = JobResponse.From(job, Options());
+
+        response.InvocationCount.ShouldBe(3);
+    }
+
+    // -------------------------------------------------------------------------
     // FulfilledServices field
     // -------------------------------------------------------------------------
 

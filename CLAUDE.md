@@ -104,7 +104,9 @@ or with inline pages:
 }
 ```
 
-**`BuilderJob` entity** (PostgreSQL, snake_case naming): `Id`, `SourceUri`, `SourceDataJson`, `Status`, `Created`, `Started`, `Finished`, `TotalPages`, `PagesCompleted`, `TotalWordCount`, `TotalImageCount`, `Errors`, `HangfireJobId`, `Services` (bitmask), `Title`, `CustomTypesJson`.
+**`BuilderJob` entity** (PostgreSQL, snake_case naming): `Id`, `SourceUri`, `SourceDataJson`, `Status`, `Created`, `Started`, `Finished`, `TotalPages`, `PagesCompleted`, `TotalWordCount`, `TotalImageCount`, `Errors`, `HangfireJobId`, `Services` (bitmask), `Title`, `CustomTypesJson`, `InvocationCount`.
+
+**`InvocationCount`**: tracks how many times the job processor has run for this job. Set to `1` on initial `POST`, incremented by 1 on every `PUT` (reprocess). Existing rows default to `1`. Returned on the `POST`/`PUT`/`GET` `JobResponse` and included in `JobCompletionNotification`, so callers can tell which run a completion notification belongs to. Server-managed only — not settable by the caller.
 
 **`TextBuildJob`** (Hangfire): fetches manifest/resources concurrently (bounded by `MaxConcurrentPageFetches`), feeds `TextBuilder`, persists all artefacts, records per-page warnings without aborting the job.
 

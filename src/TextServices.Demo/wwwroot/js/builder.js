@@ -195,6 +195,7 @@ function renderTable(rows) {
             <td><code style="font-size:0.8rem">${esc(id)}</code></td>
             <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(sourceUri)}">${esc(truncate(sourceUri, 50))}</td>
             <td><span class="status-badge status-${esc(status)}">${esc(status)}</span></td>
+            <td>${job?.invocationCount ?? '—'}</td>
             <td>${renderProgress(job)}</td>
             <td>${job?.totalWordCount != null ? job.totalWordCount.toLocaleString() : '—'}</td>
             <td class="actions-cell"></td>

@@ -53,6 +53,10 @@ namespace TextServices.Builder.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("hangfire_job_id");
 
+                    b.Property<int>("InvocationCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("invocation_count");
+
                     b.Property<int>("PagesCompleted")
                         .HasColumnType("integer")
                         .HasColumnName("pages_completed");

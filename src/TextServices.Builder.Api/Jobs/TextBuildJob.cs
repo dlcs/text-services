@@ -83,7 +83,7 @@ public class TextBuildJob(
 
                 await jobNotifier.Notify(
                     new JobCompletionNotification(job.Id, job.Status, job.Finished,
-                        job.TotalPages, job.TotalWordCount, job.Errors),
+                        job.TotalPages, job.TotalWordCount, job.Errors, job.InvocationCount),
                     cancellationToken.ShutdownToken);
             }
             catch (Exception ex)
@@ -97,7 +97,7 @@ public class TextBuildJob(
 
                 await jobNotifier.Notify(
                     new JobCompletionNotification(job.Id, job.Status, job.Finished,
-                        job.TotalPages, job.TotalWordCount, job.Errors),
+                        job.TotalPages, job.TotalWordCount, job.Errors, job.InvocationCount),
                     cancellationToken.ShutdownToken);
             }
         }
