@@ -45,7 +45,6 @@ services:
       - "5294:8080"
     volumes:
       - txt_textservices_data:/data
-      - $HOME\.aws:/root/.aws:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - TextServices__BaseUrl=http://localhost:5294
