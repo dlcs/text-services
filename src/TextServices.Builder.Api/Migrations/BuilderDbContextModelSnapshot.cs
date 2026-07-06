@@ -29,10 +29,6 @@ namespace TextServices.Builder.Api.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("id");
 
-                    b.Property<string>("CorrelationId")
-                        .HasColumnType("text")
-                        .HasColumnName("correlation_id");
-
                     b.Property<DateTimeOffset>("Created")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created");
@@ -56,6 +52,10 @@ namespace TextServices.Builder.Api.Migrations
                     b.Property<string>("HangfireJobId")
                         .HasColumnType("text")
                         .HasColumnName("hangfire_job_id");
+
+                    b.Property<int>("InvocationCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("invocation_count");
 
                     b.Property<int>("PagesCompleted")
                         .HasColumnType("integer")

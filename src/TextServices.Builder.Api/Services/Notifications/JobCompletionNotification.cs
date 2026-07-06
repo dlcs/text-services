@@ -9,4 +9,4 @@ public record JobCompletionNotification(
     int TotalPages,
     int TotalWordCount,
     string? Errors,
-    string? CorrelationId);
+    int InvocationCount);

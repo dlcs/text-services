@@ -8,10 +8,11 @@ services:
     image: postgres:14
     hostname: postgres
     ports:
-      - "5452:5432"
+      - "5453:5432"
     volumes:
       - txt_postgres_data:/var/lib/postgresql/data
       - txt_postgres_data_backups:/backups
+      - $HOME\.aws:/root/.aws:ro
     environment:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -29,6 +30,7 @@ services:
       - postgres
     volumes:
       - txt_textservices_data:/data
+      - $HOME\.aws:/root/.aws:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - RunMigrations=true
@@ -36,6 +38,8 @@ services:
       - TextServices__SearchApiBaseUrl=http://localhost:5294
       - TextServices__Storage__FileSystem__RootPath=/data
       - CorsAllowedOrigins__0=http://localhost:5100
+    env_file:
+      - .env
 
   search:
     build:
@@ -45,11 +49,14 @@ services:
       - "5294:8080"
     volumes:
       - txt_textservices_data:/data
+      - $HOME\.aws:/root/.aws:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - TextServices__BaseUrl=http://localhost:5294
       - TextServices__Storage__FileSystem__RootPath=/data
       - CorsAllowedOrigins__0=http://localhost:5100
+    env_file:
+      - .env
 
   demo:
     build:

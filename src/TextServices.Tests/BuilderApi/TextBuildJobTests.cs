@@ -599,7 +599,7 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_OnSuccess_NotificationEchoesCorrelationId()
+    public async Task ExecuteAsync_OnSuccess_NotificationCarriesInvocationCount()
     {
         var pages = new List<PageInstruction>
         {
@@ -607,9 +607,9 @@ public sealed class TextBuildJobTests : IDisposable
                     TextUri = "https://example.org/alto/1.xml" },
         };
 
-        var job = await CreateJob("test/notify-correlation-id",
+        var job = await CreateJob("test/notify-invocation-count",
             sourceDataJson: JsonSerializer.Serialize(pages),
-            correlationId: "caller-supplied-guid");
+            invocationCount: 2);
 
         var altoFetcher = FakeAlto(new Dictionary<string, XElement>
         {
@@ -621,7 +621,7 @@ public sealed class TextBuildJobTests : IDisposable
         await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
 
         notifier.Captured.ShouldHaveSingleItem();
-        notifier.Captured[0].CorrelationId.ShouldBe("caller-supplied-guid");
+        notifier.Captured[0].InvocationCount.ShouldBe(2);
     }
 
     [Fact]
@@ -648,7 +648,7 @@ public sealed class TextBuildJobTests : IDisposable
 
     private async Task<BuilderJob> CreateJob(string id,
         string? sourceUri = null, string? sourceDataJson = null,
-        JobServices services = JobServices.All, string? correlationId = null)
+        JobServices services = JobServices.All, int invocationCount = 1)
     {
         var job = new BuilderJob
         {
@@ -656,7 +656,7 @@ public sealed class TextBuildJobTests : IDisposable
             SourceUri = sourceUri,
             SourceDataJson = sourceDataJson,
             Services = (int)services,
-            CorrelationId = correlationId,
+            InvocationCount = invocationCount,
         };
         _db.Jobs.Add(job);
         await _db.SaveChangesAsync();

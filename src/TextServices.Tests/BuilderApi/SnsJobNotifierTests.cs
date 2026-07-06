@@ -15,7 +15,7 @@ public sealed class SnsJobNotifierTests
     private static JobCompletionNotification MakeNotification(
         string jobId = "my/job",
         JobStatus status = JobStatus.Completed) =>
-        new(jobId, status, DateTimeOffset.UtcNow, 10, 500, null, null);
+        new(jobId, status, DateTimeOffset.UtcNow, 10, 500, null, 1);
 
     // -------------------------------------------------------------------------
     // No-op when TopicArn is absent

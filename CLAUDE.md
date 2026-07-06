@@ -91,12 +91,9 @@ Implementations: `FileSystemTextStore`, `S3TextStore`.
 ```json
 {
   "id": "2/books/my-book",
-  "sourceUri": "https://iiif.wellcomecollection.org/presentation/b21211024",
-  "correlationId": "caller-supplied-guid"
+  "sourceUri": "https://iiif.wellcomecollection.org/presentation/b21211024"
 }
 ```
-`correlationId` is optional and opaque — stored against the job and echoed back in the response and in the completion notification.
-
 or with inline pages:
 ```json
 {
@@ -107,9 +104,9 @@ or with inline pages:
 }
 ```
 
-**`BuilderJob` entity** (PostgreSQL, snake_case naming): `Id`, `SourceUri`, `SourceDataJson`, `Status`, `Created`, `Started`, `Finished`, `TotalPages`, `PagesCompleted`, `TotalWordCount`, `TotalImageCount`, `Errors`, `HangfireJobId`, `Services` (bitmask), `Title`, `CustomTypesJson`, `CorrelationId`.
+**`BuilderJob` entity** (PostgreSQL, snake_case naming): `Id`, `SourceUri`, `SourceDataJson`, `Status`, `Created`, `Started`, `Finished`, `TotalPages`, `PagesCompleted`, `TotalWordCount`, `TotalImageCount`, `Errors`, `HangfireJobId`, `Services` (bitmask), `Title`, `CustomTypesJson`, `InvocationCount`.
 
-**`CorrelationId`**: opaque string supplied by the caller in the job instruction (e.g. a pipelineJob GUID from iiif-presentation). Stored verbatim against the job and echoed back in `JobResponse` and in `JobCompletionNotification`, so callers can tie a completion notification back to the request that created the job. Not used for HTTP-level request tracing — that's handled separately by `CorrelationIdMiddleware` in `TextServices.Infrastructure`.
+**`InvocationCount`**: tracks how many times the job processor has run for this job. Set to `1` on initial `POST`, incremented by 1 on every `PUT` (reprocess). Existing rows default to `1`. Returned on the `POST`/`PUT`/`GET` `JobResponse` and included in `JobCompletionNotification`, so callers can tell which run a completion notification belongs to. Server-managed only — not settable by the caller.
 
 **`TextBuildJob`** (Hangfire): fetches manifest/resources concurrently (bounded by `MaxConcurrentPageFetches`), feeds `TextBuilder`, persists all artefacts, records per-page warnings without aborting the job.
 

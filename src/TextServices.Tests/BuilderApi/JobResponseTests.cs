@@ -23,25 +23,25 @@ public class JobResponseTests
         };
 
     // -------------------------------------------------------------------------
-    // CorrelationId — echoed back unchanged
+    // InvocationCount — reflects the job's current run count
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void From_JobWithCorrelationId_EchoesCorrelationId()
+    public void From_NewJob_InvocationCountIsOne()
     {
-        var job = CompletedJob();
-        job.CorrelationId = "caller-supplied-guid";
-
-        var response = JobResponse.From(job, Options());
-
-        response.CorrelationId.ShouldBe("caller-supplied-guid");
+        var response = JobResponse.From(CompletedJob(), Options());
+        response.InvocationCount.ShouldBe(1);
     }
 
     [Fact]
-    public void From_JobWithoutCorrelationId_CorrelationIdIsNull()
+    public void From_ReprocessedJob_InvocationCountReflectsJobValue()
     {
-        var response = JobResponse.From(CompletedJob(), Options());
-        response.CorrelationId.ShouldBeNull();
+        var job = CompletedJob();
+        job.InvocationCount = 3;
+
+        var response = JobResponse.From(job, Options());
+
+        response.InvocationCount.ShouldBe(3);
     }
 
     // -------------------------------------------------------------------------

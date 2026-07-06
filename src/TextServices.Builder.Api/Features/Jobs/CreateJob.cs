@@ -43,7 +43,6 @@ public class CreateJobHandler(
             Created = DateTimeOffset.UtcNow,
             Services = (int)instruction.Services,
             Title = instruction.Title,
-            CorrelationId = instruction.CorrelationId,
             CustomTypesJson = instruction.CustomTypes != null
                 ? System.Text.Json.JsonSerializer.Serialize(instruction.CustomTypes)
                 : null,

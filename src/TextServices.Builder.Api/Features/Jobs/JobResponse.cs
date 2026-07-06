@@ -26,10 +26,10 @@ public class JobResponse
     public string? Errors { get; set; }
 
     /// <summary>
-    /// Opaque identifier supplied by the caller when the job was created. Echoed back
-    /// unchanged so callers can tie this job to the request that created it.
+    /// Number of times the job processor has been invoked for this job. 1 on initial
+    /// creation, incremented on every reprocess (<c>PUT</c>).
     /// </summary>
-    public string? CorrelationId { get; set; }
+    public int InvocationCount { get; set; } = 1;
 
     /// <summary>
     /// The services that were actually produced during the most recent run.
@@ -125,7 +125,7 @@ public class JobResponse
             TotalWordCount = job.TotalWordCount,
             TotalImageCount = job.TotalImageCount,
             Errors = job.Errors,
-            CorrelationId = job.CorrelationId,
+            InvocationCount = job.InvocationCount,
             SearchV1 = searchV1,
             AutocompleteV1 = autocompleteV1,
             SearchV2 = searchV2,

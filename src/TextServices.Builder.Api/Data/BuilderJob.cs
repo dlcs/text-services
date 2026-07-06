@@ -60,9 +60,9 @@ public class BuilderJob
     public int? FulfilledServices { get; set; }
 
     /// <summary>
-    /// Opaque identifier supplied by the caller when the job was created (e.g. a
-    /// pipelineJob GUID). Echoed back in <see cref="Services.Notifications.JobCompletionNotification"/>
-    /// so callers can tie a completion notification to the request that created the job.
+    /// Number of times the job processor has been invoked for this job. Set to 1 on
+    /// initial creation (<c>POST</c>) and incremented by 1 on every reprocess (<c>PUT</c>),
+    /// so callers can tell which run a completion notification belongs to.
     /// </summary>
-    public string? CorrelationId { get; set; }
+    public int InvocationCount { get; set; } = 1;
 }
