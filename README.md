@@ -406,6 +406,23 @@ automatically as jobs complete. On Linux/macOS, change `Storage:RootPath` in
 
 The Search API must be configured with the same path via `StorageRootPath`.
 
+### Builder API configuration reference
+
+All settings live under the `TextServices` key.
+
+| Setting | Default | Description |
+|---|---|---|
+| `SearchApiBaseUrl` | `""` | Public base URL of the Search API. Used to populate `searchV1`/`searchV2` fields in job responses and to construct `/proxy/image` URLs in synthesised Manifests. Leave empty if the Search API is not yet deployed. |
+| `MaxConcurrentPageFetches` | `8` | Maximum number of text files (ALTO, VTT, AnnotationPage) fetched in parallel within a single job. Keep low (4–8) for third-party HTTP hosts; increase to 16–32 for internal sources; 64–128 is reasonable for S3. |
+| `ReportBatchProgress` | `true` | When `true`, `PagesCompleted` is flushed to the database every 10 pages so `GET /textbuilder/{id}` reflects live progress. Set to `false` to reduce database writes on large manifests. |
+| `AllowFileImageProxy` | `false` | Allow the Search API's `/proxy/image` endpoint to serve `file://` image URIs. Only enable in trusted local-dev environments. |
+| `Storage:RootPath` | `textservices-data` | Root directory for stored artefacts (filesystem store). Must be readable by the Search API. |
+| `Storage:S3:BucketName` | `""` | S3 bucket for stored artefacts. When set, S3 is used instead of the filesystem store. |
+| `Storage:S3:KeyPrefix` | `""` | Optional prefix for all S3 object keys (e.g. `"textservices/"`). |
+| `CorsAllowedOrigins` | `[]` | Allowed CORS origins for the Builder API. Empty array disables CORS. |
+
+See [Builder API reference](docs/builder-api.md) for the full configuration reference including all notification options.
+
 ---
 
 ## Docker

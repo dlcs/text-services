@@ -1,16 +1,12 @@
-using System.Net.Http.Headers;
-using Amazon.S3;
+using System.Text.Json.Serialization;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Serilog;
 using Serilog.Events;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Features.Jobs;
-using TextServices.Builder.Api.Services;
 using TextServices.Infrastructure.Http;
-using TextServices.Storage;
 
 Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
 Log.Information("Application starting...");
@@ -52,45 +48,10 @@ builder.Services.AddHangfireServices(builder.Configuration);
 builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
-// ---- Fetching ---------------------------------------------------------------
-
-// Single named HttpClient used by ResourceFetcher for http/https URIs.
-// Accept prefers JSON (for manifests/annotation pages) and falls back to */*
-// (for ALTO XML, VTT, or anything else). Servers return the right content type
-// regardless of negotiation in practice, but the preference is a courtesy.
-builder.Services.AddHttpClient("Resource", client =>
-{
-    client.DefaultRequestHeaders.UserAgent.ParseAdd("TextServices/1.0");
-    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
-    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*", 0.8));
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
-
-// IAmazonS3 is optional — register it here when S3 support is needed.
-// ResourceFetcher receives null when it is absent and throws only if an s3:// URI is actually used.
-// builder.Services.AddSingleton<IAmazonS3>(new AmazonS3Client());
-
-builder.Services.AddScoped<IResourceFetcher>(sp => new ResourceFetcher(
-    sp.GetRequiredService<IHttpClientFactory>(),
-    sp.GetService<IAmazonS3>()));
-
-// ---- Manifest services ------------------------------------------------------
-
-builder.Services.AddSingleton<IManifestReducer, ManifestReducer>()
-    .AddSingleton<IManifestSynthesiser, ManifestSynthesiser>()
-    .AddScoped<IManifestFetcher, ManifestFetcher>()
-    .AddScoped<IAltoFetcher, AltoFetcher>()
-    .AddScoped<IVttFetcher, VttFetcher>()
-    .AddScoped<IAnnotationPageFetcher, AnnotationPageFetcher>();
-
-// ---- Storage ----------------------------------------------------------------
-
-builder.Services.AddSingleton<ITextStore>(sp =>
-    new FileSystemTextStore(new FileSystemTextStoreOptions
-    {
-        RootPath = sp.GetRequiredService<IOptions<TextServicesOptions>>().Value.Storage.RootPath
-    }));
+builder.Services.AddAwsServices(builder.Configuration)
+    .AddFetchingServices()
+    .AddNotificationServices()
+    .AddTextStorage(builder.Configuration);
 
 // ---- HTTP -------------------------------------------------------------------
 
@@ -98,6 +59,8 @@ builder.Services
     .AddHttpContextAccessor()
     .AddCorrelationIdHeaderPropagation();
 builder.Services.AddOpenApi();
+builder.Services.ConfigureHttpJsonOptions(o =>
+    o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<BuilderDbContext>();
 

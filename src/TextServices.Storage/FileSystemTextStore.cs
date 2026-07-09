@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using ProtoBuf;
 using TextServices.Core.Models;
 
@@ -11,7 +12,7 @@ namespace TextServices.Storage;
 /// Job key segments (split on <c>/</c>) become nested subdirectories, so the key
 /// <c>"2/books/my-book"</c> is stored under <c>{RootPath}/2/books/my-book/</c>.
 /// </remarks>
-public class FileSystemTextStore : ITextStore
+public class FileSystemTextStore(FileSystemTextStoreOptions options, ILogger<FileSystemTextStore> logger) : ITextStore
 {
     private const string TextFileName = "text.bin";
     private const string AutoCompleteFileName = "autocomplete.bin";
@@ -23,12 +24,7 @@ public class FileSystemTextStore : ITextStore
     private const string CapabilitiesFileName = "capabilities.json";
     private const string PageSequenceFileName = "pagesequence.json";
 
-    private readonly string _rootPath;
-
-    public FileSystemTextStore(FileSystemTextStoreOptions options)
-    {
-        _rootPath = options.RootPath;
-    }
+    private readonly string _rootPath = options.RootPath;
 
     /// <inheritdoc/>
     public async Task SaveText(string key, Text text)
@@ -37,16 +33,22 @@ public class FileSystemTextStore : ITextStore
         EnsureDirectory(path);
         await using var stream = File.Create(path);
         Serializer.Serialize(stream, text);
+        logger.LogDebug("Saved {Type} for '{Key}'", TextFileName, key);
     }
 
     /// <inheritdoc/>
     public Task<Text?> LoadText(string key)
     {
         var path = GetPath(key, TextFileName);
-        if (!File.Exists(path)) return Task.FromResult<Text?>(null);
+        if (!File.Exists(path))
+        {
+            logger.LogDebug("{Type} not found for '{Key}'", TextFileName, key);
+            return Task.FromResult<Text?>(null);
+        }
 
         using var stream = File.OpenRead(path);
         var text = Serializer.Deserialize<Text>(stream);
+        logger.LogDebug("Loaded {Type} for '{Key}'", TextFileName, key);
         return Task.FromResult<Text?>(text);
     }
 
@@ -57,16 +59,22 @@ public class FileSystemTextStore : ITextStore
         EnsureDirectory(path);
         await using var stream = File.Create(path);
         Serializer.Serialize(stream, autoComplete);
+        logger.LogDebug("Saved {Type} for '{Key}'", AutoCompleteFileName, key);
     }
 
     /// <inheritdoc/>
     public Task<AutoComplete?> LoadAutoComplete(string key)
     {
         var path = GetPath(key, AutoCompleteFileName);
-        if (!File.Exists(path)) return Task.FromResult<AutoComplete?>(null);
+        if (!File.Exists(path))
+        {
+            logger.LogDebug("{Type} not found for '{Key}'", AutoCompleteFileName, key);
+            return Task.FromResult<AutoComplete?>(null);
+        }
 
         using var stream = File.OpenRead(path);
         var ac = Serializer.Deserialize<AutoComplete>(stream);
+        logger.LogDebug("Loaded {Type} for '{Key}'", AutoCompleteFileName, key);
         return Task.FromResult<AutoComplete?>(ac);
     }
 
@@ -76,14 +84,21 @@ public class FileSystemTextStore : ITextStore
         var path = GetPath(key, ManifestFileName);
         EnsureDirectory(path);
         await File.WriteAllTextAsync(path, json);
+        logger.LogDebug("Saved {Type} for '{Key}'", ManifestFileName, key);
     }
 
     /// <inheritdoc/>
     public async Task<string?> LoadManifest(string key)
     {
         var path = GetPath(key, ManifestFileName);
-        if (!File.Exists(path)) return null;
-        return await File.ReadAllTextAsync(path);
+        if (!File.Exists(path))
+        {
+            logger.LogDebug("{Type} not found for '{Key}'", ManifestFileName, key);
+            return null;
+        }
+        var result = await File.ReadAllTextAsync(path);
+        logger.LogDebug("Loaded {Type} for '{Key}'", ManifestFileName, key);
+        return result;
     }
 
     /// <inheritdoc/>
@@ -92,14 +107,21 @@ public class FileSystemTextStore : ITextStore
         var path = GetPath(key, RawTextFileName);
         EnsureDirectory(path);
         await File.WriteAllTextAsync(path, rawText);
+        logger.LogDebug("Saved {Type} for '{Key}'", RawTextFileName, key);
     }
 
     /// <inheritdoc/>
     public async Task<string?> LoadRawText(string key)
     {
         var path = GetPath(key, RawTextFileName);
-        if (!File.Exists(path)) return null;
-        return await File.ReadAllTextAsync(path);
+        if (!File.Exists(path))
+        {
+            logger.LogDebug("{Type} not found for '{Key}'", RawTextFileName, key);
+            return null;
+        }
+        var result = await File.ReadAllTextAsync(path);
+        logger.LogDebug("Loaded {Type} for '{Key}'", RawTextFileName, key);
+        return result;
     }
 
     /// <inheritdoc/>
@@ -109,13 +131,19 @@ public class FileSystemTextStore : ITextStore
         EnsureDirectory(path);
         await using var file = File.Create(path);
         await pdfStream.CopyToAsync(file);
+        logger.LogDebug("Saved {Type} for '{Key}'", PdfFileName, key);
     }
 
     /// <inheritdoc/>
     public Task<Stream?> LoadPdf(string key)
     {
         var path = GetPath(key, PdfFileName);
-        if (!File.Exists(path)) return Task.FromResult<Stream?>(null);
+        if (!File.Exists(path))
+        {
+            logger.LogDebug("{Type} not found for '{Key}'", PdfFileName, key);
+            return Task.FromResult<Stream?>(null);
+        }
+        logger.LogDebug("Loaded {Type} for '{Key}'", PdfFileName, key);
         return Task.FromResult<Stream?>(File.OpenRead(path));
     }
 
@@ -125,14 +153,21 @@ public class FileSystemTextStore : ITextStore
         var path = GetPath(key, FiguresFileName);
         EnsureDirectory(path);
         await File.WriteAllTextAsync(path, json);
+        logger.LogDebug("Saved {Type} for '{Key}'", FiguresFileName, key);
     }
 
     /// <inheritdoc/>
     public async Task<string?> LoadFigures(string key)
     {
         var path = GetPath(key, FiguresFileName);
-        if (!File.Exists(path)) return null;
-        return await File.ReadAllTextAsync(path);
+        if (!File.Exists(path))
+        {
+            logger.LogDebug("{Type} not found for '{Key}'", FiguresFileName, key);
+            return null;
+        }
+        var result = await File.ReadAllTextAsync(path);
+        logger.LogDebug("Loaded {Type} for '{Key}'", FiguresFileName, key);
+        return result;
     }
 
     /// <inheritdoc/>
@@ -141,21 +176,30 @@ public class FileSystemTextStore : ITextStore
         var path = GetPath(key, AnnotationsFileName);
         EnsureDirectory(path);
         await File.WriteAllTextAsync(path, json);
+        logger.LogDebug("Saved {Type} for '{Key}'", AnnotationsFileName, key);
     }
 
     /// <inheritdoc/>
     public async Task<string?> LoadAnnotations(string key)
     {
         var path = GetPath(key, AnnotationsFileName);
-        if (!File.Exists(path)) return null;
-        return await File.ReadAllTextAsync(path);
+        if (!File.Exists(path))
+        {
+            logger.LogDebug("{Type} not found for '{Key}'", AnnotationsFileName, key);
+            return null;
+        }
+        var result = await File.ReadAllTextAsync(path);
+        logger.LogDebug("Loaded {Type} for '{Key}'", AnnotationsFileName, key);
+        return result;
     }
 
     /// <inheritdoc/>
     public Task<bool> Exists(string key)
     {
         var path = GetPath(key, TextFileName);
-        return Task.FromResult(File.Exists(path));
+        var exists = File.Exists(path);
+        logger.LogDebug("Artefact {Exists} for '{Key}'", exists, key);
+        return Task.FromResult(exists);
     }
 
     /// <inheritdoc/>
@@ -164,14 +208,20 @@ public class FileSystemTextStore : ITextStore
         var path = GetPath(key, CapabilitiesFileName);
         EnsureDirectory(path);
         await File.WriteAllTextAsync(path, services.ToString());
+        logger.LogDebug("Saved {Type} for '{Key}'", CapabilitiesFileName, key);
     }
 
     /// <inheritdoc/>
     public async Task<int?> LoadCapabilities(string key)
     {
         var path = GetPath(key, CapabilitiesFileName);
-        if (!File.Exists(path)) return null;
+        if (!File.Exists(path))
+        {
+            logger.LogDebug("{Type} not found for '{Key}'", CapabilitiesFileName, key);
+            return null;
+        }
         var text = await File.ReadAllTextAsync(path);
+        logger.LogDebug("Loaded {Type} for '{Key}'", CapabilitiesFileName, key);
         return int.TryParse(text.Trim(), out var value) ? value : null;
     }
 
@@ -181,13 +231,19 @@ public class FileSystemTextStore : ITextStore
         var path = GetPath(key, PageSequenceFileName);
         EnsureDirectory(path);
         await File.WriteAllTextAsync(path, json);
+        logger.LogDebug("Saved {Type} for '{Key}'", PageSequenceFileName, key);
     }
 
     /// <inheritdoc/>
     public Task<string?> LoadPageSequence(string key)
     {
         var path = GetPath(key, PageSequenceFileName);
-        if (!File.Exists(path)) return Task.FromResult<string?>(null);
+        if (!File.Exists(path))
+        {
+            logger.LogDebug("{Type} not found for '{Key}'", PageSequenceFileName, key);
+            return Task.FromResult<string?>(null);
+        }
+        logger.LogDebug("Loaded {Type} for '{Key}'", PageSequenceFileName, key);
         return File.ReadAllTextAsync(path)!;
     }
 
@@ -205,6 +261,7 @@ public class FileSystemTextStore : ITextStore
             var path = GetPath(key, fileName);
             if (File.Exists(path)) File.Delete(path);
         }
+        logger.LogDebug("Deleted artefacts for '{Key}'", key);
         return Task.CompletedTask;
     }
 

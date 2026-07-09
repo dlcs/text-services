@@ -1,5 +1,6 @@
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
+using TextServices.Infrastructure;
 using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Features.Jobs;
@@ -24,7 +25,20 @@ public class JobResponse
     public int TotalImageCount { get; set; }
     public string? Errors { get; set; }
 
-    // Endpoint URLs — null when not yet completed or service is not enabled.
+    /// <summary>
+    /// Number of times the job processor has been invoked for this job. 1 on initial
+    /// creation, incremented on every reprocess (<c>PUT</c>).
+    /// </summary>
+    public int InvocationCount { get; set; } = 1;
+
+    /// <summary>
+    /// The services that were actually produced during the most recent run.
+    /// Null for jobs processed before this field was introduced.
+    /// Use <see cref="Services"/> to see what was requested.
+    /// </summary>
+    public JobServices? FulfilledServices { get; set; }
+
+    // Endpoint URLs — null when not yet completed or service was not fulfilled.
     public string? SearchV1 { get; set; }
     public string? AutocompleteV1 { get; set; }
     public string? SearchV2 { get; set; }
@@ -46,6 +60,12 @@ public class JobResponse
 
         var services = (JobServices)job.Services;
 
+        // Use fulfilled services for URL generation when available; fall back to requested
+        // services for jobs processed before FulfilledServices was introduced.
+        var fulfilled = job.FulfilledServices.HasValue
+            ? (JobServices)job.FulfilledServices.Value
+            : services;
+
         string? searchV1 = null;
         string? autocompleteV1 = null;
         string? searchV2 = null;
@@ -61,32 +81,32 @@ public class JobResponse
         {
             var baseUrl = options.SearchApiBaseUrl.TrimEnd('/');
 
-            if (services.HasFlag(JobServices.Search))
+            if (fulfilled.HasFlag(JobServices.Search))
             {
-                searchV1 = $"{baseUrl}/search/v1/{job.Id}";
-                searchV2 = $"{baseUrl}/search/v2/{job.Id}";
+                searchV1 = SearchApiRoutes.SearchV1(baseUrl, job.Id);
+                searchV2 = SearchApiRoutes.SearchV2(baseUrl, job.Id);
             }
 
-            if (services.HasFlag(JobServices.Autocomplete))
+            if (fulfilled.HasFlag(JobServices.Autocomplete))
             {
-                autocompleteV1 = $"{baseUrl}/autocomplete/v1/{job.Id}";
-                autocompleteV2 = $"{baseUrl}/autocomplete/v2/{job.Id}";
+                autocompleteV1 = SearchApiRoutes.AutocompleteV1(baseUrl, job.Id);
+                autocompleteV2 = SearchApiRoutes.AutocompleteV2(baseUrl, job.Id);
             }
 
-            if (services.HasFlag(JobServices.FullText))
-                fullText = $"{baseUrl}/text/v1/{job.Id}";
+            if (fulfilled.HasFlag(JobServices.FullText))
+                fullText = SearchApiRoutes.FullText(baseUrl, job.Id);
 
-            if (services.HasFlag(JobServices.Pdf))
-                pdf = $"{baseUrl}/pdf/v1/{job.Id}";
+            if (fulfilled.HasFlag(JobServices.Pdf))
+                pdf = SearchApiRoutes.Pdf(baseUrl, job.Id);
 
-            if (services.HasFlag(JobServices.TextAugmented))
-                textAugmented = $"{baseUrl}/text-augmented/v3/{job.Id}";
+            if (fulfilled.HasFlag(JobServices.TextAugmented))
+                textAugmented = SearchApiRoutes.TextAugmented(baseUrl, job.Id);
 
-            if (services.HasFlag(JobServices.Annotations))
-                annotations = $"{baseUrl}/annotations/manifest/v1/{job.Id}";
+            if (fulfilled.HasFlag(JobServices.Annotations))
+                annotations = SearchApiRoutes.AnnotationsManifest(baseUrl, job.Id);
 
-            if (services.HasFlag(JobServices.Figures))
-                figures = $"{baseUrl}/identified/figures/{job.Id}";
+            if (fulfilled.HasFlag(JobServices.Figures))
+                figures = SearchApiRoutes.Figures(baseUrl, job.Id);
         }
 
         return new JobResponse
@@ -96,6 +116,7 @@ public class JobResponse
             SourceData = sourceData,
             Status = job.Status.ToString(),
             Services = services,
+            FulfilledServices = job.FulfilledServices.HasValue ? fulfilled : null,
             Created = job.Created,
             Started = job.Started,
             Finished = job.Finished,
@@ -104,6 +125,7 @@ public class JobResponse
             TotalWordCount = job.TotalWordCount,
             TotalImageCount = job.TotalImageCount,
             Errors = job.Errors,
+            InvocationCount = job.InvocationCount,
             SearchV1 = searchV1,
             AutocompleteV1 = autocompleteV1,
             SearchV2 = searchV2,

@@ -38,6 +38,30 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     }
 
     [Fact]
+    public async Task PostJob_IdStartingWithSlash_Returns400()
+    {
+        var response = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id = "/bad-id",
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PostJob_IdWithInternalSlashes_Returns202()
+    {
+        var response = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id = "e2e/slash/in/id",
+            sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x"
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+    }
+
+    [Fact]
     public async Task PostJob_DuplicateId_Returns409()
     {
         var id = "e2e/duplicate-test";
@@ -145,15 +169,11 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     }
 
     [Fact]
-    public async Task Search_EmptyQuery_ReturnsEmptyNotError()
+    public async Task Search_EmptyQuery_Returns400()
     {
-        var id = await BuildFixtureAsync("e2e/search-empty");
-
-        var response = await ctx.SearchClient.GetAsync($"/search/v1/{id}?q=");
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
-        body["resources"]!.AsArray().Count.ShouldBe(0);
+        // Query validation happens before the job is looked up, so no fixture is needed.
+        var response = await ctx.SearchClient.GetAsync("/search/v1/no/such/id?q=");
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -161,6 +181,15 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     {
         var response = await ctx.SearchClient.GetAsync("/search/v1/no/such/id?q=test");
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Search_MissingQuery_Returns400EvenForUnknownId()
+    {
+        // Query validation happens before the job is looked up — an unknown id
+        // with a missing query returns 400, not 404.
+        var response = await ctx.SearchClient.GetAsync("/search/v2/no/such/id");
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     // -------------------------------------------------------------------------
@@ -178,6 +207,14 @@ public class BuildAndSearchTests(E2ETestContext ctx)
         var body = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
         body["@type"]!.GetValue<string>().ShouldBe("search:TermList");
         body["terms"]!.AsArray().Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Autocomplete_MissingQuery_Returns400()
+    {
+        // Query validation happens before the job is looked up, so no fixture is needed.
+        var response = await ctx.SearchClient.GetAsync("/autocomplete/v1/no/such/id");
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -374,6 +411,35 @@ public class BuildAndSearchTests(E2ETestContext ctx)
         // Autocomplete endpoint must be gated (404).
         var acResponse = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=ann");
         acResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    // -------------------------------------------------------------------------
+    // Route safety — ID is required on all mutation / resource endpoints
+    // -------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("/textbuilder/", "DELETE")]
+    [InlineData("/textbuilder/", "PUT")]
+    public async Task BuilderApi_MutationWithoutId_Returns404(string path, string method)
+    {
+        var request = new HttpRequestMessage(new HttpMethod(method), path);
+        var response = await ctx.BuilderClient.SendAsync(request);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Theory]
+    [InlineData("/search/v1/")]
+    [InlineData("/search/v2/")]
+    [InlineData("/autocomplete/v1/")]
+    [InlineData("/autocomplete/v2/")]
+    [InlineData("/text-augmented/v3/")]
+    [InlineData("/text/v1/")]
+    [InlineData("/annotations/manifest/v1/")]
+    public async Task SearchApi_ResourceEndpointWithoutId_Returns404(string path)
+    {
+        var response = await ctx.SearchClient.GetAsync(path);
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     // -------------------------------------------------------------------------

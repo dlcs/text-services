@@ -17,6 +17,7 @@ csharp_space_after_cast = false
 csharp_prefer_braces = when_multiline:warning
 csharp_style_expression_bodied_methods = false:suggestion
 csharp_style_expression_bodied_properties = true:suggestion
+csharp_method_or_operator_body = expression_body:suggestion
 dotnet_style_qualification_for_field = false:warning
 dotnet_style_qualification_for_property = false:warning
 

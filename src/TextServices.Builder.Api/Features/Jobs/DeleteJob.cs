@@ -23,8 +23,7 @@ public class DeleteJobHandler(
         var job = await db.Jobs.FindAsync([request.Id], ct);
         if (job == null) return false;
 
-        if (job.HangfireJobId != null)
-            hangfire.Delete(job.HangfireJobId);
+        if (job.HangfireJobId != null) hangfire.Delete(job.HangfireJobId);
 
         await textStore.DeleteArtefacts(job.Id);
 

@@ -1,0 +1,52 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Amazon.SimpleNotificationService;
+using Amazon.SimpleNotificationService.Model;
+using Microsoft.Extensions.Options;
+using TextServices.Builder.Api.Configuration;
+using TextServices.Builder.Api.Data;
+
+namespace TextServices.Builder.Api.Services.Notifications;
+
+internal sealed class SnsJobNotifier(
+    IAmazonSimpleNotificationService sns,
+    IOptions<TextServicesOptions> options,
+    ILogger<SnsJobNotifier> logger) : IJobNotifier
+{
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() },
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    public async Task Notify(JobCompletionNotification notification, CancellationToken ct = default)
+    {
+        var topicArn = options.Value.Notifications.TopicArn;
+        if (string.IsNullOrEmpty(topicArn)) return;
+
+        try
+        {
+            var messageType = notification.Status == JobStatus.Completed ? "JobCompleted" : "JobFailed";
+            logger.LogDebug("Raising {MessageType} notification: {JobId}", messageType, notification.JobId);
+
+            await sns.PublishAsync(new PublishRequest
+            {
+                TopicArn = topicArn,
+                Message = JsonSerializer.Serialize(notification, SerializerOptions),
+                MessageAttributes = new Dictionary<string, MessageAttributeValue>
+                {
+                    ["MessageType"] = new()
+                    {
+                        DataType = "String",
+                        StringValue = messageType,
+                    },
+                },
+            }, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to publish job notification for {JobId}", notification.JobId);
+        }
+    }
+}

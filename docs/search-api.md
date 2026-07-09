@@ -393,9 +393,10 @@ pre-warming.
 
 | Status | Meaning |
 |---|---|
-| `202 Accepted` | PDF generation started. `Location` header contains the GET URL. |
+| `202 Accepted` | PDF generation queued or already in progress. `Location` header contains the GET URL. |
 | `200 OK` | PDF already exists. Body contains `{ "location": "..." }` with the download URL. |
-| `404 Not Found` | No text index for this `id`. |
+| `404 Not Found` | No text index for this `id`, or the source is temporal-only. |
+| `503 Service Unavailable` | Trigger queue is full. Retry after the `Retry-After` header interval (seconds). |
 
 ---
 
@@ -500,17 +501,59 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
     "CacheSlidingExpirationMinutes": 30,
     "CacheAbsoluteExpirationHours": 4,
     "CacheMaxEntries": 20,
-    "StorageRootPath": "/data/textservices"
+    "Storage": {
+      "FileSystem": {
+        "RootPath": "/data/textservices"
+      }
+    },
+    "PdfTriggerQueueCapacity": 50,
+    "PdfTriggerMaxConcurrency": 2
   }
 }
 ```
 
 | Setting | Default | Description |
 |---|---|---|
-| `BaseUrl` | `""` | Public base URL of this API. Required when running behind a reverse proxy; without it, self-referencing URLs in responses will use the incoming `Host` header, which may be internal. |
-| `CacheSlidingExpirationMinutes` | `30` | How long a text object stays in the memory cache after its last access. |
-| `CacheAbsoluteExpirationHours` | `4` | Hard upper limit on cache lifetime, regardless of access frequency. Prevents large objects from living in the LOH indefinitely. |
-| `CacheMaxEntries` | `20` | Maximum number of Text (and AutoComplete) objects held in memory simultaneously. Each object counts as one slot; LRU eviction applies when the limit is reached. Budget approximately 30–40 MB per large text when sizing container memory. |
-| `StorageRootPath` | `textservices-data` | Root directory of the text artefact store. Must point to the same location as the Builder API's `Storage:RootPath`. |
+| `TextServices:BaseUrl` | `""` | Public base URL of this API. Required when running behind a reverse proxy; without it, self-referencing URLs in responses will use the incoming `Host` header, which may be internal. |
+| `TextServices:CacheSlidingExpirationMinutes` | `30` | How long a text object stays in the memory cache after its last access. |
+| `TextServices:CacheAbsoluteExpirationHours` | `4` | Hard upper limit on cache lifetime, regardless of access frequency. Prevents large objects from living in the LOH indefinitely. |
+| `TextServices:CacheMaxEntries` | `20` | Maximum number of Text (and AutoComplete) objects held in memory simultaneously. Each object counts as one slot; LRU eviction applies when the limit is reached. Budget approximately 30–40 MB per large text when sizing container memory. |
+| `TextServices:Storage:FileSystem:RootPath` | `textservices-data` | Root directory of the text artefact store. Must match the Builder API's `TextServices:Storage:FileSystem:RootPath`. Ignored when S3 storage is configured. |
+| `TextServices:Storage:S3:BucketName` | `""` | S3 bucket for stored artefacts. When set, the S3 store is used instead of the filesystem store. Must match the Builder API's `TextServices:Storage:S3:BucketName`. |
+| `TextServices:Storage:S3:KeyPrefix` | `""` | Optional prefix for all S3 object keys (e.g. `"textservices/"`). A trailing `/` is added automatically if omitted. Must match the Builder API's `TextServices:Storage:S3:KeyPrefix`. |
+| `TextServices:PdfTriggerQueueCapacity` | `50` | Maximum number of PDF trigger requests that can be queued for background generation. Requests beyond this limit receive `503 Service Unavailable`. |
+| `TextServices:PdfTriggerMaxConcurrency` | `2` | Maximum number of PDFs generated concurrently by the background trigger queue. Each in-flight generation buffers the full PDF in memory — keep this low on memory-constrained hosts. |
+| `TextServices:AllowFileImageProxy` | `false` | When `true`, the `/proxy/image` endpoint streams local `file://` images. Only enable in trusted local-dev environments where those files are not access-controlled. |
+| `TextServices:AllowedCustomHosts` | `[]` | Hostnames accepted from the `X-Forwarded-Host` request header (e.g. custom CloudFront distributions). See [Forwarded-header URL rewriting](#forwarded-header-url-rewriting) below. |
+
+---
+
+## Forwarded-header URL rewriting
+
+When the Search API sits behind a reverse proxy that rewrites the public URL (e.g. a CloudFront
+distribution with a custom domain), the `id` values in IIIF responses must reflect the
+public-facing URL rather than the internal one.
+
+Configure `AllowedCustomHosts` with the public hostnames you trust:
+
+```json
+{
+  "TextServices": {
+    "AllowedCustomHosts": ["custom.example.org"]
+  }
+}
+```
+
+When a request arrives carrying `X-Forwarded-Host: custom.example.org` and that value matches
+an entry in `AllowedCustomHosts`:
+
+- The host in all generated IIIF URLs is replaced with the forwarded host.
+- If `X-Forwarded-Path` is also present, the Search API extracts the effective job ID from it
+  (stripping the route prefix), so the `id` values in the response reflect the public path
+  rather than the internal route. This is useful when the proxy maps a path like
+  `/iiif/search/my-book` to the internal `/search/v2/my-book`.
+
+Hosts not in `AllowedCustomHosts` are always ignored, regardless of what headers the request
+carries. The default empty array means `X-Forwarded-Host` is never honoured.
 
 All responses include `Access-Control-Allow-Origin: *`. The Search API is entirely read-only, so open CORS is required by the IIIF specification and safe without restriction.

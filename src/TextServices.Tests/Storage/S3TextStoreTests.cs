@@ -1,6 +1,8 @@
 using System.Net;
 using Amazon.S3;
 using Amazon.S3.Model;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Shouldly;
 using TextServices.Core.Models;
 using TextServices.Core.Providers;
@@ -179,7 +181,8 @@ public class S3TextStoreTests
     // -------------------------------------------------------------------------
 
     private static S3TextStore MakeStore(FakeS3 fake, string prefix = "")
-        => new(new S3TextStoreOptions { BucketName = Bucket, KeyPrefix = prefix }, fake);
+        => new(Options.Create(new S3TextStoreOptions { BucketName = Bucket, KeyPrefix = prefix }), fake,
+            NullLogger<S3TextStore>.Instance);
 
     private static Text BuildText(string words)
     {

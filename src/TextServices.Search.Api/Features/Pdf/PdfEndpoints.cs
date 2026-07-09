@@ -8,7 +8,7 @@ internal static class PdfEndpoints
 {
     internal static IEndpointRouteBuilder MapPdfEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/pdf/v1/{**id}", async (string id, ISender sender) =>
+        routes.MapGet("/pdf/v1/{*id:minlength(1)}", async (string id, ISender sender) =>
         {
             id = StripPdfExtension(id);
             var stream = await sender.Send(new PdfRequest(id));
@@ -16,21 +16,22 @@ internal static class PdfEndpoints
             return Results.Stream(stream, "application/pdf", enableRangeProcessing: false);
         });
 
-        routes.MapPost("/pdf/v1/{**id}", async (
+        routes.MapPost("/pdf/v1/{*id:minlength(1)}", async (
             string id,
             ISender sender,
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
             id = StripPdfExtension(id);
-            var started = await sender.Send(new PdfTriggerRequest(id));
-            if (!started)
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "pdf/v1/", id);
+            var result = await sender.Send(new PdfTriggerRequest(id));
+            return result switch
             {
-                var location = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null);
-                return Results.Ok(new { location });
-            }
-            var locationUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"pdf/v1/{id}", null);
-            return Results.Accepted(locationUrl);
+                PdfTriggerResult.AlreadyExists => Results.Ok(new { location = resolved.SelfUrl }),
+                PdfTriggerResult.Queued => Results.Accepted(resolved.SelfUrl),
+                PdfTriggerResult.ServiceBusy => new ServiceBusyResult(),
+                _ => Results.NotFound(),
+            };
         });
 
         return routes;
@@ -38,4 +39,14 @@ internal static class PdfEndpoints
 
     private static string StripPdfExtension(string id) =>
         id.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? id[..^4] : id;
+}
+
+file sealed class ServiceBusyResult : IResult
+{
+    public Task ExecuteAsync(HttpContext httpContext)
+    {
+        httpContext.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        httpContext.Response.Headers.RetryAfter = "30";
+        return Task.CompletedTask;
+    }
 }

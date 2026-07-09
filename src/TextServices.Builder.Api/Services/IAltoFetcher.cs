@@ -13,5 +13,5 @@ public interface IAltoFetcher
     /// or the response body is empty — both treated as a sparse page.
     /// Throws for other HTTP errors or parse failures.
     /// </summary>
-    Task<XElement?> FetchAsync(string uri, CancellationToken ct = default);
+    Task<XElement?> FetchAsync(string uri, CancellationToken ct);
 }

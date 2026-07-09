@@ -17,7 +17,7 @@ namespace TextServices.Builder.Api.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -45,9 +45,17 @@ namespace TextServices.Builder.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("finished");
 
+                    b.Property<int?>("FulfilledServices")
+                        .HasColumnType("integer")
+                        .HasColumnName("fulfilled_services");
+
                     b.Property<string>("HangfireJobId")
                         .HasColumnType("text")
                         .HasColumnName("hangfire_job_id");
+
+                    b.Property<int>("InvocationCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("invocation_count");
 
                     b.Property<int>("PagesCompleted")
                         .HasColumnType("integer")

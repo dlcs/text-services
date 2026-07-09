@@ -154,8 +154,8 @@ public class TextNormalisationEdgeCaseTests
     // IMPORTANT KNOWN LIMITATION: accented letters are kept as-is (lowercased).
     // "café" normalises to "caf\u00e9", NOT "cafe". This means a user searching
     // "cafe" (no accent) will NOT find "café" in the text. This replicates the
-    // behaviour of both reference implementations exactly (Wellcome has a TODO
-    // comment noting this limitation). Do not change this behaviour silently.
+    // behaviour of both reference implementations exactly.
+    // Do not change this behaviour silently.
     // -------------------------------------------------------------------------
 
     [Fact]

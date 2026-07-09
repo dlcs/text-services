@@ -8,27 +8,31 @@ internal static class SearchEndpoints
 {
     internal static IEndpointRouteBuilder MapSearchEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/search/v1/{**id}", async (
+        routes.MapGet("/search/v1/{*id:minlength(1)}", async (
             string id, string? q,
             ISender sender,
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"search/v1/{id}", q);
-            var result = await sender.Send(new SearchRequest(id, q ?? string.Empty, selfUrl));
+            if (string.IsNullOrWhiteSpace(q)) return Results.BadRequest();
+
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "search/v1/", id, q);
+            var result = await sender.Send(new SearchRequest(id, q, resolved.SelfUrl, resolved.ResourceUrl));
             if (result == null) return Results.NotFound();
             result.Ignored = EndpointHelpers.GetIgnoredParams(ctx);
             return Results.Json(result, contentType: "application/ld+json");
         });
 
-        routes.MapGet("/search/v2/{**id}", async (
+        routes.MapGet("/search/v2/{*id:minlength(1)}", async (
             string id, string? q,
             ISender sender,
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"search/v2/{id}", q);
-            var result = await sender.Send(new SearchV2Request(id, q ?? string.Empty, selfUrl));
+            if (string.IsNullOrWhiteSpace(q)) return Results.BadRequest();
+
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "search/v2/", id, q);
+            var result = await sender.Send(new SearchV2Request(id, q, resolved.SelfUrl, resolved.ResourceUrl));
             if (result == null) return Results.NotFound();
             result.Ignored = EndpointHelpers.GetIgnoredParams(ctx);
             return Results.Json(result, contentType: "application/ld+json");

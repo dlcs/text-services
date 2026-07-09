@@ -61,6 +61,7 @@ public class ReprocessJobHandler(
         job.TotalImageCount = 0;
         job.Errors = null;
         job.HangfireJobId = null;
+        job.InvocationCount++;
 
         await db.SaveChangesAsync(ct);
 

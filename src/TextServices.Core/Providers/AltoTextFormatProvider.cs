@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Xml.Linq;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using TextServices.Core.Models;
 
 namespace TextServices.Core.Providers;
@@ -9,8 +11,10 @@ namespace TextServices.Core.Providers;
 /// Supports both ns-v2 (<c>http://www.loc.gov/standards/alto/ns-v2#</c>) and ns-v3
 /// (<c>http://www.loc.gov/standards/alto/ns-v3#</c>) as well as namespace-free ALTO.
 /// </summary>
-public class AltoTextFormatProvider : ITextFormatProvider
+public class AltoTextFormatProvider(ILogger<AltoTextFormatProvider>? logger = null) : ITextFormatProvider
 {
+    private readonly ILogger<AltoTextFormatProvider> _logger = logger ?? NullLogger<AltoTextFormatProvider>.Instance;
+
     // Hyphen character used in some ALTO sources as a soft-hyphen marker
     private const char HyphenSpecial = '¬';
 
@@ -40,6 +44,8 @@ public class AltoTextFormatProvider : ITextFormatProvider
         int canvasHeight)
     {
         var ns = DetectAltoNamespace(root);
+        _logger.LogDebug("Processing ALTO page '{Id}' with {Namespace} namespace",
+            imageIdentifier, ns == XNamespace.None ? "none" : ns.NamespaceName);
 
         var pageElement = FindDescendant(root, ns, "Page");
         if (pageElement == null) return;
@@ -51,7 +57,11 @@ public class AltoTextFormatProvider : ITextFormatProvider
         float scaleH = altoHeight > 0 ? canvasHeight / altoHeight : 1f;
 
         var printSpace = FindDescendant(pageElement, ns, "PrintSpace");
-        if (printSpace == null) return;
+        if (printSpace == null)
+        {
+            _logger.LogWarning("No PrintSpace found for ALTO page '{Id}'; page will be empty", imageIdentifier);
+            return;
+        }
 
         accumulator.BeginPage(imageIdentifier);
 
@@ -94,6 +104,7 @@ public class AltoTextFormatProvider : ITextFormatProvider
                             accumulator.LastWordNormPosition, composedBlockTracker);
                     }
 
+                    _logger.LogDebug("Merged hyphenated word on page '{Id}'", imageIdentifier);
                     hyphenPending = false;
                     startIdx = 1; // HypPart2 string consumed — skip it below
                 }
@@ -143,6 +154,7 @@ public class AltoTextFormatProvider : ITextFormatProvider
         // If the document ends with an unmatched HypPart1 (edge case), commit it as-is.
         if (hyphenPending && !string.IsNullOrEmpty(pendingNorm))
         {
+            _logger.LogWarning("Unmatched HypPart1 at end of ALTO page '{Id}'", imageIdentifier);
             accumulator.AddWord(pendingRaw, pendingNorm,
                 pendingX, pendingY, pendingW, pendingH, pendingSp);
         }

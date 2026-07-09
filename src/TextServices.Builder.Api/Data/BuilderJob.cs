@@ -51,4 +51,18 @@ public class BuilderJob
     /// job instruction. Null when no custom page types were supplied.
     /// </summary>
     public string? CustomTypesJson { get; set; }
+
+    /// <summary>
+    /// Bitmask of <see cref="TextServices.Storage.JobServices"/> flags that were actually
+    /// fulfilled during the most recent run. Null until the job has completed processing.
+    /// A value of 0 means processing completed but no derivatives could be produced.
+    /// </summary>
+    public int? FulfilledServices { get; set; }
+
+    /// <summary>
+    /// Number of times the job processor has been invoked for this job. Set to 1 on
+    /// initial creation (<c>POST</c>) and incremented by 1 on every reprocess (<c>PUT</c>),
+    /// so callers can tell which run a completion notification belongs to.
+    /// </summary>
+    public int InvocationCount { get; set; } = 1;
 }

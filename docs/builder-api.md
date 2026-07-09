@@ -385,14 +385,21 @@ Builder API configuration lives under the `TextServices` key in `appsettings.jso
 
 ```json
 {
+  "RunMigrations": true,
   "ConnectionStrings": {
     "BuilderDb": "Host=localhost;Database=textservices;Username=...;Password=..."
   },
   "TextServices": {
     "SearchApiBaseUrl": "https://search.example.org",
-    "MaxConcurrentAltoFetches": 8,
+    "AllowFileImageProxy": false,
+    "MaxConcurrentPageFetches": 8,
     "Storage": {
-      "RootPath": "/data/textservices"
+      "FileSystem": {
+        "RootPath": "/data/textservices"
+      }
+    },
+    "Notifications": {
+      "TopicArn": ""
     }
   },
   "CorsAllowedOrigins": ["https://viewer.example.org"]
@@ -401,8 +408,16 @@ Builder API configuration lives under the `TextServices` key in `appsettings.jso
 
 | Setting | Default | Description |
 |---|---|---|
+| `RunMigrations` | `false` | When `true`, applies any pending EF Core database migrations on startup. Convenient for dev and simple deployments; leave `false` and run migrations separately in production. |
 | `ConnectionStrings:BuilderDb` | _(required)_ | PostgreSQL connection string. Used for both EF Core (job state) and Hangfire (job queue). |
-| `SearchApiBaseUrl` | `""` | Public base URL of the Search API. Used to populate the `searchV1` / `searchV2` fields in completed job responses, and to construct `/proxy/image` URLs in synthesised Manifests when `sourceData` pages supply `file://` or `s3://` imageUri values. Leave empty if the Search API is not yet deployed. |
-| `MaxConcurrentAltoFetches` | `8` | Maximum number of text files fetched in parallel within a single job. Increase for internal or S3 sources; keep low (4–8) for third-party HTTP hosts. |
-| `Storage:RootPath` | `textservices-data` | Root directory for stored text artefacts. Must be readable by the Search API. |
 | `CorsAllowedOrigins` | `[]` | Allowed CORS origins. Empty array disables CORS. |
+| `TextServices:SearchApiBaseUrl` | `""` | Public base URL of the Search API. Used to populate the `searchV1` / `searchV2` fields in completed job responses, and to construct `/proxy/image` URLs in synthesised Manifests when `sourceData` pages supply `file://` or `s3://` imageUri values. Leave empty if the Search API is not yet deployed. |
+| `TextServices:AllowFileImageProxy` | `false` | When `true`, synthesised Manifests embed `/proxy/image` proxy URLs for `file://` and `s3://` imageUri values instead of omitting the painting annotation. Only enable in trusted local-dev environments. The Search API's `AllowFileImageProxy` must also be `true` for those proxy URLs to serve real content. |
+| `TextServices:MaxConcurrentPageFetches` | `8` | Maximum number of text files fetched in parallel within a single job. Increase for internal or S3 sources; keep low (4–8) for third-party HTTP hosts. |
+| `TextServices:ReportBatchProgress` | `true` | When `true`, `PagesCompleted` is flushed to the database every 10 pages during processing, allowing `GET /textbuilder/{id}` to reflect live progress. Set to `false` to reduce database writes on large manifests; the final count is still persisted when the job completes. |
+| `TextServices:Storage:FileSystem:RootPath` | `textservices-data` | Root directory for stored text artefacts. Ignored when S3 storage is configured. Must be readable by the Search API if used. |
+| `TextServices:Storage:S3:BucketName` | `""` | S3 bucket for stored artefacts. When set, the S3 store is used instead of the filesystem store. |
+| `TextServices:Storage:S3:KeyPrefix` | `""` | Optional prefix for all S3 object keys (e.g. `"textservices/"`). A trailing `/` is added automatically if omitted. |
+| `TextServices:Notifications:TopicArn` | `""` | ARN of an SNS topic to publish a notification to when a job completes (success or failure). Leave empty to disable notifications. |
+
+S3 credentials and region are resolved by the standard AWS SDK credential chain (environment variables, instance profile, `appsettings.json` `AWS` section). Configure the region via the `AWS:Region` key or the `AWS_DEFAULT_REGION` environment variable.

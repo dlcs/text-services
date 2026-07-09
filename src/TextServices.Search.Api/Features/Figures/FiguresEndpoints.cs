@@ -8,14 +8,14 @@ internal static class FiguresEndpoints
 {
     internal static IEndpointRouteBuilder MapFiguresEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/identified/figures/{**id}", async (
+        routes.MapGet("/identified/figures/{*id:minlength(1)}", async (
             string id,
             ISender sender,
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
-            var selfUrl = EndpointHelpers.BuildSelfUrl(options.Value, ctx, $"identified/figures/{id}", null);
-            var result = await sender.Send(new FiguresRequest(id, selfUrl));
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "identified/figures/", id);
+            var result = await sender.Send(new FiguresRequest(id, resolved.SelfUrl));
             if (result == null) return Results.NotFound();
             return Results.Json(result, contentType: "application/ld+json");
         });
