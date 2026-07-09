@@ -169,15 +169,11 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     }
 
     [Fact]
-    public async Task Search_EmptyQuery_ReturnsEmptyNotError()
+    public async Task Search_EmptyQuery_Returns400()
     {
-        var id = await BuildFixtureAsync("e2e/search-empty");
-
-        var response = await ctx.SearchClient.GetAsync($"/search/v1/{id}?q=");
-        response.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        var body = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
-        body["resources"]!.AsArray().Count.ShouldBe(0);
+        // Query validation happens before the job is looked up, so no fixture is needed.
+        var response = await ctx.SearchClient.GetAsync("/search/v1/no/such/id?q=");
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -185,6 +181,15 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     {
         var response = await ctx.SearchClient.GetAsync("/search/v1/no/such/id?q=test");
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Search_MissingQuery_Returns400EvenForUnknownId()
+    {
+        // Query validation happens before the job is looked up — an unknown id
+        // with a missing query returns 400, not 404.
+        var response = await ctx.SearchClient.GetAsync("/search/v2/no/such/id");
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     // -------------------------------------------------------------------------
@@ -202,6 +207,14 @@ public class BuildAndSearchTests(E2ETestContext ctx)
         var body = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
         body["@type"]!.GetValue<string>().ShouldBe("search:TermList");
         body["terms"]!.AsArray().Count.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Autocomplete_MissingQuery_Returns400()
+    {
+        // Query validation happens before the job is looked up, so no fixture is needed.
+        var response = await ctx.SearchClient.GetAsync("/autocomplete/v1/no/such/id");
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
     [Fact]
