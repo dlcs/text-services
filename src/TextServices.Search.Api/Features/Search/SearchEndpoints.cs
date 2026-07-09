@@ -14,8 +14,10 @@ internal static class SearchEndpoints
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
+            if (string.IsNullOrWhiteSpace(q)) return Results.BadRequest();
+
             var resolved = EndpointHelpers.Resolve(options.Value, ctx, "search/v1/", id, q);
-            var result = await sender.Send(new SearchRequest(id, q ?? string.Empty, resolved.SelfUrl, resolved.ResourceUrl));
+            var result = await sender.Send(new SearchRequest(id, q, resolved.SelfUrl, resolved.ResourceUrl));
             if (result == null) return Results.NotFound();
             result.Ignored = EndpointHelpers.GetIgnoredParams(ctx);
             return Results.Json(result, contentType: "application/ld+json");
@@ -27,8 +29,10 @@ internal static class SearchEndpoints
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
+            if (string.IsNullOrWhiteSpace(q)) return Results.BadRequest();
+
             var resolved = EndpointHelpers.Resolve(options.Value, ctx, "search/v2/", id, q);
-            var result = await sender.Send(new SearchV2Request(id, q ?? string.Empty, resolved.SelfUrl, resolved.ResourceUrl));
+            var result = await sender.Send(new SearchV2Request(id, q, resolved.SelfUrl, resolved.ResourceUrl));
             if (result == null) return Results.NotFound();
             result.Ignored = EndpointHelpers.GetIgnoredParams(ctx);
             return Results.Json(result, contentType: "application/ld+json");
