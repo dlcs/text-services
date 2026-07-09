@@ -1,8 +1,14 @@
 # Memory Cache Usage — Design Notes
 
-## Current implementation issues
+> **Status:** Recommendations 1 and 2 below are implemented in `TextServices.Search.Api`
+> (`Program.cs` registers the cache with a `SizeLimit`; `Services/TextCache.cs` sets
+> per-entry size and absolute expiration). Recommendation 3 is deployment guidance,
+> captured in the `CacheMaxEntries` doc comment in `Configuration/SearchApiOptions.cs`.
+> Recommendation 4 is deliberately not implemented — it remains a last resort.
 
-The `IMemoryCache` registration has no size limit at all. With large objects, this means:
+## Original implementation issues (since addressed)
+
+The `IMemoryCache` registration originally had no size limit at all. With large objects, this meant:
 
 1. **The cache can grow unboundedly.** If a hundred different book IDs are requested, all 100 Text objects stay in memory until the sliding window expires. There's no back-pressure mechanism.
 
@@ -32,9 +38,9 @@ Yes, memory dominates over CPU here. CPU load is light — search is essentially
 
 **CloudWatch memory metrics.** ECS doesn't expose container memory usage as a CloudWatch metric by default — you need the Container Insights agent. Without it you're flying blind on cache size.
 
-## What I'd recommend changing
+## Recommended changes and their status
 
-1. **Set a cache entry limit.** Use entry count (not word count) as the size unit. Sizing by word count looks proportional but has a fatal flaw: a text larger than `SizeLimit` words can never be admitted to the cache at all, silently degrading to uncached storage reads for every request. Entry count avoids this — every text is cacheable regardless of size, and memory headroom is managed at the infrastructure level (ECS task memory limit).
+1. **Set a cache entry limit.** ✅ **Implemented.** Use entry count (not word count) as the size unit. Sizing by word count looks proportional but has a fatal flaw: a text larger than `SizeLimit` words can never be admitted to the cache at all, silently degrading to uncached storage reads for every request. Entry count avoids this — every text is cacheable regardless of size, and memory headroom is managed at the infrastructure level (ECS task memory limit).
 
 ```csharp
 builder.Services.AddMemoryCache(opts => opts.SizeLimit = options.CacheMaxEntries); // e.g. 20
@@ -45,15 +51,17 @@ var entryOptions = new MemoryCacheEntryOptions()
     .SetSize(1);
 ```
 
-2. **Add an absolute expiration floor.** Sliding expiration alone means a popular text stays cached forever. Adding an absolute cap (e.g. 4 hours) forces periodic refresh and bounds LOH lifetime.
+   In the code: `Program.cs` registers the cache with `SizeLimit` taken from the `TextServices:CacheMaxEntries` setting (default 20; read directly from configuration because options binding isn't available at that point in startup). `TextCache` sets `.SetSize(1)` on every entry — both `Text` and `AutoComplete` objects share the same slot budget.
 
-3. **ECS task sizing.** For a service caching up to ~5M words: budget ~200MB for the cache + ~150MB for ASP.NET baseline = size tasks at 512MB–1GB with the hard limit set higher than the soft limit so ECS scales out before OOMKilling.
+2. **Add an absolute expiration floor.** ✅ **Implemented.** Sliding expiration alone means a popular text stays cached forever. Adding an absolute cap forces periodic refresh and bounds LOH lifetime. `TextCache` applies `.SetAbsoluteExpiration()` from the `TextServices:CacheAbsoluteExpirationHours` setting (default 4 hours) alongside the sliding expiration.
+
+3. **ECS task sizing.** ☁️ **Deployment guidance, not code.** For a service caching up to ~5M words: budget ~200MB for the cache + ~150MB for ASP.NET baseline = size tasks at 512MB–1GB with the hard limit set higher than the soft limit so ECS scales out before OOMKilling. The per-text memory estimate (~30–40MB for a large text) is recorded in the `CacheMaxEntries` doc comment in `SearchApiOptions` for whoever sizes the task definition.
 
 4. **Consider LOH compaction on a schedule** if you see fragmentation in production:
 ```csharp
 GCSettings.LargeObjectHeapCompactionMode = GCLargeObjectHeapCompactionMode.CompactOnce;
 GC.Collect(2, GCCollectionMode.Forced, blocking: true);
 ```
-But that's a last resort — the size limit approach is cleaner.
+But that's a last resort — the size limit approach is cleaner. ⏸️ **Deliberately not implemented**; revisit only if production memory graphs show LOH fragmentation.
 
-The architecture is sound for the stated usage (few concurrent users, large objects). The risk is when "few" becomes "more" without the cache size guardrails in place.
+The architecture is sound for the stated usage (few concurrent users, large objects). With the entry limit and absolute expiration now in place, the remaining risk sits at the infrastructure level: raise `CacheMaxEntries` only in step with the ECS task memory budget.
