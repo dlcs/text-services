@@ -51,7 +51,7 @@ var entryOptions = new MemoryCacheEntryOptions()
     .SetSize(1);
 ```
 
-   In the code: `Program.cs` registers the cache with `SizeLimit` taken from the `TextServices:CacheMaxEntries` setting (default 20; read directly from configuration because options binding isn't available at that point in startup). `TextCache` sets `.SetSize(1)` on every entry — both `Text` and `AutoComplete` objects share the same slot budget.
+   In the code: `Program.cs` registers the cache with `SizeLimit` taken from the `TextServices:CacheMaxEntries` setting (default 20; read directly from configuration because options binding isn't available at that point in startup). The config key is looked up via `nameof(SearchApiOptions.CacheMaxEntries)` rather than a string literal, so the `SearchApiOptions` property — otherwise unreferenced in code, since this path bypasses options binding — stays in lockstep with the setting it documents. `TextCache` sets `.SetSize(1)` on every entry — both `Text` and `AutoComplete` objects share the same slot budget.
 
 2. **Add an absolute expiration floor.** ✅ **Implemented.** Sliding expiration alone means a popular text stays cached forever. Adding an absolute cap forces periodic refresh and bounds LOH lifetime. `TextCache` applies `.SetAbsoluteExpiration()` from the `TextServices:CacheAbsoluteExpirationHours` setting (default 4 hours) alongside the sliding expiration.
 

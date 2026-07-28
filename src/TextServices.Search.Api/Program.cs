@@ -97,7 +97,8 @@ builder.Services.AddPdfServices();
 // ---- Cache ------------------------------------------------------------------
 
 builder.Services.AddMemoryCache(opts =>
-    opts.SizeLimit = builder.Configuration.GetSection("TextServices").GetValue<int?>("CacheMaxEntries") ?? 20);
+    opts.SizeLimit = builder.Configuration.GetSection("TextServices")
+        .GetValue<int?>(nameof(SearchApiOptions.CacheMaxEntries)) ?? 20);
 builder.Services.AddSingleton(new AsyncKeyedLocker<string>());
 builder.Services.AddSingleton<ITextCache, TextCache>();
 
