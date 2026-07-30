@@ -14,10 +14,11 @@ public class SearchApiOptions
     public int CacheSlidingExpirationMinutes { get; set; } = 30;
 
     /// <summary>
-    /// Absolute expiration cap for cached objects (hours).
+    /// Absolute expiration cap for cached objects (hours). Fractional values are allowed
+    /// (e.g. 0.25 for 15 minutes), for deployments that need a tighter cap than whole hours.
     /// Prevents popular texts from staying in the LOH indefinitely.
     /// </summary>
-    public int CacheAbsoluteExpirationHours { get; set; } = 4;
+    public double CacheAbsoluteExpirationHours { get; set; } = 4;
 
     /// <summary>
     /// Maximum number of Text objects to hold in the memory cache simultaneously.
