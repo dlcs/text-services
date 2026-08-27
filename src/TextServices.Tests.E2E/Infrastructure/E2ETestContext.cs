@@ -18,7 +18,7 @@ public sealed class E2ETestContext : IAsyncLifetime
         Path.Combine(Path.GetTempPath(), "TextServicesE2E_" + Guid.NewGuid().ToString("N"));
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+        .WithImage("postgres:18-alpine")
         .Build();
 
     public BuilderApiFactory BuilderFactory { get; private set; } = null!;
