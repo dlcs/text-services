@@ -4,12 +4,12 @@ volumes:
 
 services:
   postgres:
-    image: postgres:14
+    image: postgres:18
     hostname: postgres
     ports:
       - "5452:5432"
     volumes:
-      - txt_postgres_data:/var/lib/postgresql/data
+      - txt_postgres_data:/var/lib/postgresql/docker
       - txt_postgres_data_backups:/backups
     environment:
       - POSTGRES_HOST=postgres
