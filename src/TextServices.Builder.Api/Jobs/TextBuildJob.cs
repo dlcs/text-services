@@ -448,15 +448,10 @@ public class TextBuildJob(
     private static bool IsAnnotationPage(PageInstruction page) =>
         page.Format == Core.Providers.W3cAnnotationTextFormatProvider.FormatSentinel;
 
-    private static bool IsVttPage(PageInstruction page) =>
-        ContainsIgnoreCase(page.Profile, "text/vtt") || ContainsIgnoreCase(page.Format, "text/vtt") ||
-        ContainsIgnoreCase(page.Profile, "vtt") || ContainsIgnoreCase(page.Format, "vtt") ||
-        ContainsIgnoreCase(page.Label, "vtt") ||
-        ContainsIgnoreCase(page.Label, "webvtt") ||
-        ContainsIgnoreCase(page.Label, "transcript");
+    private static readonly VttTextFormatProvider VttFormatProvider = new();
 
-    private static bool ContainsIgnoreCase(string? value, string term) =>
-        value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+    private static bool IsVttPage(PageInstruction page) =>
+        VttFormatProvider.Supports(page.Profile, page.Format, page.Label);
 
     private async Task<FetchedPage> FetchPageAsync(PageInstruction page, CancellationToken ct)
     {

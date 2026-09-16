@@ -46,7 +46,7 @@ public class ManifestReducer : IManifestReducer
                 // Include temporal-only canvases (duration but no width/height) when a
                 // VTT or annotation-page source is present; both can carry temporal targets.
                 var isTemporalSource = source != null &&
-                    (IsVttFormat(source.Profile, source.Format, source.Label) ||
+                    (IsVttFormat(source.Profile, source.Format) ||
                      source.Format == W3cAnnotationTextFormatProvider.FormatSentinel);
                 if (!hasDuration || !isTemporalSource)
                     continue;
@@ -284,11 +284,9 @@ public class ManifestReducer : IManifestReducer
         };
     }
 
-    private static bool IsVttFormat(string? profile, string? format, string? label) =>
-        ContainsIgnoreCase(profile, "text/vtt") || ContainsIgnoreCase(format, "text/vtt") ||
-        ContainsIgnoreCase(profile, "vtt") || ContainsIgnoreCase(format, "vtt") ||
-        ContainsIgnoreCase(label, "vtt") || ContainsIgnoreCase(label, "webvtt") ||
-        ContainsIgnoreCase(label, "transcript");
+    // Label is deliberately not consulted here — see VttTextFormatProvider.Supports.
+    private static bool IsVttFormat(string? profile, string? format) =>
+        ContainsIgnoreCase(profile, "vtt") || ContainsIgnoreCase(format, "vtt");
 
     /// <summary>
     /// Returns <see langword="true"/> if the profile URI, format MIME type, or label indicates
@@ -297,7 +295,7 @@ public class ManifestReducer : IManifestReducer
     private static bool IsRecognisedTextFormat(string? profile, string? format, string? label) =>
         ContainsIgnoreCase(profile, "alto") || ContainsIgnoreCase(format, "alto") || ContainsIgnoreCase(label, "alto") ||
         ContainsIgnoreCase(profile, "hocr") || ContainsIgnoreCase(format, "hocr") || ContainsIgnoreCase(label, "hocr") ||
-        IsVttFormat(profile, format, label);
+        IsVttFormat(profile, format);
 
     private static bool ContainsIgnoreCase(string? value, string term) =>
         value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);

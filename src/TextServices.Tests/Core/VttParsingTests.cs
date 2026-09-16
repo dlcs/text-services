@@ -22,15 +22,19 @@ public class VttParsingTests
     }
 
     [Fact]
-    public void Supports_VttLabel_ReturnsTrue()
+    public void Supports_VttLabelOnly_ReturnsFalse()
     {
-        _provider.Supports(profile: null, format: null, label: "WebVTT").ShouldBeTrue();
+        // Label is deliberately not consulted — free-text labels are too easily
+        // ambiguous (e.g. a METS-ALTO seeAlso labelled "transcription").
+        _provider.Supports(profile: null, format: null, label: "WebVTT").ShouldBeFalse();
     }
 
     [Fact]
-    public void Supports_TranscriptLabel_ReturnsTrue()
+    public void Supports_TranscriptLabelOnly_ReturnsFalse()
     {
-        _provider.Supports(profile: null, format: null, label: "Transcript").ShouldBeTrue();
+        // Regression: a METS-ALTO seeAlso labelled "METS-ALTO transcription" must
+        // not be misdetected as VTT via the "transcript" substring in its label.
+        _provider.Supports(profile: null, format: null, label: "METS-ALTO transcription").ShouldBeFalse();
     }
 
     [Fact]

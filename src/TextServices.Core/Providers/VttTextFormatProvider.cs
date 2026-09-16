@@ -12,11 +12,11 @@ public class VttTextFormatProvider(ILogger<VttTextFormatProvider>? logger = null
 {
     private readonly ILogger<VttTextFormatProvider> _logger = logger ?? NullLogger<VttTextFormatProvider>.Instance;
 
+    // Label is deliberately not consulted: it's free-text supplied by the manifest
+    // author and too easily collides with unrelated formats (e.g. a METS-ALTO
+    // seeAlso labelled "transcription" contains the substring "transcript").
     public bool Supports(string? profile, string? format, string? label) =>
-        ContainsIgnoreCase(profile, "text/vtt") || ContainsIgnoreCase(format, "text/vtt") ||
-        ContainsIgnoreCase(profile, "vtt") || ContainsIgnoreCase(format, "vtt") ||
-        ContainsIgnoreCase(label, "vtt") || ContainsIgnoreCase(label, "webvtt") ||
-        ContainsIgnoreCase(label, "transcript");
+        ContainsIgnoreCase(format, "vtt") || ContainsIgnoreCase(profile, "vtt");
 
     public void ProcessPage(
         TextAccumulator accumulator,
