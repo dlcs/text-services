@@ -498,6 +498,81 @@ public class TextAugmentedHandlerTests
         ctx.Count(n => n!.GetValue<string>() == "http://iiif.io/api/search/1/context.json").ShouldBe(1);
     }
 
+    // -------------------------------------------------------------------------
+    // Canvas SVG rendering
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_CanvasWithWords_AddsSvgRendering()
+    {
+        var handler = MakeHandler(V3ManifestWithCanvases());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["items"]![0]!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count.ShouldBe(1);
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe("https://search.example.org/svg/v1/0/test/book");
+        rendering[0]!["type"]!.GetValue<string>().ShouldBe("Image");
+        rendering[0]!["format"]!.GetValue<string>().ShouldBe("image/svg+xml");
+    }
+
+    [Fact]
+    public async Task Handle_CanvasWithExistingRendering_AppendsSvgRendering()
+    {
+        var handler = MakeHandler(V3ManifestWithCanvases(
+            canvasRendering: """[{"id":"https://example.org/other","type":"Text"}]"""));
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["items"]![0]!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.Count.ShouldBe(2);
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe("https://example.org/other");
+        rendering[1]!["id"]!.GetValue<string>().ShouldBe("https://search.example.org/svg/v1/0/test/book");
+    }
+
+    [Fact]
+    public async Task Handle_CanvasAlreadyHasSvgRendering_DoesNotDuplicate()
+    {
+        var handler = MakeHandler(V3ManifestWithCanvases(
+            canvasRendering: """[{"id":"https://search.example.org/svg/v1/0/test/book","type":"Image"}]"""));
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["items"]![0]!["rendering"]!.AsArray().Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_TemporalCanvas_NoSvgRendering()
+    {
+        var handler = MakeHandler(V3ManifestWithCanvases(), cachedText: TemporalText());
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["items"]![0]!["rendering"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_SvgFlagAbsent_NoSvgRendering()
+    {
+        var handler = MakeHandler(V3ManifestWithCanvases(),
+            capabilities: JobServices.All & ~JobServices.Svg);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["items"]![0]!["rendering"].ShouldBeNull();
+    }
+
+    private static string V3ManifestWithCanvases(string? canvasRendering = null)
+    {
+        var rendering = canvasRendering == null ? "" : $",\"rendering\":{canvasRendering}";
+        return $$"""{"id":"https://example.org/m/1","type":"Manifest","items":[{"id":"canvas/1","type":"Canvas","width":1000,"height":1500{{rendering}}}]}""";
+    }
+
     private static ResolvedRequest DefaultResolved(string id = "test/book")
         => new(id, SelfUrl, SelfUrl, SearchBase);
 
@@ -506,9 +581,10 @@ public class TextAugmentedHandlerTests
         string? annotationsJson = null,
         string? figuresJson = null,
         Text? cachedText = null,
-        bool noText = false)
+        bool noText = false,
+        JobServices? capabilities = null)
         => new(new StubTextStore(manifestJson, annotationsJson, figuresJson),
-            new StubTextCache(noText ? null : (cachedText ?? SpatialText())),
+            new StubTextCache(noText ? null : (cachedText ?? SpatialText()), capabilities),
             new NullLogger<TextAugmentedHandler>());
 
     /// <summary>A Text with one spatial (image-based) canvas.</summary>
@@ -598,14 +674,14 @@ public class TextAugmentedHandlerTests
         public Task DeleteArtefacts(string key) => Task.CompletedTask;
     }
 
-    private sealed class StubTextCache(Text? text) : ITextCache
+    private sealed class StubTextCache(Text? text, JobServices? capabilities = null) : ITextCache
     {
         public Task<Text?> GetTextAsync(string key, CancellationToken ct = default)
             => Task.FromResult(text);
         public Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
             => Task.FromResult<AutoComplete?>(null);
         public Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
-            => Task.FromResult<JobServices?>(null);
+            => Task.FromResult(capabilities);
         public void Invalidate(string key) { }
     }
 }

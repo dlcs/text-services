@@ -56,6 +56,8 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
             InjectSearchServices(manifest, resolvedRequestUris);
             InjectRenderingLinks(manifest, resolvedRequestUris, text);
             InjectCanvasAnnotationRefs(manifest, resolvedRequestUris, text);
+            if (await textCache.IsEnabledAsync(request.Id, JobServices.Svg, ct))
+                InjectCanvasSvgRenderings(manifest, resolvedRequestUris, text);
         }
         else
         {
@@ -206,6 +208,46 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
             else
             {
                 canvas["annotations"] = new JsonArray(linesRef, wordsRef);
+            }
+        }
+    }
+
+    private void InjectCanvasSvgRenderings(JsonObject manifest, ResolvedRequest resolved, Text text)
+    {
+        if (manifest["items"] is not JsonArray canvases) return;
+
+        logger.LogDebug("Adding canvas SVG renderings: {Id}", resolved.EffectiveId);
+
+        // SVG is only meaningful for spatial canvases that have at least one word.
+        var canvasesWithWords = text.Words.Values.Select(w => w.Idx).ToHashSet();
+
+        for (var i = 0; i < canvases.Count && i < text.Images.Length; i++)
+        {
+            if (text.Images[i].IsTemporalContent) continue;
+            if (!canvasesWithWords.Contains(i)) continue;
+            if (canvases[i] is not JsonObject canvas) continue;
+
+            var svgRef = new JsonObject
+            {
+                ["id"] = resolved.SvgUrl(i),
+                ["type"] = "Image",
+                ["label"] = new JsonObject { ["en"] = new JsonArray("SVG XML for page text") },
+                ["format"] = "image/svg+xml",
+            };
+
+            if (canvas["rendering"] is JsonArray existingRendering)
+            {
+                AddIfNew(existingRendering, svgRef, prepend: false);
+            }
+            else if (canvas["rendering"] is JsonObject singleRendering)
+            {
+                var arr = new JsonArray(singleRendering.DeepClone());
+                AddIfNew(arr, svgRef, prepend: false);
+                canvas["rendering"] = arr;
+            }
+            else
+            {
+                canvas["rendering"] = new JsonArray(svgRef);
             }
         }
     }

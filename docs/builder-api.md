@@ -361,6 +361,7 @@ want enabled. Omitting `services` (or supplying `-1`) enables everything.
 | `TextAugmented` | `16` | Text-augmented Manifest endpoint (`/text-augmented/v3/`) |
 | `Annotations` | `32` | Line/word annotation pages and manifest-level annotations endpoint |
 | `Figures` | `64` | Identified figures endpoint (`/identified/figures/`) |
+| `Svg` | `128` | Per-canvas SVG text endpoint (`/svg/v1/`) and its canvas `rendering` link in the text-augmented Manifest |
 
 **Example** — Search and Autocomplete only (`1 | 2 = 3`):
 

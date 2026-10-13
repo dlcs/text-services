@@ -44,5 +44,8 @@ internal static class ResolvedRequestExtensions
     public static string AnnotationsWordsUrl(this ResolvedRequest r, int i) =>
         SearchApiRoutes.AnnotationsWords(r.BaseUrl, r.EffectiveId, i);
 
+    public static string SvgUrl(this ResolvedRequest r, int i) =>
+        SearchApiRoutes.Svg(r.BaseUrl, r.EffectiveId, i);
+
     public static string FiguresUrl(this ResolvedRequest r) => SearchApiRoutes.Figures(r.BaseUrl, r.EffectiveId);
 }

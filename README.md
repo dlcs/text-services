@@ -71,6 +71,7 @@ Produced artefacts:
 | Plain text | Yes | — |
 | PDF | Yes | Requires at least one canvas with an image URL in the Manifest's painting annotations |
 | Manifest-level line annotations | Yes | — |
+| Per-canvas SVG text rendering | Yes | — |
 | Figures / tables / illustrations | **Only if present in source** | ALTO `<ComposedBlock>` elements with non-zero dimensions |
 
 ### hOCR
@@ -85,6 +86,7 @@ figures are never extracted.
 | Plain text | Yes |
 | PDF | Yes (requires image URLs in painting annotations) |
 | Manifest-level line annotations | Yes |
+| Per-canvas SVG text rendering | Yes |
 | Figures / tables / illustrations | **Never** |
 
 ### WebVTT (audio / video captions)
@@ -99,6 +101,7 @@ WebVTT is time-coded, not spatially positioned. Words carry `#t=` time fragments
 | Plain text | Yes |
 | PDF | **Never** (no page images) |
 | Manifest-level line annotations (temporal) | Yes |
+| Per-canvas SVG text rendering | **Never** (no spatial positions) |
 | Figures / tables / illustrations | **Never** |
 
 ### W3C Annotations (`AnnotationPage`)
@@ -119,6 +122,7 @@ them, even if the original source did not provide a search service.
 | Plain text | Yes |
 | PDF | Only if annotations have `#xywh=` targets and image services are present |
 | Manifest-level line annotations | Yes |
+| Per-canvas SVG text rendering | Only for canvases with `#xywh=` targets |
 | Figures / tables / illustrations | **Never** |
 
 ---
@@ -191,6 +195,24 @@ Two references are added per canvas — one for line-level and one for word-leve
 These annotation pages are generated dynamically from the in-memory index on each request.
 Canvas index `{n}` is zero-based and precedes the job ID in the URL (a routing constraint).
 
+### Per-canvas `rendering` — SVG text
+
+Added to each canvas's `rendering` array when: that canvas is image-based (non-temporal) and has
+at least one word indexed.
+
+```json
+[
+  { "id": "…/svg/v1/0/my-collection/my-book", "type": "Image",
+    "label": { "en": ["SVG XML for page text"] }, "format": "image/svg+xml" }
+]
+```
+
+The SVG has a `viewBox` matching the canvas dimensions and one invisible, selectable `<text>`
+element per line, positioned and stretched over the line's bounding box. Overlaying it on the
+canvas image makes the page text selectable. Like the per-canvas annotation pages, it is
+generated dynamically from the in-memory index; any existing canvas `rendering` entries are
+preserved.
+
 ### Manifest-level `annotations` — full-document line annotations
 
 Added to the manifest's top-level `annotations` array when: any words were indexed.
@@ -228,6 +250,7 @@ This is never produced for hOCR, WebVTT, or W3C Annotation sources — only METS
 | Plain text rendering link | ✓ | ✓ | ✓ | ✓ |
 | PDF rendering link | ✓ | ✓ | — | ✓ (spatial only) |
 | Per-canvas line + word annotations | ✓ | ✓ | ✓ (temporal) | ✓ |
+| Per-canvas SVG rendering link | ✓ | ✓ | — | ✓ (spatial only) |
 | Manifest-level line annotations | ✓ | ✓ | ✓ (temporal) | ✓ |
 | Figures / tables / illustrations | ✓ (if present) | — | — | — |
 

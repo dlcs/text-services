@@ -48,7 +48,7 @@ public class HocrTextFormatProvider(ILogger<HocrTextFormatProvider>? logger = nu
         float scaleW = pageW > 0 ? canvasWidth / pageW : 1f;
         float scaleH = pageH > 0 ? canvasHeight / pageH : 1f;
 
-        accumulator.BeginPage(imageIdentifier);
+        accumulator.BeginPage(imageIdentifier, width: canvasWidth, height: canvasHeight);
 
         // ---- Words --------------------------------------------------------------
         // Iterate lines first so we can issue NextLine() for each one.

@@ -21,5 +21,8 @@ public static class SearchApiRoutes
     public static string AnnotationsWords(string baseUrl, string id, int canvasIndex) =>
         $"{baseUrl}/annotations/words/v1/{canvasIndex}/{id}";
 
+    public static string Svg(string baseUrl, string id, int canvasIndex) =>
+        $"{baseUrl}/svg/v1/{canvasIndex}/{id}";
+
     public static string Figures(string baseUrl, string id) => $"{baseUrl}/identified/figures/{id}";
 }
