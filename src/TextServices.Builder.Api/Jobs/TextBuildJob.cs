@@ -445,19 +445,15 @@ public class TextBuildJob(
     private static string Sec(int ms) =>
         (ms / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static bool IsAnnotationPage(PageInstruction page) =>
-        page.Format == Core.Providers.W3cAnnotationTextFormatProvider.FormatSentinel;
-
-    private static bool IsVttPage(PageInstruction page) =>
-        TextFormatDetector.Detect(page.Profile, page.Format, page.Label) == TextFormat.Vtt;
-
     private async Task<FetchedPage> FetchPageAsync(PageInstruction page, CancellationToken ct)
     {
         if (page.TextUri == null) return new FetchedPage(page, null, null, null);
 
         try
         {
-            if (IsAnnotationPage(page))
+            var textFormat = TextFormatDetector.Detect(page.Profile, page.Format, page.Label);
+
+            if (textFormat == TextFormat.AnnotationPage)
             {
                 var json = await annotationPageFetcher.FetchAsync(page.TextUri, ct);
                 if (json == null)
@@ -467,7 +463,7 @@ public class TextBuildJob(
                 return new FetchedPage(page, null, json, null);
             }
 
-            if (IsVttPage(page))
+            if (textFormat == TextFormat.Vtt)
             {
                 var vtt = await vttFetcher.FetchAsync(page.TextUri, ct);
                 if (vtt == null)

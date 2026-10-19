@@ -75,40 +75,25 @@ public class AltoParsingTests
     }
 
     // -------------------------------------------------------------------------
-    // Supports()
+    // Format / provider selection
     // -------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("http://www.loc.gov/standards/alto/ns-v3#", null)]
-    [InlineData("http://www.loc.gov/standards/alto/ns-v2#", null)]
-    [InlineData("http://schema.ccs-gmbh.com/ALTO", null)]
-    [InlineData(null, "ALTO")]
-    [InlineData(null, "METS-ALTO")]
-    [InlineData(null, "METS-ALTO XML")]
-    [InlineData("some/alto/profile", null)]
-    public void Supports_AltoProfileOrLabel_ReturnsTrue(string? profile, string? label)
-    {
-        var provider = new AltoTextFormatProvider();
-        provider.Supports(profile, null, label).ShouldBeTrue();
-    }
-
-    [Theory]
-    [InlineData("application/json", null)]
-    [InlineData("http://iiif.io/api/presentation/3", null)]
-    [InlineData(null, "hOCR")]
-    public void Supports_ExplicitNonAltoProfileOrLabel_ReturnsFalse(string? profile, string? label)
-    {
-        var provider = new AltoTextFormatProvider();
-        provider.Supports(profile, null, label).ShouldBeFalse();
-    }
+    [Fact]
+    public void Format_IsAlto()
+        => new AltoTextFormatProvider().Format.ShouldBe(TextFormat.Alto);
 
     [Fact]
-    public void Supports_NullProfileAndLabel_ReturnsTrueAsDefaultFallback()
+    public void TextBuilder_NoFormatMetadata_DefaultsToAlto()
     {
         // When no format metadata is present (e.g. inline sourceData without seeAlso),
         // ALTO is the default format.
-        var provider = new AltoTextFormatProvider();
-        provider.Supports(null, null, null).ShouldBeTrue();
+        var page = MakeAlto(NsV2, 1000, 1000,
+            """<String CONTENT="hello" HPOS="0" VPOS="0" WIDTH="50" HEIGHT="20"/>""");
+
+        var builder = new TextBuilder();
+        builder.AddPage("https://example.org/canvas/1", 1000, 1000, page);
+
+        builder.Build().Text.NormalisedFullText.ShouldBe("hello");
     }
 
     // -------------------------------------------------------------------------

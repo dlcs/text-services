@@ -14,24 +14,12 @@ public class HocrParsingTests
     private readonly HocrTextFormatProvider _provider = new();
 
     // -------------------------------------------------------------------------
-    // Supports()
+    // Format
     // -------------------------------------------------------------------------
 
-    [Theory]
-    [InlineData("text/vnd.hocr+html", null)]
-    [InlineData("application/hocr+html", null)]
-    [InlineData("https://example.org/formats/hocr", null)]
-    [InlineData(null, "hOCR output")]
-    [InlineData(null, "Tesseract hocr")]
-    public void Supports_KnownHocrProfiles_ReturnsTrue(string? profile, string? label)
-        => _provider.Supports(profile, null, label).ShouldBeTrue();
-
-    [Theory]
-    [InlineData("http://www.loc.gov/standards/alto/v3/alto.xsd", null)]
-    [InlineData(null, "METS-ALTO XML")]
-    [InlineData(null, null)]
-    public void Supports_NonHocrProfiles_ReturnsFalse(string? profile, string? label)
-        => _provider.Supports(profile, null, label).ShouldBeFalse();
+    [Fact]
+    public void Format_IsHocr()
+        => _provider.Format.ShouldBe(TextFormat.Hocr);
 
     // -------------------------------------------------------------------------
     // Basic word extraction

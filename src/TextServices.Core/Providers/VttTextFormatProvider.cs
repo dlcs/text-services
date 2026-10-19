@@ -12,8 +12,7 @@ public class VttTextFormatProvider(ILogger<VttTextFormatProvider>? logger = null
 {
     private readonly ILogger<VttTextFormatProvider> _logger = logger ?? NullLogger<VttTextFormatProvider>.Instance;
 
-    public bool Supports(string? profile, string? format, string? label) =>
-        TextFormatDetector.Detect(profile, format, label) == TextFormat.Vtt;
+    public TextFormat Format => TextFormat.Vtt;
 
     public void ProcessPage(
         TextAccumulator accumulator,

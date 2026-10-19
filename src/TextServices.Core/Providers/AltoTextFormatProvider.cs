@@ -19,18 +19,7 @@ public class AltoTextFormatProvider(ILogger<AltoTextFormatProvider>? logger = nu
     private const char HyphenSpecial = '¬';
 
     /// <inheritdoc/>
-    /// <remarks>
-    /// Also returns <see langword="true"/> when <paramref name="profile"/>,
-    /// <paramref name="format"/> and <paramref name="label"/> are all absent, making ALTO
-    /// the default format for inline <c>sourceData</c> entries that carry no format metadata.
-    /// </remarks>
-    public bool Supports(string? profile, string? format, string? label)
-    {
-        // Default fallback: treat XML with no format metadata at all as ALTO.
-        if (string.IsNullOrEmpty(profile) && string.IsNullOrEmpty(format) && string.IsNullOrEmpty(label))
-            return true;
-        return TextFormatDetector.Detect(profile, format, label) == TextFormat.Alto;
-    }
+    public TextFormat Format => TextFormat.Alto;
 
     /// <inheritdoc/>
     public void ProcessPage(

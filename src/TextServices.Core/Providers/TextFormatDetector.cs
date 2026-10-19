@@ -7,6 +7,7 @@ public enum TextFormat
     Alto,
     Hocr,
     Vtt,
+    AnnotationPage,
 }
 
 /// <summary>
@@ -22,6 +23,8 @@ public static class TextFormatDetector
 {
     public static TextFormat Detect(string? profile, string? format, string? label)
     {
+        if (format == W3cAnnotationTextFormatProvider.FormatSentinel) return TextFormat.AnnotationPage;
+
         var detected = Match(profile);
         if (detected == TextFormat.Unknown) detected = Match(format);
         if (detected == TextFormat.Unknown) detected = Match(label, isLabel: true);

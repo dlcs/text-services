@@ -9,10 +9,9 @@ namespace TextServices.Core.Providers;
 public interface IStringFormatProvider
 {
     /// <summary>
-    /// Returns true if this provider handles the given source format, identified by
-    /// the IIIF profile URI, format MIME type, and/or label string. All may be null.
+    /// The source format this provider handles, as identified by <see cref="TextFormatDetector"/>.
     /// </summary>
-    bool Supports(string? profile, string? format, string? label);
+    TextFormat Format { get; }
 
     /// <summary>
     /// Processes one canvas of text from the raw source string and accumulates the results.

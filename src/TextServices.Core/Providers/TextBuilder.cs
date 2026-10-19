@@ -47,8 +47,8 @@ public class TextBuilder
 
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with an explicit list of providers,
-    /// tried in order until one reports that it <see cref="ITextFormatProvider.Supports"/>
-    /// the given profile/format/label.
+    /// selected by matching <see cref="ITextFormatProvider.Format"/> against the format
+    /// detected from each page's profile/format/label.
     /// </summary>
     public TextBuilder(IReadOnlyList<ITextFormatProvider> providers, IReadOnlyList<IStringFormatProvider>? transcriptProviders = null)
     {
@@ -60,7 +60,8 @@ public class TextBuilder
     /// <summary>
     /// Adds one page to the build. The correct provider is selected based on
     /// <paramref name="profile"/>, <paramref name="format"/> and <paramref name="label"/>; if no provider
-    /// supports the format the page is silently skipped.
+    /// supports the format the page is silently skipped. A page with no format metadata at all is
+    /// treated as ALTO (e.g. inline <c>sourceData</c> entries without a seeAlso).
     /// </summary>
     /// <param name="id">Canvas identifier URI for this page.</param>
     /// <param name="canvasWidth">Canvas width in pixels.</param>
@@ -80,7 +81,11 @@ public class TextBuilder
     {
         if (root == null) return;
 
-        var provider = _providers.FirstOrDefault(p => p.Supports(profile, format, label));
+        // Default fallback: treat XML with no format metadata at all as ALTO.
+        var textFormat = string.IsNullOrEmpty(profile) && string.IsNullOrEmpty(format) && string.IsNullOrEmpty(label)
+            ? TextFormat.Alto
+            : TextFormatDetector.Detect(profile, format, label);
+        var provider = _providers.FirstOrDefault(p => p.Format == textFormat);
         if (provider == null)
         {
             _logger.LogWarning("No provider found for page '{Id}' (profile='{Profile}', format='{Format}', label='{Label}')", id, profile, format, label);
@@ -103,7 +108,8 @@ public class TextBuilder
         string? label = null)
     {
         if (rawContent == null) return;
-        var provider = _transcriptProviders.FirstOrDefault(p => p.Supports(profile, format, label));
+        var textFormat = TextFormatDetector.Detect(profile, format, label);
+        var provider = _transcriptProviders.FirstOrDefault(p => p.Format == textFormat);
         if (provider == null)
         {
             _logger.LogWarning("No provider found for transcript page '{Id}' (profile='{Profile}', format='{Format}', label='{Label}')", id, profile, format, label);

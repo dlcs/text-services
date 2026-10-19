@@ -12,43 +12,12 @@ public class VttParsingTests
     private readonly VttTextFormatProvider _provider = new();
 
     // -------------------------------------------------------------------------
-    // Supports() detection
+    // Format
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void Supports_VttFormat_ReturnsTrue()
-    {
-        _provider.Supports(profile: null, format: "text/vtt", label: null).ShouldBeTrue();
-    }
-
-    [Fact]
-    public void Supports_VttLabelOnly_ReturnsTrue()
-    {
-        // Label is used as a fallback when profile and format are absent.
-        _provider.Supports(profile: null, format: null, label: "WebVTT").ShouldBeTrue();
-    }
-
-    [Fact]
-    public void Supports_AltoTranscriptionLabelOnly_ReturnsFalse()
-    {
-        // Regression: a METS-ALTO seeAlso labelled "METS-ALTO transcription" must
-        // not be misdetected as VTT via the "transcript" substring in its label.
-        _provider.Supports(profile: null, format: null, label: "METS-ALTO transcription").ShouldBeFalse();
-    }
-
-    [Fact]
-    public void Supports_AltoProfileWithVttLabel_ReturnsFalse()
-    {
-        // Profile takes precedence over label.
-        _provider.Supports(profile: "http://www.loc.gov/standards/alto/ns-v3#", format: null, label: "WebVTT")
-            .ShouldBeFalse();
-    }
-
-    [Fact]
-    public void Supports_AltoProfile_ReturnsFalse()
-    {
-        _provider.Supports(profile: "http://www.loc.gov/standards/alto/ns-v3#", format: null, label: null).ShouldBeFalse();
-    }
+    public void Format_IsVtt()
+        => _provider.Format.ShouldBe(TextFormat.Vtt);
 
     // -------------------------------------------------------------------------
     // Basic cue parsing

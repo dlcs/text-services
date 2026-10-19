@@ -46,8 +46,8 @@ public class ManifestReducer : IManifestReducer
                 // Include temporal-only canvases (duration but no width/height) when a
                 // VTT or annotation-page source is present; both can carry temporal targets.
                 var isTemporalSource = source != null &&
-                    (TextFormatDetector.Detect(source.Profile, source.Format, source.Label) == TextFormat.Vtt ||
-                     source.Format == W3cAnnotationTextFormatProvider.FormatSentinel);
+                    TextFormatDetector.Detect(source.Profile, source.Format, source.Label)
+                        is TextFormat.Vtt or TextFormat.AnnotationPage;
                 if (!hasDuration || !isTemporalSource)
                     continue;
             }
@@ -284,7 +284,6 @@ public class ManifestReducer : IManifestReducer
         };
     }
 
-    // Label is deliberately not consulted here — see VttTextFormatProvider.Supports.
     /// <summary>
     /// Returns <see langword="true"/> if the profile URI, format MIME type, or label indicates
     /// a recognised text format (ALTO, hOCR, or VTT). See <see cref="TextFormatDetector"/>.
