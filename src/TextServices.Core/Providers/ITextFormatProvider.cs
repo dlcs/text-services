@@ -15,10 +15,10 @@ public interface ITextFormatProvider
 {
     /// <summary>
     /// Returns true if this provider supports the given source format, identified by
-    /// the IIIF seeAlso <paramref name="profile"/> URI and/or <paramref name="label"/> string.
-    /// Both may be null if the metadata is absent.
+    /// the IIIF seeAlso <paramref name="profile"/> URI, <paramref name="format"/> MIME type
+    /// and/or <paramref name="label"/> string. All may be null if the metadata is absent.
     /// </summary>
-    bool Supports(string? profile, string? label);
+    bool Supports(string? profile, string? format, string? label);
 
     /// <summary>
     /// Processes one page of text from the parsed source document root element,

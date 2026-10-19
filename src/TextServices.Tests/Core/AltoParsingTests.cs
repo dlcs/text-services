@@ -89,7 +89,7 @@ public class AltoParsingTests
     public void Supports_AltoProfileOrLabel_ReturnsTrue(string? profile, string? label)
     {
         var provider = new AltoTextFormatProvider();
-        provider.Supports(profile, label).ShouldBeTrue();
+        provider.Supports(profile, null, label).ShouldBeTrue();
     }
 
     [Theory]
@@ -99,7 +99,7 @@ public class AltoParsingTests
     public void Supports_ExplicitNonAltoProfileOrLabel_ReturnsFalse(string? profile, string? label)
     {
         var provider = new AltoTextFormatProvider();
-        provider.Supports(profile, label).ShouldBeFalse();
+        provider.Supports(profile, null, label).ShouldBeFalse();
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public class AltoParsingTests
         // When no format metadata is present (e.g. inline sourceData without seeAlso),
         // ALTO is the default format.
         var provider = new AltoTextFormatProvider();
-        provider.Supports(null, null).ShouldBeTrue();
+        provider.Supports(null, null, null).ShouldBeTrue();
     }
 
     // -------------------------------------------------------------------------

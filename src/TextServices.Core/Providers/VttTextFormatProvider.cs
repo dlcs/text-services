@@ -12,11 +12,8 @@ public class VttTextFormatProvider(ILogger<VttTextFormatProvider>? logger = null
 {
     private readonly ILogger<VttTextFormatProvider> _logger = logger ?? NullLogger<VttTextFormatProvider>.Instance;
 
-    // Label is deliberately not consulted: it's free-text supplied by the manifest
-    // author and too easily collides with unrelated formats (e.g. a METS-ALTO
-    // seeAlso labelled "transcription" contains the substring "transcript").
     public bool Supports(string? profile, string? format, string? label) =>
-        ContainsIgnoreCase(format, "vtt") || ContainsIgnoreCase(profile, "vtt");
+        TextFormatDetector.Detect(profile, format, label) == TextFormat.Vtt;
 
     public void ProcessPage(
         TextAccumulator accumulator,
@@ -125,7 +122,4 @@ public class VttTextFormatProvider(ILogger<VttTextFormatProvider>? logger = null
         }
         return sb.ToString();
     }
-
-    private static bool ContainsIgnoreCase(string? value, string term) =>
-        value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
 }

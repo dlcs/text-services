@@ -14,7 +14,7 @@ namespace TextServices.Core.Providers;
 /// <code>
 /// var builder = new TextBuilder();
 /// foreach (var page in pages)
-///     builder.AddPage(page.Id, page.Width, page.Height, page.AltoXml, page.Profile, page.Label);
+///     builder.AddPage(page.Id, page.Width, page.Height, page.AltoXml, page.Profile, page.Format, page.Label);
 /// var result = builder.Build();
 /// </code>
 /// Pages without an associated text document (sparse manifests) should pass
@@ -48,7 +48,7 @@ public class TextBuilder
     /// <summary>
     /// Initialises a <see cref="TextBuilder"/> with an explicit list of providers,
     /// tried in order until one reports that it <see cref="ITextFormatProvider.Supports"/>
-    /// the given profile/label.
+    /// the given profile/format/label.
     /// </summary>
     public TextBuilder(IReadOnlyList<ITextFormatProvider> providers, IReadOnlyList<IStringFormatProvider>? transcriptProviders = null)
     {
@@ -59,7 +59,7 @@ public class TextBuilder
 
     /// <summary>
     /// Adds one page to the build. The correct provider is selected based on
-    /// <paramref name="profile"/> and <paramref name="label"/>; if no provider
+    /// <paramref name="profile"/>, <paramref name="format"/> and <paramref name="label"/>; if no provider
     /// supports the format the page is silently skipped.
     /// </summary>
     /// <param name="id">Canvas identifier URI for this page.</param>
@@ -67,21 +67,23 @@ public class TextBuilder
     /// <param name="canvasHeight">Canvas height in pixels.</param>
     /// <param name="root">Parsed root element of the text document, or <see langword="null"/> for a sparse page.</param>
     /// <param name="profile">IIIF seeAlso profile URI (used to select the provider).</param>
-    /// <param name="label">IIIF seeAlso label (used to select the provider if profile is absent).</param>
+    /// <param name="format">IIIF seeAlso format MIME type (used to select the provider).</param>
+    /// <param name="label">IIIF seeAlso label (used to select the provider if profile and format don't identify it).</param>
     public void AddPage(
         string id,
         int canvasWidth,
         int canvasHeight,
         XElement? root,
         string? profile = null,
+        string? format = null,
         string? label = null)
     {
         if (root == null) return;
 
-        var provider = _providers.FirstOrDefault(p => p.Supports(profile, label));
+        var provider = _providers.FirstOrDefault(p => p.Supports(profile, format, label));
         if (provider == null)
         {
-            _logger.LogWarning("No provider found for page '{Id}' (profile='{Profile}', label='{Label}')", id, profile, label);
+            _logger.LogWarning("No provider found for page '{Id}' (profile='{Profile}', format='{Format}', label='{Label}')", id, profile, format, label);
             return;
         }
 

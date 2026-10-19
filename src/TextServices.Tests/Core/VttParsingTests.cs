@@ -22,19 +22,26 @@ public class VttParsingTests
     }
 
     [Fact]
-    public void Supports_VttLabelOnly_ReturnsFalse()
+    public void Supports_VttLabelOnly_ReturnsTrue()
     {
-        // Label is deliberately not consulted — free-text labels are too easily
-        // ambiguous (e.g. a METS-ALTO seeAlso labelled "transcription").
-        _provider.Supports(profile: null, format: null, label: "WebVTT").ShouldBeFalse();
+        // Label is used as a fallback when profile and format are absent.
+        _provider.Supports(profile: null, format: null, label: "WebVTT").ShouldBeTrue();
     }
 
     [Fact]
-    public void Supports_TranscriptLabelOnly_ReturnsFalse()
+    public void Supports_AltoTranscriptionLabelOnly_ReturnsFalse()
     {
         // Regression: a METS-ALTO seeAlso labelled "METS-ALTO transcription" must
         // not be misdetected as VTT via the "transcript" substring in its label.
         _provider.Supports(profile: null, format: null, label: "METS-ALTO transcription").ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Supports_AltoProfileWithVttLabel_ReturnsFalse()
+    {
+        // Profile takes precedence over label.
+        _provider.Supports(profile: "http://www.loc.gov/standards/alto/ns-v3#", format: null, label: "WebVTT")
+            .ShouldBeFalse();
     }
 
     [Fact]

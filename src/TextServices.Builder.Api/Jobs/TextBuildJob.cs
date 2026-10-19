@@ -173,7 +173,7 @@ public class TextBuildJob(
             var page = fetchedPage.Page;
             if (fetchedPage.Xml != null)
             {
-                textBuilder.AddPage(page.Id!, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Label);
+                textBuilder.AddPage(page.Id!, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Format, page.Label);
             }
             else if (fetchedPage.StringContent != null)
             {
@@ -448,10 +448,8 @@ public class TextBuildJob(
     private static bool IsAnnotationPage(PageInstruction page) =>
         page.Format == Core.Providers.W3cAnnotationTextFormatProvider.FormatSentinel;
 
-    private static readonly VttTextFormatProvider VttFormatProvider = new();
-
     private static bool IsVttPage(PageInstruction page) =>
-        VttFormatProvider.Supports(page.Profile, page.Format, page.Label);
+        TextFormatDetector.Detect(page.Profile, page.Format, page.Label) == TextFormat.Vtt;
 
     private async Task<FetchedPage> FetchPageAsync(PageInstruction page, CancellationToken ct)
     {

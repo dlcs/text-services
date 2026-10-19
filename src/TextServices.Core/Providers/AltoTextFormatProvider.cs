@@ -20,19 +20,16 @@ public class AltoTextFormatProvider(ILogger<AltoTextFormatProvider>? logger = nu
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Also returns <see langword="true"/> when both <paramref name="profile"/> and
-    /// <paramref name="label"/> are absent, making ALTO the default format for
-    /// inline <c>sourceData</c> entries that carry no format metadata.
+    /// Also returns <see langword="true"/> when <paramref name="profile"/>,
+    /// <paramref name="format"/> and <paramref name="label"/> are all absent, making ALTO
+    /// the default format for inline <c>sourceData</c> entries that carry no format metadata.
     /// </remarks>
-    public bool Supports(string? profile, string? label)
+    public bool Supports(string? profile, string? format, string? label)
     {
-        // Default fallback: treat unknown/unattributed XML as ALTO.
-        if (string.IsNullOrEmpty(profile) && string.IsNullOrEmpty(label)) return true;
-        if (profile != null && profile.Contains("alto", StringComparison.OrdinalIgnoreCase))
+        // Default fallback: treat XML with no format metadata at all as ALTO.
+        if (string.IsNullOrEmpty(profile) && string.IsNullOrEmpty(format) && string.IsNullOrEmpty(label))
             return true;
-        if (label != null && label.Contains("alto", StringComparison.OrdinalIgnoreCase))
-            return true;
-        return false;
+        return TextFormatDetector.Detect(profile, format, label) == TextFormat.Alto;
     }
 
     /// <inheritdoc/>

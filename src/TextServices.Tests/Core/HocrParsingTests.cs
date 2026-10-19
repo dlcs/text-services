@@ -24,14 +24,14 @@ public class HocrParsingTests
     [InlineData(null, "hOCR output")]
     [InlineData(null, "Tesseract hocr")]
     public void Supports_KnownHocrProfiles_ReturnsTrue(string? profile, string? label)
-        => _provider.Supports(profile, label).ShouldBeTrue();
+        => _provider.Supports(profile, null, label).ShouldBeTrue();
 
     [Theory]
     [InlineData("http://www.loc.gov/standards/alto/v3/alto.xsd", null)]
     [InlineData(null, "METS-ALTO XML")]
     [InlineData(null, null)]
     public void Supports_NonHocrProfiles_ReturnsFalse(string? profile, string? label)
-        => _provider.Supports(profile, label).ShouldBeFalse();
+        => _provider.Supports(profile, null, label).ShouldBeFalse();
 
     // -------------------------------------------------------------------------
     // Basic word extraction

@@ -46,7 +46,7 @@ public class ManifestReducer : IManifestReducer
                 // Include temporal-only canvases (duration but no width/height) when a
                 // VTT or annotation-page source is present; both can carry temporal targets.
                 var isTemporalSource = source != null &&
-                    (IsVttFormat(source.Profile, source.Format) ||
+                    (TextFormatDetector.Detect(source.Profile, source.Format, source.Label) == TextFormat.Vtt ||
                      source.Format == W3cAnnotationTextFormatProvider.FormatSentinel);
                 if (!hasDuration || !isTemporalSource)
                     continue;
@@ -285,20 +285,12 @@ public class ManifestReducer : IManifestReducer
     }
 
     // Label is deliberately not consulted here — see VttTextFormatProvider.Supports.
-    private static bool IsVttFormat(string? profile, string? format) =>
-        ContainsIgnoreCase(profile, "vtt") || ContainsIgnoreCase(format, "vtt");
-
     /// <summary>
     /// Returns <see langword="true"/> if the profile URI, format MIME type, or label indicates
-    /// a recognised text format (ALTO, hOCR, or VTT). Detection is intentionally broad.
+    /// a recognised text format (ALTO, hOCR, or VTT). See <see cref="TextFormatDetector"/>.
     /// </summary>
     private static bool IsRecognisedTextFormat(string? profile, string? format, string? label) =>
-        ContainsIgnoreCase(profile, "alto") || ContainsIgnoreCase(format, "alto") || ContainsIgnoreCase(label, "alto") ||
-        ContainsIgnoreCase(profile, "hocr") || ContainsIgnoreCase(format, "hocr") || ContainsIgnoreCase(label, "hocr") ||
-        IsVttFormat(profile, format);
-
-    private static bool ContainsIgnoreCase(string? value, string term) =>
-        value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+        TextFormatDetector.Detect(profile, format, label) != TextFormat.Unknown;
 
     /// <summary>
     /// Extracts a plain string from a IIIF language map
