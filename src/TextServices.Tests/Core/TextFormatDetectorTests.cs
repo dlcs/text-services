@@ -27,6 +27,9 @@ public class TextFormatDetectorTests
     [InlineData(null, null, "Tesseract hOCR transcription", TextFormat.Hocr)]
     [InlineData("https://example.org/transcript", null, null, TextFormat.Unknown)]
     [InlineData(null, null, null, TextFormat.Unknown)]
+    [InlineData(null, null, "Phosphocreatines", TextFormat.Unknown)]
+    [InlineData(null, null, "Daltons Testimony", TextFormat.Unknown)]
+    [InlineData(null, null, "ALTO_v3", TextFormat.Alto)]
     [InlineData("http://www.tei-c.org/ns/1.0", null, "TEI", TextFormat.Unknown)]
     public void Detect_IdentifiesFormat(string? profile, string? format, string? label, TextFormat expected)
         => TextFormatDetector.Detect(profile, format, label).ShouldBe(expected);
