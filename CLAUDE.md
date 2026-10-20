@@ -129,7 +129,7 @@ MediatR for all request/response. `ITextCache` with `AsyncKeyedLock` prevents th
 - `GET /autocomplete/v2/{**id}?q=` — IIIF Search API v2 autocomplete
 - `GET /text-augmented/v3/{**id}` — stored Manifest decorated with search/autocomplete service descriptors
 - `GET /plain-text/{**id}` — raw full text
-- `GET /pdf/{**id}` — streaming searchable PDF
+- `GET /rendering/pdf/v1/{**id}` — streaming searchable PDF
 - `GET /figures/{**id}` — IIIF AnnotationPage of ComposedBlock regions
 - `GET /annotations/{**id}` — manifest-level line annotations
 - `GET /annotations/word/{**id}` — word-level annotations

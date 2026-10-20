@@ -272,7 +272,7 @@ If the page type does not appear in `customTypes`, the type string itself is use
 
 ### Stored Manifest — the two paths
 
-The stored Manifest is the foundation for the `/text-augmented/v3/{id}`, `/pdf/v1/{id}`, and
+The stored Manifest is the foundation for the `/text-augmented/v3/{id}`, `/rendering/pdf/v1/{id}`, and
 annotation endpoints. How it is produced depends on which source was supplied:
 
 **`sourceUri`** — the original Manifest is fetched once, stored unmodified, and never changed
@@ -357,7 +357,7 @@ want enabled. Omitting `services` (or supplying `-1`) enables everything.
 | `Search` | `1` | IIIF Content Search v1 and v2 endpoints |
 | `Autocomplete` | `2` | Autocomplete v1 and v2 endpoints |
 | `FullText` | `4` | Plain-text endpoint (`/text/v1/`) |
-| `Pdf` | `8` | PDF endpoint (`/pdf/v1/`) |
+| `Pdf` | `8` | PDF endpoint (`/rendering/pdf/v1/`) |
 | `TextAugmented` | `16` | Text-augmented Manifest endpoint (`/text-augmented/v3/`) |
 | `Annotations` | `32` | Line/word annotation pages and manifest-level annotations endpoint |
 | `Figures` | `64` | Identified figures endpoint (`/identified/figures/`) |

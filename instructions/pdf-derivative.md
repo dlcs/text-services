@@ -36,9 +36,9 @@ PDF generation is **on-demand with lazy caching**:
 
 - The Builder API job does **not** generate the PDF. Job time remains predictable.
 - The Search API exposes two endpoints:
-  - `GET /pdf/v1/{**id}` — synchronous. Generates if absent (blocking), serves on completion.
+  - `GET /rendering/pdf/v1/{**id}` — synchronous. Generates if absent (blocking), serves on completion.
     This is the endpoint linked in the manifest `rendering` array.
-  - `POST /pdf/v1/{**id}` — async trigger. Starts generation in the background and returns
+  - `POST /rendering/pdf/v1/{**id}` — async trigger. Starts generation in the background and returns
     202 Accepted with a `Location` header. For machine-to-machine or bulk pre-generation workflows.
 - Concurrent `GET` requests for the same key are serialised by `AsyncKeyedLock<string>`:
   one request generates, others wait and then serve from storage. No duplicate work.
@@ -189,7 +189,7 @@ get an image-only page with no text layer. This is expected and not an error.
 
 ## Endpoints
 
-### `GET /pdf/v1/{**id}`
+### `GET /rendering/pdf/v1/{**id}`
 
 1. `await textStore.LoadPdf(id)` — if non-null, stream directly to response (`application/pdf`,
    `Content-Disposition: attachment; filename="text.pdf"`).
@@ -198,12 +198,12 @@ get an image-only page with no text layer. This is expected and not an error.
 4. If still null: call `PdfBuilder.BuildAsync(...)`, save via `textStore.SavePdf(id, ...)`.
 5. Stream from storage.
 
-### `POST /pdf/v1/{**id}`
+### `POST /rendering/pdf/v1/{**id}`
 
 1. `await textStore.LoadPdf(id)` — if non-null, return 200 (already done).
 2. If generation is already in progress for this key (`AsyncKeyedLocker.IsInUse`), return 202.
 3. Otherwise: call `PdfGenerationQueue.TryEnqueue(id)`.
-   - Returns `true` → return 202 Accepted with `Location: /pdf/v1/{id}` and `Retry-After: 30`.
+   - Returns `true` → return 202 Accepted with `Location: /rendering/pdf/v1/{id}` and `Retry-After: 30`.
    - Returns `false` (queue full) → return 503 Service Unavailable with `Retry-After: 30`.
 
 HTTP status mapping for the trigger endpoint:
@@ -249,7 +249,7 @@ PdfGenerationService      — shared generation logic used by both GET and backg
 **Trade-offs:**
 
 - Queue is in-process: contents are lost on pod restart. Acceptable because the synchronous
-  `GET /pdf/v1/{**id}` endpoint is the guaranteed fallback — a lost queue entry simply
+  `GET /rendering/pdf/v1/{**id}` endpoint is the guaranteed fallback — a lost queue entry simply
   means the next GET generates the PDF on demand.
 - `CancellationToken.None` in background generation: in-flight builds survive ASP.NET shutdown
   signals. Since each build is bounded in duration by network and I/O timeouts, this is benign.
@@ -276,7 +276,7 @@ Added unconditionally when `textStore.Exists(id)` is true:
 
 ```json
 {
-  "id": "https://search.example.org/pdf/v1/some/id",
+  "id": "https://search.example.org/rendering/pdf/v1/some/id",
   "type": "Text",
   "label": { "en": ["Download as PDF"] },
   "format": "application/pdf"

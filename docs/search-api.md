@@ -366,11 +366,11 @@ processing, accessibility, or debugging.
 
 ---
 
-### GET /pdf/v1/{**id}
+### GET /rendering/pdf/v1/{**id}
 
 Returns a PDF rendering of the item. The PDF is generated on the first request and stored; 
 subsequent requests are served from storage. An optional `.pdf` suffix is accepted for
-browser-friendly save-as filenames (e.g. `/pdf/v1/my/book.pdf`).
+browser-friendly save-as filenames (e.g. `/rendering/pdf/v1/my/book.pdf`).
 
 Only available for jobs whose source contains at least one image-based canvas. Temporal-only
 sources (audio/video with VTT captions) return 404.
@@ -384,7 +384,7 @@ sources (audio/video with VTT captions) return 404.
 
 ---
 
-### POST /pdf/v1/{**id}
+### POST /rendering/pdf/v1/{**id}
 
 Triggers asynchronous pre-generation of a PDF without waiting for the result. Intended for bulk
 pre-warming.
@@ -483,7 +483,7 @@ introduced — all endpoints are considered enabled.
 | `/search/v1/` and `/search/v2/` | `Search` (value `1`) |
 | `/autocomplete/v1/` and `/autocomplete/v2/` | `Autocomplete` (value `2`) |
 | `/text/v1/` | `FullText` (value `4`) |
-| `/pdf/v1/` | `Pdf` (value `8`) |
+| `/rendering/pdf/v1/` | `Pdf` (value `8`) |
 | `/text-augmented/v3/` | `TextAugmented` (value `16`) |
 | `/annotations/lines/v1/`, `/annotations/words/v1/`, `/annotations/manifest/v1/` | `Annotations` (value `32`) |
 | `/identified/figures/` | `Figures` (value `64`) |

@@ -510,9 +510,9 @@ first request by the Search API and cached to storage.
 
 ### Synchronous GET + async POST
 
-- `GET /pdf/v1/{**id}` — synchronous; generates if absent, serves on completion. This is the
+- `GET /rendering/pdf/v1/{**id}` — synchronous; generates if absent, serves on completion. This is the
   link in `rendering`. Always eventually returns a PDF (or 404 if no text artefacts exist).
-- `POST /pdf/v1/{**id}` — async trigger for machine-to-machine / bulk pre-generation workflows.
+- `POST /rendering/pdf/v1/{**id}` — async trigger for machine-to-machine / bulk pre-generation workflows.
   Returns 202 Accepted with `Location` and `Retry-After`. A client that doesn't want to hold a
   long-lived HTTP connection POSTs to trigger generation, does other work, then GETs when ready.
 
@@ -560,8 +560,8 @@ underlying stream, which disposes the `MemoryStream` before `SavePdf` can read i
 
 ### `.pdf` URL extension
 
-The `GET /pdf/v1/{**id}` route accepts an optional `.pdf` suffix
-(e.g. `/pdf/v1/my/book.pdf`) which is stripped before the key lookup. This makes browser
+The `GET /rendering/pdf/v1/{**id}` route accepts an optional `.pdf` suffix
+(e.g. `/rendering/pdf/v1/my/book.pdf`) which is stripped before the key lookup. This makes browser
 "Save As" filenames friendlier without requiring a separate route or route constraint.
 
 ---
