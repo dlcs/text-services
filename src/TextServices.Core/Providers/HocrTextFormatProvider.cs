@@ -21,18 +21,7 @@ public class HocrTextFormatProvider(ILogger<HocrTextFormatProvider>? logger = nu
     private readonly ILogger<HocrTextFormatProvider> _logger = logger ?? NullLogger<HocrTextFormatProvider>.Instance;
 
     /// <inheritdoc/>
-    /// <remarks>
-    /// Detects hOCR by looking for "hocr" in the seeAlso <paramref name="profile"/> URI
-    /// (e.g. <c>text/vnd.hocr+html</c>) or in the human-readable <paramref name="label"/>.
-    /// </remarks>
-    public bool Supports(string? profile, string? label)
-    {
-        if (profile != null && profile.Contains("hocr", StringComparison.OrdinalIgnoreCase))
-            return true;
-        if (label != null && label.Contains("hocr", StringComparison.OrdinalIgnoreCase))
-            return true;
-        return false;
-    }
+    public TextFormat Format => TextFormat.Hocr;
 
     /// <inheritdoc/>
     public void ProcessPage(

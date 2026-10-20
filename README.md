@@ -37,17 +37,18 @@ once; the Search API reads them. They can be deployed and scaled independently.
 ## Supported text formats
 
 The Builder API selects a text-format provider automatically based on the `profile`, `format`,
-and `label` metadata of each `seeAlso` or `annotations` link in the Manifest.
+and `label` metadata of each `seeAlso` or `annotations` link in the Manifest. `profile` is checked
+first, then `format`; `label` is only used as a fallback when neither identifies a format.
 
-| Format | Detection |
+| Format | Detection (case-insensitive) |
 |---|---|
-| **METS-ALTO** (v2 / v3) | `seeAlso` profile contains `alto` (case-insensitive), or label contains `ALTO` / `METS-ALTO` |
-| **hOCR** | `seeAlso` profile contains `hocr`, or label contains `hOCR` |
-| **WebVTT** | format `text/vtt`, profile contains `vtt`, or label contains `vtt` / `webvtt` / `transcript` |
+| **METS-ALTO** (v2 / v3) | contains `alto` (e.g. label `ALTO` / `METS-ALTO`) |
+| **hOCR** | contains `hocr` (e.g. label `hOCR`) |
+| **WebVTT** | contains `vtt`, or label contains `transcript` |
 | **W3C Annotations** | External `AnnotationPage` with an `id` (fetched from the canvas `annotations` array) |
 
-When neither `profile` nor `label` is present on a `seeAlso` entry, ALTO is assumed (the most
-common case for unattributed XML).
+When none of `profile`, `format` or `label` is present on an inline `sourceData` page, ALTO is
+assumed (the most common case for unattributed XML).
 
 ---
 

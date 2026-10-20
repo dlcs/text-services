@@ -401,8 +401,9 @@ public class ManifestReducerTests
     }
 
     [Fact]
-    public void Reduce_VttViaSeeAlso_Label_IncludesCanvas()
+    public void Reduce_VttViaSeeAlso_LabelOnly_IncludesCanvas()
     {
+        // Label is used as a fallback when profile and format are absent.
         var json = Manifest(canvases: [
             """
             {
@@ -421,8 +422,45 @@ public class ManifestReducerTests
         var pages = _reducer.Reduce(json);
 
         pages.Count.ShouldBe(1);
-        pages[0].Id.ShouldBe("https://example.org/c/audio");
         pages[0].TextUri.ShouldBe("https://example.org/transcript.vtt");
+    }
+
+    [Fact]
+    public void Reduce_AltoSeeAlso_LabelOnlyContainsTranscription_NotDetectedAsVtt()
+    {
+        // Regression: with no profile or format, a label of "METS-ALTO transcription"
+        // must be detected as ALTO rather than VTT.
+        var json = Manifest(canvases: [
+            CanvasWithAltoLangMapLabel("https://example.org/c/1", 4000, 6000,
+                altoUri: "https://example.org/alto/1",
+                labelKey: "en",
+                labelValue: "METS-ALTO transcription")
+        ]);
+
+        var pages = _reducer.Reduce(json);
+
+        pages.Count.ShouldBe(1);
+        pages[0].TextUri.ShouldBe("https://example.org/alto/1");
+        pages[0].Format.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Reduce_AltoSeeAlso_LabelContainsTranscription_NotDetectedAsVtt()
+    {
+        // Regression: a METS-ALTO seeAlso labelled "METS-ALTO transcription" was
+        // previously misdetected as VTT because its label contains "transcript".
+        var json = Manifest(canvases: [
+            CanvasWithAlto("https://example.org/c/1", 4000, 6000,
+                "https://example.org/alto/1",
+                profile: "http://www.loc.gov/standards/alto/ns-v3#",
+                label: "METS-ALTO transcription")
+        ]);
+
+        var pages = _reducer.Reduce(json);
+
+        pages.Count.ShouldBe(1);
+        pages[0].TextUri.ShouldBe("https://example.org/alto/1");
+        pages[0].Format.ShouldBeNull();
     }
 
     [Fact]

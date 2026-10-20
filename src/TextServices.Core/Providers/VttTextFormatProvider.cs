@@ -12,11 +12,7 @@ public class VttTextFormatProvider(ILogger<VttTextFormatProvider>? logger = null
 {
     private readonly ILogger<VttTextFormatProvider> _logger = logger ?? NullLogger<VttTextFormatProvider>.Instance;
 
-    public bool Supports(string? profile, string? format, string? label) =>
-        ContainsIgnoreCase(profile, "text/vtt") || ContainsIgnoreCase(format, "text/vtt") ||
-        ContainsIgnoreCase(profile, "vtt") || ContainsIgnoreCase(format, "vtt") ||
-        ContainsIgnoreCase(label, "vtt") || ContainsIgnoreCase(label, "webvtt") ||
-        ContainsIgnoreCase(label, "transcript");
+    public TextFormat Format => TextFormat.Vtt;
 
     public void ProcessPage(
         TextAccumulator accumulator,
@@ -125,7 +121,4 @@ public class VttTextFormatProvider(ILogger<VttTextFormatProvider>? logger = null
         }
         return sb.ToString();
     }
-
-    private static bool ContainsIgnoreCase(string? value, string term) =>
-        value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
 }

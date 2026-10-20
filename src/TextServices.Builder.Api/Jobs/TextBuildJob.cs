@@ -173,7 +173,7 @@ public class TextBuildJob(
             var page = fetchedPage.Page;
             if (fetchedPage.Xml != null)
             {
-                textBuilder.AddPage(page.Id!, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Label);
+                textBuilder.AddPage(page.Id!, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Format, page.Label);
             }
             else if (fetchedPage.StringContent != null)
             {
@@ -445,26 +445,15 @@ public class TextBuildJob(
     private static string Sec(int ms) =>
         (ms / 1000.0).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 
-    private static bool IsAnnotationPage(PageInstruction page) =>
-        page.Format == Core.Providers.W3cAnnotationTextFormatProvider.FormatSentinel;
-
-    private static bool IsVttPage(PageInstruction page) =>
-        ContainsIgnoreCase(page.Profile, "text/vtt") || ContainsIgnoreCase(page.Format, "text/vtt") ||
-        ContainsIgnoreCase(page.Profile, "vtt") || ContainsIgnoreCase(page.Format, "vtt") ||
-        ContainsIgnoreCase(page.Label, "vtt") ||
-        ContainsIgnoreCase(page.Label, "webvtt") ||
-        ContainsIgnoreCase(page.Label, "transcript");
-
-    private static bool ContainsIgnoreCase(string? value, string term) =>
-        value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
-
     private async Task<FetchedPage> FetchPageAsync(PageInstruction page, CancellationToken ct)
     {
         if (page.TextUri == null) return new FetchedPage(page, null, null, null);
 
         try
         {
-            if (IsAnnotationPage(page))
+            var textFormat = TextFormatDetector.Detect(page.Profile, page.Format, page.Label);
+
+            if (textFormat == TextFormat.AnnotationPage)
             {
                 var json = await annotationPageFetcher.FetchAsync(page.TextUri, ct);
                 if (json == null)
@@ -474,7 +463,7 @@ public class TextBuildJob(
                 return new FetchedPage(page, null, json, null);
             }
 
-            if (IsVttPage(page))
+            if (textFormat == TextFormat.Vtt)
             {
                 var vtt = await vttFetcher.FetchAsync(page.TextUri, ct);
                 if (vtt == null)

@@ -12,20 +12,24 @@ public class W3cAnnotationParsingTests
     private static readonly W3cAnnotationTextFormatProvider Provider = new();
 
     // -------------------------------------------------------------------------
-    // Supports()
+    // Format
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void Supports_FormatSentinel_ReturnsTrue()
-        => Provider.Supports(null, W3cAnnotationTextFormatProvider.FormatSentinel, null).ShouldBeTrue();
+    public void Format_IsAnnotationPage()
+        => Provider.Format.ShouldBe(TextFormat.AnnotationPage);
 
     [Fact]
-    public void Supports_NullFormat_ReturnsFalse()
-        => Provider.Supports(null, null, null).ShouldBeFalse();
+    public void TextBuilder_FormatSentinel_UsesAnnotationProvider()
+    {
+        var json = AnnotationPage([Annotation("Hello World", "canvas1#xywh=10,20,200,30")]);
 
-    [Fact]
-    public void Supports_OtherFormat_ReturnsFalse()
-        => Provider.Supports(null, "text/vtt", null).ShouldBeFalse();
+        var builder = new TextBuilder();
+        builder.AddTranscriptPage("canvas1", 1000, 1000, json,
+            format: W3cAnnotationTextFormatProvider.FormatSentinel);
+
+        builder.Build().Text.NormalisedFullText.ShouldBe("hello world");
+    }
 
     // -------------------------------------------------------------------------
     // URI fragment targets (#xywh=)

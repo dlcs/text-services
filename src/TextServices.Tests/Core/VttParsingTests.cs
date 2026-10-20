@@ -12,32 +12,12 @@ public class VttParsingTests
     private readonly VttTextFormatProvider _provider = new();
 
     // -------------------------------------------------------------------------
-    // Supports() detection
+    // Format
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void Supports_VttFormat_ReturnsTrue()
-    {
-        _provider.Supports(profile: null, format: "text/vtt", label: null).ShouldBeTrue();
-    }
-
-    [Fact]
-    public void Supports_VttLabel_ReturnsTrue()
-    {
-        _provider.Supports(profile: null, format: null, label: "WebVTT").ShouldBeTrue();
-    }
-
-    [Fact]
-    public void Supports_TranscriptLabel_ReturnsTrue()
-    {
-        _provider.Supports(profile: null, format: null, label: "Transcript").ShouldBeTrue();
-    }
-
-    [Fact]
-    public void Supports_AltoProfile_ReturnsFalse()
-    {
-        _provider.Supports(profile: "http://www.loc.gov/standards/alto/ns-v3#", format: null, label: null).ShouldBeFalse();
-    }
+    public void Format_IsVtt()
+        => _provider.Format.ShouldBe(TextFormat.Vtt);
 
     // -------------------------------------------------------------------------
     // Basic cue parsing

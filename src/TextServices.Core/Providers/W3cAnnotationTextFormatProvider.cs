@@ -29,8 +29,7 @@ public class W3cAnnotationTextFormatProvider(ILogger<W3cAnnotationTextFormatProv
     /// </summary>
     public const string FormatSentinel = "iiif-annotation-page";
 
-    public bool Supports(string? profile, string? format, string? label) =>
-        format == FormatSentinel;
+    public TextFormat Format => TextFormat.AnnotationPage;
 
     public void ProcessPage(
         TextAccumulator accumulator,

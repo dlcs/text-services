@@ -14,11 +14,9 @@ namespace TextServices.Core.Providers;
 public interface ITextFormatProvider
 {
     /// <summary>
-    /// Returns true if this provider supports the given source format, identified by
-    /// the IIIF seeAlso <paramref name="profile"/> URI and/or <paramref name="label"/> string.
-    /// Both may be null if the metadata is absent.
+    /// The source format this provider handles, as identified by <see cref="TextFormatDetector"/>.
     /// </summary>
-    bool Supports(string? profile, string? label);
+    TextFormat Format { get; }
 
     /// <summary>
     /// Processes one page of text from the parsed source document root element,
