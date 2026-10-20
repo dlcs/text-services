@@ -80,7 +80,7 @@ public class JobResponseTests
         response.AutocompleteV1.ShouldBe("https://search.example.org/autocomplete/v1/test/job");
         response.AutocompleteV2.ShouldBe("https://search.example.org/autocomplete/v2/test/job");
         response.FullText.ShouldBe("https://search.example.org/text/v1/test/job");
-        response.Pdf.ShouldBe("https://search.example.org/pdf/v1/test/job");
+        response.Pdf.ShouldBe("https://search.example.org/rendering/pdf/v1/test/job");
         response.TextAugmented.ShouldBe("https://search.example.org/text-augmented/v3/test/job");
         response.Annotations.ShouldBe("https://search.example.org/annotations/manifest/v1/test/job");
         response.Figures.ShouldBe("https://search.example.org/identified/figures/test/job");

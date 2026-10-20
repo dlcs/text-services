@@ -11,7 +11,7 @@ By paths generated for the search api are:
 * `/text-augmented/v3/{**id}`
 * `/proxy/image?uri={uri}`
 * `/text/v1/{**id}`
-* `/pdf/v1/{**id}`
+* `/rendering/pdf/v1/{**id}`
 * `/identified/figures/{**id}`
 
 These are rendered onto generated Manifest using `{protocol}://{host}/{above-path}`

@@ -6,9 +6,26 @@ namespace TextServices.Search.Api.Features.Pdf;
 
 internal static class PdfEndpoints
 {
+    private const string RoutePrefix = "rendering/pdf/v1/";
+
+    // Legacy prefix kept so existing proxy rules for /pdf/v1/* keep working, gated by
+    // EnableLegacyPdfRoute. Remove once those rules are moved to /rendering/pdf/v1/*
+    private const string LegacyRoutePrefix = "pdf/v1/";
+
     internal static IEndpointRouteBuilder MapPdfEndpoints(this IEndpointRouteBuilder routes)
     {
-        routes.MapGet("/pdf/v1/{*id:minlength(1)}", async (string id, ISender sender) =>
+        MapPdfRoutes(routes, RoutePrefix);
+
+        var options = routes.ServiceProvider.GetRequiredService<IOptions<SearchApiOptions>>().Value;
+        if (options.EnableLegacyPdfRoute)
+            MapPdfRoutes(routes, LegacyRoutePrefix);
+
+        return routes;
+    }
+
+    private static void MapPdfRoutes(IEndpointRouteBuilder routes, string prefix)
+    {
+        routes.MapGet($"/{prefix}{{*id:minlength(1)}}", async (string id, ISender sender) =>
         {
             id = StripPdfExtension(id);
             var stream = await sender.Send(new PdfRequest(id));
@@ -16,14 +33,16 @@ internal static class PdfEndpoints
             return Results.Stream(stream, "application/pdf", enableRangeProcessing: false);
         });
 
-        routes.MapPost("/pdf/v1/{*id:minlength(1)}", async (
+        // The self URL uses the prefix of the route that was hit, so the Location returned to a
+        // caller on the legacy path stays reachable via the same proxy behaviour.
+        routes.MapPost($"/{prefix}{{*id:minlength(1)}}", async (
             string id,
             ISender sender,
             IOptions<SearchApiOptions> options,
             HttpContext ctx) =>
         {
             id = StripPdfExtension(id);
-            var resolved = EndpointHelpers.Resolve(options.Value, ctx, "pdf/v1/", id);
+            var resolved = EndpointHelpers.Resolve(options.Value, ctx, prefix, id);
             var result = await sender.Send(new PdfTriggerRequest(id));
             return result switch
             {
@@ -33,8 +52,6 @@ internal static class PdfEndpoints
                 _ => Results.NotFound(),
             };
         });
-
-        return routes;
     }
 
     private static string StripPdfExtension(string id) =>

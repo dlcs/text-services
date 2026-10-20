@@ -19,7 +19,7 @@ public class TextAugmentedHandlerTests
     private const string ExpectedSearchV1 = "https://search.example.org/search/v1/test/book";
     private const string ExpectedAutocompleteV1 = "https://search.example.org/autocomplete/v1/test/book";
     private const string ExpectedRawTextUrl = "https://search.example.org/text/v1/test/book";
-    private const string ExpectedPdfUrl = "https://search.example.org/pdf/v1/test/book";
+    private const string ExpectedPdfUrl = "https://search.example.org/rendering/pdf/v1/test/book";
 
     // -------------------------------------------------------------------------
     // Not found
@@ -557,10 +557,10 @@ public class TextAugmentedHandlerTests
         => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/text/v1/test/book","type":"Text","format":"text/plain"}]}""";
 
     private static string V3ManifestWithExistingPdfRef()
-        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/pdf/v1/test/book","type":"Text","format":"application/pdf"}]}""";
+        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/rendering/pdf/v1/test/book","type":"Text","format":"application/pdf"}]}""";
 
     private static string V3ManifestWithExistingPdfAndTextRefs()
-        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/pdf/v1/test/book","type":"Text","format":"application/pdf"},{"id":"https://search.example.org/text/v1/test/book","type":"Text","format":"text/plain"}]}""";
+        => """{"id":"https://example.org/m/1","type":"Manifest","rendering":[{"id":"https://search.example.org/rendering/pdf/v1/test/book","type":"Text","format":"application/pdf"},{"id":"https://search.example.org/text/v1/test/book","type":"Text","format":"text/plain"}]}""";
 
     private static string V3ManifestWithExistingAnnotationsRef()
         => """{"id":"https://example.org/m/1","type":"Manifest","annotations":[{"id":"https://search.example.org/annotations/manifest/v1/test/book","type":"AnnotationPage"}]}""";
