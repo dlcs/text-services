@@ -372,6 +372,11 @@ Returns a PDF rendering of the item. The PDF is generated on the first request a
 subsequent requests are served from storage. An optional `.pdf` suffix is accepted for
 browser-friendly save-as filenames (e.g. `/rendering/pdf/v1/my/book.pdf`).
 
+> [!NOTE]
+> The legacy `/pdf/v1/{**id}` path (GET and POST) is still served for backward compatibility
+> with existing proxy behaviours. It is deprecated and will be removed; generated URLs always use
+> `/rendering/pdf/v1/`.
+
 Only available for jobs whose source contains at least one image-based canvas. Temporal-only
 sources (audio/video with VTT captions) return 404.
 
