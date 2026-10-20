@@ -373,9 +373,9 @@ subsequent requests are served from storage. An optional `.pdf` suffix is accept
 browser-friendly save-as filenames (e.g. `/rendering/pdf/v1/my/book.pdf`).
 
 > [!NOTE]
-> The legacy `/pdf/v1/{**id}` path (GET and POST) is still served for backward compatibility
-> with existing proxy behaviours. It is deprecated and will be removed; generated URLs always use
-> `/rendering/pdf/v1/`.
+> The legacy `/pdf/v1/{**id}` path (GET and POST) can still be served for backward compatibility
+> with existing proxy behaviours by setting `TextServices:EnableLegacyPdfRoute` to `true` (off by
+> default). It is deprecated and will be removed; generated URLs always use `/rendering/pdf/v1/`.
 
 Only available for jobs whose source contains at least one image-based canvas. Temporal-only
 sources (audio/video with VTT captions) return 404.
@@ -528,6 +528,7 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
 | `TextServices:Storage:S3:KeyPrefix` | `""` | Optional prefix for all S3 object keys (e.g. `"textservices/"`). A trailing `/` is added automatically if omitted. Must match the Builder API's `TextServices:Storage:S3:KeyPrefix`. |
 | `TextServices:PdfTriggerQueueCapacity` | `50` | Maximum number of PDF trigger requests that can be queued for background generation. Requests beyond this limit receive `503 Service Unavailable`. |
 | `TextServices:PdfTriggerMaxConcurrency` | `2` | Maximum number of PDFs generated concurrently by the background trigger queue. Each in-flight generation buffers the full PDF in memory — keep this low on memory-constrained hosts. |
+| `TextServices:EnableLegacyPdfRoute` | `false` | When `true`, the PDF GET/POST endpoints are also served on the deprecated `/pdf/v1/` prefix. Only enable while existing proxy rules still route `/pdf/v1/*` to the Search API. |
 | `TextServices:AllowFileImageProxy` | `false` | When `true`, the `/proxy/image` endpoint streams local `file://` images. Only enable in trusted local-dev environments where those files are not access-controlled. |
 | `TextServices:AllowedCustomHosts` | `[]` | Hostnames accepted from the `X-Forwarded-Host` request header (e.g. custom CloudFront distributions). See [Forwarded-header URL rewriting](#forwarded-header-url-rewriting) below. |
 

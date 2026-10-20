@@ -40,6 +40,13 @@ public class SearchApiOptions
     public int PdfTriggerMaxConcurrency { get; set; } = 2;
 
     /// <summary>
+    /// Also register the PDF endpoints on the deprecated <c>/pdf/v1/</c> prefix, alongside
+    /// <c>/rendering/pdf/v1/</c>. Only enable while proxy rules still route <c>/pdf/v1/*</c>
+    /// here; the legacy route will be removed once nothing depends on it.
+    /// </summary>
+    public bool EnableLegacyPdfRoute { get; set; } = false;
+
+    /// <summary>
     /// Allow <c>GET /proxy/image</c> to serve <c>file://</c> image URIs.
     /// <para>
     /// When <c>false</c> (the default): requests for <c>file://</c> URIs return a 1×1

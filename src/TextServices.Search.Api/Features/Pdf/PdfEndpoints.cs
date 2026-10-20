@@ -8,14 +8,18 @@ internal static class PdfEndpoints
 {
     private const string RoutePrefix = "rendering/pdf/v1/";
 
-    // Legacy prefix kept so existing CloudFront behaviours for /pdf/v1/* keep working.
-    // Remove once those behaviours are moved to /rendering/pdf/v1/*
+    // Legacy prefix kept so existing proxy rules for /pdf/v1/* keep working, gated by
+    // EnableLegacyPdfRoute. Remove once those rules are moved to /rendering/pdf/v1/*
     private const string LegacyRoutePrefix = "pdf/v1/";
 
     internal static IEndpointRouteBuilder MapPdfEndpoints(this IEndpointRouteBuilder routes)
     {
         MapPdfRoutes(routes, RoutePrefix);
-        MapPdfRoutes(routes, LegacyRoutePrefix);
+
+        var options = routes.ServiceProvider.GetRequiredService<IOptions<SearchApiOptions>>().Value;
+        if (options.EnableLegacyPdfRoute)
+            MapPdfRoutes(routes, LegacyRoutePrefix);
+
         return routes;
     }
 
