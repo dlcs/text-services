@@ -61,10 +61,7 @@ public class PageInstruction
     public string? Input { get; set; }
 
     /// <summary>
-    /// Position at which a <c>"pdf"</c> page is inserted relative to the canvases of a
-    /// <c>sourceUri</c> Manifest. Only <c>0</c> (before the first canvas) is currently
-    /// supported. Ignored for <c>sourceData</c>-only jobs, where array order
-    /// determines position.
+    /// Position of this entry in the page sequence.
     /// </summary>
     public int? Index { get; set; }
 

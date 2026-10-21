@@ -133,7 +133,10 @@ public class TextBuildJob(
 
         // sourceData path: deserialise inline pages, then synthesise a skeleton manifest
         // so text-augmented and PDF work identically regardless of how the job was submitted.
-        var pages = DeserialisePages(job.SourceDataJson);
+        // index is all-or-nothing (enforced by JobInstruction); when set it determines order.
+        IReadOnlyList<PageInstruction> pages = DeserialisePages(job.SourceDataJson);
+        if (pages.Any(p => p.Index != null))
+            pages = pages.OrderBy(p => p.Index).ToList();
 
         if (needsManifest && pages.Count > 0)
         {

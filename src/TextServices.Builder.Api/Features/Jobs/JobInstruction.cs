@@ -95,6 +95,14 @@ public class JobInstruction : IValidatableObject
                         [nameof(SourceData)]);
                 }
             }
+
+            // index is optional, but once used it determines order, so every entry needs one.
+            if (SourceData!.Any(p => p.Index != null) && SourceData!.Any(p => p.Index == null))
+            {
+                yield return new ValidationResult(
+                    "If 'index' is set on any sourceData entry, it must be set on all entries.",
+                    [nameof(SourceData)]);
+            }
         }
 
         if (hasData && SourceData!.Where(p => p.Index != null).GroupBy(p => p.Index).Any(g => g.Count() > 1))

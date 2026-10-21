@@ -208,6 +208,28 @@ public sealed class TextBuildJobTests : IDisposable
         storedPages.Select(p => p.Type).ShouldBe(["pdf", null]);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_InlineSourceDataWithIndex_PagesOrderedByIndex()
+    {
+        var sourceDataJson = JsonSerializer.Serialize(new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/2", Width = 1000, Height = 1500, Index = 2 },
+            new() { Type = "pdf", Input = "https://example.org/cover.pdf", Index = 0 },
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500, Index = 1 },
+        });
+        var job = await CreateJob("test/indexed", sourceDataJson: sourceDataJson);
+
+        await MakeJob().ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var sequence = await _textStore.LoadPageSequence(job.Id);
+        sequence.ShouldNotBeNull();
+        var entries = JsonDocument.Parse(sequence).RootElement.GetProperty("pages");
+        entries.GetArrayLength().ShouldBe(3);
+        entries[0].GetProperty("type").GetString().ShouldBe("pdf");
+        entries[1].GetProperty("canvasId").GetString().ShouldBe("https://example.org/c/1");
+        entries[2].GetProperty("canvasId").GetString().ShouldBe("https://example.org/c/2");
+    }
+
     private static FakeManifestFetcher SingleCanvasManifest() =>
         new("https://example.org/manifest",
             """{"@context":"https://iiif.io/api/presentation/3/context.json"}""",

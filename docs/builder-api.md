@@ -179,6 +179,9 @@ Use `sourceData` when you already know the page sequence and text file URLs and 
 Builder API to fetch and reduce a Manifest. The format aligns with the
 [Fireball](https://github.com/dlcs/fireball) PDF assembly service payload.
 
+Pages are processed in array order, unless every page sets `index`, in which case they are ordered
+by `index` (see [Page fields](#page-fields)).
+
 ```json
 {
   "id": "my-collection/my-book",
@@ -240,7 +243,7 @@ Builder API to fetch and reduce a Manifest. The format aligns with the
 | `profile` | string\|null | IIIF `seeAlso` profile URI — used alongside `format` to select the text-format provider. |
 | `format` | string\|null | MIME type (e.g. `text/vtt`). |
 | `label` | string\|null | Fallback label; used for provider selection when `profile` is absent. |
-| `index` | int\|null | For `"pdf"`-type pages supplied alongside `sourceUri`: position relative to the Manifest's canvases. Only `0` (before the first canvas) is currently supported. Ignored for `sourceData`-only jobs. Must be unique within `sourceData`. |
+| `index` | int\|null | Position of the page in the sequence. Must be unique within `sourceData`. For `sourceData`-only jobs it is optional, but if set on any page it must be set on all, and pages are then ordered by `index` instead of array order. Alongside `sourceUri`, required on each `"pdf"`-type page and gives its position relative to the Manifest's canvases; only `0` (before the first canvas) is currently supported. |
 
 ### pdf-type pages
 

@@ -155,6 +155,52 @@ public class JobInstructionTests
         results.ShouldContain(r => r.ErrorMessage == "Each 'index' in sourceData must be unique.");
     }
 
+    // -------------------------------------------------------------------------
+    // SourceData only — index all-or-nothing
+    // -------------------------------------------------------------------------
+
+    private const string IndexAllOrNothingError =
+        "If 'index' is set on any sourceData entry, it must be set on all entries.";
+
+    private static PageInstruction IndexedPage(int? index, string id = "https://example.org/canvas/1") =>
+        new() { Id = id, Index = index };
+
+    [Fact]
+    public void SourceDataOnly_IndexSetOnSomeEntries_FailsValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceData = [IndexedPage(1), IndexedPage(null, "https://example.org/canvas/2")],
+        });
+
+        results.ShouldContain(r => r.ErrorMessage == IndexAllOrNothingError);
+    }
+
+    [Fact]
+    public void SourceDataOnly_IndexSetOnAllEntries_PassesValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceData = [IndexedPage(2), IndexedPage(1, "https://example.org/canvas/2"), CoverPage(index: 0)],
+        });
+
+        results.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void SourceDataOnly_IndexSetOnNoEntries_PassesValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceData = [Page(), Page(id: null, type: "pdf")],
+        });
+
+        results.ShouldBeEmpty();
+    }
+
     [Fact]
     public void BothSourceUriAndSourceData_CoverPageWithoutInput_FailsValidation()
     {
