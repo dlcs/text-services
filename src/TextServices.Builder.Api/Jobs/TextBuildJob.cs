@@ -122,7 +122,7 @@ public class TextBuildJob(
             // also holds on reprocess, when SourceDataJson is the output of a previous run.
             // Only index 0 is currently accepted, so all are placed before the first canvas.
             var indexedPdfs = DeserialisePages(job.SourceDataJson).Where(p => p.IsIndexedPdf()).ToList();
-            List<PageInstruction> allPages = [..indexedPdfs, ..result.Pages];
+            List<PageInstruction> allPages = [.. indexedPdfs, .. result.Pages];
 
             job.SourceDataJson = JsonSerializer.Serialize(allPages);
 
