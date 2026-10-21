@@ -59,4 +59,18 @@ public class PageInstruction
     /// Supports <c>http/https</c>, <c>file://</c>, and <c>s3://</c> schemes.
     /// </summary>
     public string? Input { get; set; }
+
+    /// <summary>
+    /// Position at which a <c>"pdf"</c> page is inserted relative to the canvases of a
+    /// <c>sourceUri</c> Manifest. Only <c>0</c> (before the first canvas) is currently
+    /// supported. Ignored for <c>sourceData</c>-only jobs, where array order
+    /// determines position.
+    /// </summary>
+    public int? Index { get; set; }
+
+    /// <summary>True when this entry embeds an existing PDF (<c>"type": "pdf"</c>).</summary>
+    public bool IsPdf() => string.Equals(Type, "pdf", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>True when this entry is a PDF to be inserted among Manifest canvases at <see cref="Index"/>.</summary>
+    public bool IsIndexedPdf() => IsPdf() && Index != null;
 }

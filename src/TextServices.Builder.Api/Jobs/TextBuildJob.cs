@@ -117,17 +117,23 @@ public class TextBuildJob(
             if (needsManifest)
                 await textStore.SaveManifest(job.Id, result.Json);
 
-            job.SourceDataJson = JsonSerializer.Serialize(result.Pages);
+            // SourceDataJson is overwritten with the reduced page list below, so recover any
+            // indexed pdf entries from it first. The reducer never emits pdf entries, so this
+            // also holds on reprocess, when SourceDataJson is the output of a previous run.
+            // Only index 0 is currently accepted, so all are placed before the first canvas.
+            var indexedPdfs = DeserialisePages(job.SourceDataJson).Where(p => p.IsIndexedPdf()).ToList();
+            List<PageInstruction> allPages = [..indexedPdfs, ..result.Pages];
 
-            logger.LogInformation("Manifest fetched for {JobId}: {PageCount} canvases", job.Id, result.Pages.Count);
-            return result.Pages;
+            job.SourceDataJson = JsonSerializer.Serialize(allPages);
+
+            logger.LogInformation("Manifest fetched for {JobId}: {PageCount} canvases, {PdfCount} inserted PDF(s)",
+                job.Id, result.Pages.Count, indexedPdfs.Count);
+            return allPages;
         }
 
         // sourceData path: deserialise inline pages, then synthesise a skeleton manifest
         // so text-augmented and PDF work identically regardless of how the job was submitted.
-        IReadOnlyList<PageInstruction> pages = job.SourceDataJson != null
-            ? JsonSerializer.Deserialize<List<PageInstruction>>(job.SourceDataJson) ?? []
-            : [];
+        var pages = DeserialisePages(job.SourceDataJson);
 
         if (needsManifest && pages.Count > 0)
         {
@@ -138,6 +144,9 @@ public class TextBuildJob(
 
         return pages;
     }
+
+    private static List<PageInstruction> DeserialisePages(string? json) =>
+        json != null ? JsonSerializer.Deserialize<List<PageInstruction>>(json) ?? [] : [];
 
     private async Task<(int WordCount, int ImageCount, List<string> Errors, JobServices Fulfilled)> ProcessPages(
         BuilderJob job,
@@ -255,10 +264,10 @@ public class TextBuildJob(
         // endpoints that actually have artefacts (e.g. no search service when text is empty).
         await textStore.SaveCapabilities(job.Id, (int)fulfilled);
 
-        // For sourceData jobs, persist the full page sequence (including pdf-embed entries
-        // that have no canvas in the synthesised manifest) so the PDF builder can
-        // reconstruct the complete assembly order, including embedded PDFs.
-        if (job.SourceUri == null && services.HasFlag(JobServices.Pdf))
+        // For sourceData jobs, and sourceUri jobs with inserted PDFs, persist the full page
+        // sequence (including pdf-embed entries that have no canvas in the manifest) so the
+        // PDF builder can reconstruct the complete assembly order, including embedded PDFs.
+        if ((job.SourceUri == null || pages.Any(p => p.IsPdf())) && services.HasFlag(JobServices.Pdf))
         {
             var pageSequenceJson = BuildPageSequenceJson(job, pages);
             await textStore.SavePageSequence(job.Id, pageSequenceJson);
@@ -279,7 +288,7 @@ public class TextBuildJob(
         foreach (var page in pages)
         {
             JsonObject entry;
-            if (string.Equals(page.Type, "pdf", StringComparison.OrdinalIgnoreCase))
+            if (page.IsPdf())
             {
                 entry = new JsonObject { ["type"] = "pdf", ["input"] = page.Input };
             }
