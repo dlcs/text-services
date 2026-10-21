@@ -1,6 +1,7 @@
 using System.Net;
 using iText.Kernel.Geom;
 using iText.Kernel.Pdf;
+using iText.Kernel.Pdf.Canvas.Parser;
 using Microsoft.Extensions.Logging.Abstractions;
 using Shouldly;
 using TextServices.Core.Models;
@@ -274,6 +275,90 @@ public sealed class PdfBuilderTests
         await sut.BuildAsync(text, manifest, null, output, CancellationToken.None);
 
         ReadPdf(output).GetNumberOfPages().ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task BuildAsync_NoPageSequence_CanvasWithoutText_IsIncludedInManifestOrder()
+    {
+        var requested = new List<string?>();
+        var factory = CreateFactory(req =>
+        {
+            requested.Add(req.RequestUri?.ToString());
+            return OkImage(TinyPng);
+        });
+        var sut = MakeSut(factory);
+        var canvasIds = new[]
+        {
+            "https://example.org/canvas/1",
+            "https://example.org/canvas/2",
+            "https://example.org/canvas/3",
+        };
+        // Canvas 2 has no text, so is absent from text.Images.
+        var text = MakeText([canvasIds[0], canvasIds[2]]);
+        var manifest = MultiCanvasManifest(canvasIds, "https://example.org/image/{n}.jpg");
+
+        using var output = new MemoryStream();
+        await sut.BuildAsync(text, manifest, null, output, CancellationToken.None);
+
+        ReadPdf(output).GetNumberOfPages().ShouldBe(3);
+        requested.ShouldBe(
+        [
+            "https://example.org/image/1.jpg",
+            "https://example.org/image/2.jpg",
+            "https://example.org/image/3.jpg",
+        ]);
+    }
+
+    [Fact]
+    public async Task BuildAsync_NoPageSequence_MixedTextAndNoTextCanvases_TextLayerOnlyOnTextPages()
+    {
+        var factory = CreateFactory(_ => OkImage(TinyPng));
+        var sut = MakeSut(factory);
+        var canvasIds = new[]
+        {
+            "https://example.org/canvas/1",
+            "https://example.org/canvas/2",
+            "https://example.org/canvas/3",
+        };
+        // Canvas 2 has no text, so text.Images holds canvases 1 and 3 (indexes 0 and 1).
+        var text = MakeText([canvasIds[0], canvasIds[2]]);
+        text.Words = new Dictionary<int, Word>
+        {
+            [0] = new() { ContentRaw = "alpha", X = 10, Y = 10, W = 50, H = 20, Idx = 0 },
+            [1] = new() { ContentRaw = "gamma", X = 10, Y = 10, W = 50, H = 20, Idx = 1 },
+        };
+        var manifest = MultiCanvasManifest(canvasIds, "https://example.org/image/{n}.jpg");
+
+        using var output = new MemoryStream();
+        await sut.BuildAsync(text, manifest, null, output, CancellationToken.None);
+
+        using var pdf = ReadPdf(output);
+        pdf.GetNumberOfPages().ShouldBe(3);
+        PdfTextExtractor.GetTextFromPage(pdf.GetPage(1)).ShouldContain("alpha");
+        PdfTextExtractor.GetTextFromPage(pdf.GetPage(2)).Trim().ShouldBeEmpty();
+        PdfTextExtractor.GetTextFromPage(pdf.GetPage(3)).ShouldContain("gamma");
+    }
+
+    [Fact]
+    public async Task BuildAsync_NoPageSequence_NonImageCanvas_IsSkipped()
+    {
+        var factory = CreateFactory(_ => OkImage(TinyPng));
+        var sut = MakeSut(factory);
+        var text = MakeText(["https://example.org/canvas/1"]);
+        const string manifest =
+            """
+            {"items":[
+              {"id":"https://example.org/canvas/1","width":200,"height":300,
+               "items":[{"items":[{"motivation":"painting","body":{"type":"Image","id":"https://example.org/image/1.jpg","width":200,"height":300}}]}]},
+              {"id":"https://example.org/canvas/av","duration":60,
+               "items":[{"items":[{"motivation":"painting","body":{"type":"Sound","id":"https://example.org/audio.mp3"}}]}]}
+            ]}
+            """;
+
+        using var output = new MemoryStream();
+        await sut.BuildAsync(text, manifest, null, output, CancellationToken.None);
+
+        ReadPdf(output).GetNumberOfPages().ShouldBe(1);
     }
 
     // -------------------------------------------------------------------------

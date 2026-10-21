@@ -39,9 +39,10 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     /// <param name="text">Stored word/image index.</param>
     /// <param name="manifestJson">Stored manifest JSON (used to resolve image URLs).</param>
     /// <param name="pageSequenceJson">
-    /// When non-null (sourceData jobs), the stored page-sequence JSON drives the assembly
-    /// order, including any embedded-PDF and custom-type pages.
-    /// When null (sourceUri jobs), pages are emitted in <paramref name="text"/>.Images order.
+    /// When non-null (sourceData jobs, and sourceUri jobs with inserted PDFs), the stored
+    /// page-sequence JSON drives the assembly order, including any embedded-PDF and
+    /// custom-type pages.
+    /// When null (other sourceUri jobs), one page is emitted per image canvas in Manifest order.
     /// </param>
     /// <param name="output">Stream to write the PDF to.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -52,7 +53,15 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         Stream output,
         CancellationToken ct)
     {
-        var manifestPages = ParseManifestPages(manifestJson);
+        var orderedManifestPages = ParseManifestPages(manifestJson);
+        // Lookup by canvas id. Duplicate ids aren't expected; if present, the first is used.
+        var manifestPages = new Dictionary<string, PageInfo>(StringComparer.Ordinal);
+        foreach (var page in orderedManifestPages)
+        {
+            manifestPages.TryAdd(page.CanvasId, page);
+        }
+
+        var textIndexMap = BuildCanvasIndexMap(text);
 
         var pdfWriter = new PdfWriter(
             new NonClosingStream(output),
@@ -66,7 +75,6 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         {
             // sourceData job: full assembly including pdf-embed and custom-type pages.
             var entries = ParsePageSequence(pageSequenceJson);
-            var textIndexMap = BuildCanvasIndexMap(text);
 
             // Pre-determine reference page size from the first image canvas so that
             // embedded PDFs (which can appear before any image page) can be scaled to match.
@@ -107,21 +115,13 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         }
         else
         {
-            // sourceUri job: emit one page per text.Images entry (original behaviour).
-            for (var pageIndex = 0; pageIndex < text.Images.Length; pageIndex++)
+            // sourceUri job: one page per image canvas in Manifest order. Canvases without
+            // text are included, with no text layer. Non-image (AV) canvases are not parsed.
+            foreach (var pageInfo in orderedManifestPages)
             {
                 ct.ThrowIfCancellationRequested();
-                var image = text.Images[pageIndex];
-
-                if (!manifestPages.TryGetValue(image.ImageIdentifier, out var pageInfo))
-                {
-                    logger.LogDebug(
-                        "No manifest entry for canvas {CanvasId} — skipping page",
-                        image.ImageIdentifier);
-                    continue;
-                }
-
-                await AddPageAsync(pdfDoc, font, http, text, pageIndex, pageInfo, ct);
+                var textIndex = textIndexMap.TryGetValue(pageInfo.CanvasId, out var ti) ? ti : -1;
+                await AddPageAsync(pdfDoc, font, http, text, textIndex, pageInfo, ct);
             }
         }
         // pdfDoc disposed by using — flushes all content streams and closes PdfWriter.
@@ -374,9 +374,10 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     // Parsing helpers
     // -------------------------------------------------------------------------
 
-    private static Dictionary<string, PageInfo> ParseManifestPages(string manifestJson)
+    /// <summary>Returns the Manifest's image canvases, in Manifest order.</summary>
+    private static List<PageInfo> ParseManifestPages(string manifestJson)
     {
-        var result = new Dictionary<string, PageInfo>(StringComparer.Ordinal);
+        var result = new List<PageInfo>();
         if (JsonNode.Parse(manifestJson) is not JsonObject manifest) return result;
 
         foreach (var item in manifest["items"] as JsonArray ?? [])
@@ -420,10 +421,10 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
                 }
             }
 
-            result[canvasId] = new PageInfo(
+            result.Add(new PageInfo(
                 canvasId, canvasWidth, canvasHeight,
                 staticUrl, imageWidth, imageHeight,
-                serviceId, sizes);
+                serviceId, sizes));
         }
 
         return result;

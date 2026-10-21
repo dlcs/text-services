@@ -381,6 +381,11 @@ browser-friendly save-as filenames (e.g. `/rendering/pdf/v1/my/book.pdf`).
 Only available for jobs whose source contains at least one image-based canvas. Temporal-only
 sources (audio/video with VTT captions) return 404.
 
+The PDF contains one page per image-based canvas, in Manifest order. Canvases without text are
+included as image-only pages, with no searchable text layer. Audio/video canvases are omitted.
+For jobs with [inserted PDFs](builder-api.md#inserting-pdfs-into-sourceuri-jobs) or custom page
+types, those pages are included at their positions too.
+
 **Responses**
 
 | Status | Meaning |
