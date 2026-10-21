@@ -533,9 +533,9 @@ introduced — all endpoints are considered enabled.
 | `/search/v1/` and `/search/v2/` | `Search` (value `1`) |
 | `/autocomplete/v1/` and `/autocomplete/v2/` | `Autocomplete` (value `2`) |
 | `/text/v1/` | `FullText` (value `4`) |
-| `/rendering/pdf/v1/` | `Pdf` (value `8`) |
-| `/text-augmented/v3/` | `TextAugmented` (value `16`) |
-| `/annotations/lines/v1/`, `/annotations/words/v1/`, `/annotations/manifest/v1/` | `Annotations` (value `32`) |
+| `/annotations/lines/v1/`, `/annotations/words/v1/`, `/annotations/manifest/v1/` | `Annotations` (value `8`) |
+| `/rendering/pdf/v1/` | `Pdf` (value `16`) |
+| `/text-augmented/v3/` | `TextAugmented` (value `32`) |
 | `/identified/figures/` | `Figures` (value `64`) |
 | `/svg/v1/` (and the per-canvas `rendering` link in `/text-augmented/v3/`) | `Svg` (value `128`) |
 
