@@ -414,6 +414,41 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     }
 
     // -------------------------------------------------------------------------
+    // PDF without text
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task BuildJob_ImageCanvasesWithoutText_PdfAvailable()
+    {
+        var id = "e2e/pdf-no-text";
+
+        var post = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceData = new[]
+            {
+                new { id = "https://example.org/canvas/1", width = 2000, height = 3000, imageUri = "https://example.org/image/1.jpg" },
+                new { id = "https://example.org/canvas/2", width = 2000, height = 3000, imageUri = "https://example.org/image/2.jpg" },
+            },
+        });
+        post.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+
+        var json = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
+        json["status"]!.GetValue<string>().ShouldBe("Completed");
+        json["totalWordCount"]!.GetValue<int>().ShouldBe(0);
+        var fulfilled = (JobServices)json["fulfilledServices"]!.GetValue<int>();
+        fulfilled.HasFlag(JobServices.Pdf).ShouldBeTrue();
+        fulfilled.HasFlag(JobServices.Search).ShouldBeFalse();
+
+        // The text-augmented Manifest links to the PDF, with no search services.
+        var manifest = JsonNode.Parse(
+            await ctx.SearchClient.GetStringAsync($"/text-augmented/v3/{id}"))!;
+        manifest["rendering"]!.AsArray()
+            .ShouldContain(r => r!["format"]!.GetValue<string>() == "application/pdf");
+        manifest["service"].ShouldBeNull();
+    }
+
+    // -------------------------------------------------------------------------
     // Builder API — reprocess (PUT)
     // -------------------------------------------------------------------------
 

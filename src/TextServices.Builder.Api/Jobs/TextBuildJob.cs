@@ -259,9 +259,11 @@ public class TextBuildJob(
         if (textSaved)
         {
             if (services.HasFlag(JobServices.Search)) fulfilled |= JobServices.Search;
-            if (services.HasFlag(JobServices.Pdf)) fulfilled |= JobServices.Pdf;
             if (services.HasFlag(JobServices.Svg)) fulfilled |= JobServices.Svg;
         }
+        // A PDF doesn't need text: pages without it are rendered as image-only pages.
+        if (services.HasFlag(JobServices.Pdf) && manifestSaved && pages.Any(IsPdfRenderable))
+            fulfilled |= JobServices.Pdf;
         if (!result.IsEmpty && services.HasFlag(JobServices.Autocomplete))
             fulfilled |= JobServices.Autocomplete;
         if (!result.IsEmpty && services.HasFlag(JobServices.FullText) && !string.IsNullOrEmpty(result.Text.RawFullText))
@@ -287,6 +289,13 @@ public class TextBuildJob(
 
         return (result.Text.Words.Count, result.Text.Images.Length, errors, fulfilled);
     }
+
+    /// <summary>
+    /// True when the page produces a page in the PDF: an embedded PDF, a custom-type page,
+    /// or an image canvas (has an image and no duration, so not audio/video).
+    /// </summary>
+    private static bool IsPdfRenderable(PageInstruction page) =>
+        page.Type != null || (page.Duration == null && (page.ImageUri ?? page.Input) != null);
 
     private static string BuildPageSequenceJson(BuilderJob job, IReadOnlyList<PageInstruction> pages)
     {

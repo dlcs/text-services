@@ -232,6 +232,34 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
+    public async Task Handle_TextNotBuiltButImageCanvas_AddsPdfLinkOnly()
+    {
+        var handler = MakeHandler(V3ManifestWithImageCanvas(), noText: true);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        // A PDF doesn't need text, but there's no plain text to link to.
+        var rendering = result!["rendering"]!.AsArray();
+        rendering.Count.ShouldBe(1);
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedPdfUrl);
+        result["service"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_PdfServiceDisabled_NoPdfLink()
+    {
+        var handler = MakeHandler(V3ManifestWithImageCanvas(),
+            capabilities: JobServices.All & ~JobServices.Pdf);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["rendering"]!.AsArray();
+        rendering.ShouldHaveSingleItem()!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+    }
+
+    [Fact]
     public async Task Handle_ImageBasedContent_RenderingLinksArePrependedToExisting()
     {
         var handler = MakeHandler(V3ManifestWithRendering(), cachedText: SpatialText());
@@ -576,6 +604,15 @@ public class TextAugmentedHandlerTests
     private static ResolvedRequest DefaultResolved(string id = "test/book")
         => new(id, SelfUrl, SelfUrl, SearchBase);
 
+    private static string V3ManifestWithImageCanvas() =>
+        """
+        {"id":"https://example.org/m/1","type":"Manifest","items":[
+          {"id":"canvas/1","type":"Canvas","width":200,"height":300,"items":[
+            {"type":"AnnotationPage","items":[
+              {"type":"Annotation","motivation":"painting",
+               "body":{"id":"https://example.org/image/1.jpg","type":"Image"},"target":"canvas/1"}]}]}]}
+        """;
+
     private static TextAugmentedHandler MakeHandler(
         string? manifestJson,
         string? annotationsJson = null,
@@ -674,6 +711,7 @@ public class TextAugmentedHandlerTests
         public Task DeleteArtefacts(string key) => Task.CompletedTask;
     }
 
+    /// <param name="capabilities">Null means no capabilities file (all services enabled).</param>
     private sealed class StubTextCache(Text? text, JobServices? capabilities = null) : ITextCache
     {
         public Task<Text?> GetTextAsync(string key, CancellationToken ct = default)

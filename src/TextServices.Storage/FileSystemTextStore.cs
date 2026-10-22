@@ -203,6 +203,14 @@ public class FileSystemTextStore(FileSystemTextStoreOptions options, ILogger<Fil
     }
 
     /// <inheritdoc/>
+    public Task<bool> ManifestExists(string key)
+    {
+        var exists = File.Exists(GetPath(key, ManifestFileName));
+        logger.LogDebug("{Type} {Exists} for '{Key}'", ManifestFileName, exists, key);
+        return Task.FromResult(exists);
+    }
+
+    /// <inheritdoc/>
     public async Task SaveCapabilities(string key, int services)
     {
         var path = GetPath(key, CapabilitiesFileName);

@@ -51,10 +51,16 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
 
         var resolvedRequestUris = request.Resolved;
         ReplaceSelfUrl(manifest, resolvedRequestUris.SelfUrl);
+
+        // A PDF doesn't need text, so its link is offered for any job with image canvases.
+        // Temporal-only manifests (VTT/audio/video) have no page images to render into a PDF.
+        var includePdf = await textCache.IsEnabledAsync(request.Id, JobServices.Pdf, ct)
+                         && (text?.Images.Any(img => !img.IsTemporalContent) == true || HasImageCanvas(manifest));
+
         if (text != null)
         {
             InjectSearchServices(manifest, resolvedRequestUris);
-            InjectRenderingLinks(manifest, resolvedRequestUris, text);
+            InjectRenderingLinks(manifest, resolvedRequestUris, includeText: true, includePdf);
             InjectCanvasAnnotationRefs(manifest, resolvedRequestUris, text);
             if (await textCache.IsEnabledAsync(request.Id, JobServices.Svg, ct))
                 InjectCanvasSvgRenderings(manifest, resolvedRequestUris, text);
@@ -62,6 +68,10 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         else
         {
             logger.LogDebug("Text not found: {Id}", request.Id);
+            if (includePdf)
+            {
+                InjectRenderingLinks(manifest, resolvedRequestUris, includeText: false, includePdf: true);
+            }
         }
 
         await InjectManifestAnnotationsRefAsync(manifest, resolvedRequestUris, request.Id);
@@ -130,40 +140,58 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         PrependContext(manifest, "http://iiif.io/api/search/2/context.json");
     }
 
-    private void InjectRenderingLinks(JsonObject manifest, ResolvedRequest resolved, Text text)
+    private void InjectRenderingLinks(JsonObject manifest, ResolvedRequest resolved, bool includeText, bool includePdf)
     {
         logger.LogDebug("Adding rendering: {Id}", resolved.EffectiveId);
 
-        // PDF is only added when at least one canvas is image-based (IsTemporalContent == false);
-        // temporal-only manifests (VTT/audio/video) have no page images to render into a PDF.
-        var hasImageCanvases = text.Images.Any(img => !img.IsTemporalContent);
-
-        var textRef = new JsonObject
+        // Ordered as they appear in a new rendering array: PDF first, then plain text.
+        var refs = new List<JsonObject>();
+        if (includePdf) refs.Add(BuildPdfRef(resolved));
+        if (includeText)
         {
-            ["id"] = resolved.FullTextUrl(),
-            ["type"] = "Text",
-            ["label"] = new JsonObject { ["en"] = new JsonArray("View as plain text") },
-            ["format"] = "text/plain",
-        };
+            refs.Add(new JsonObject
+            {
+                ["id"] = resolved.FullTextUrl(),
+                ["type"] = "Text",
+                ["label"] = new JsonObject { ["en"] = new JsonArray("View as plain text") },
+                ["format"] = "text/plain",
+            });
+        }
 
         if (manifest["rendering"] is JsonArray existingRendering)
         {
-            AddIfNew(existingRendering, textRef);
-            if (hasImageCanvases) AddIfNew(existingRendering, BuildPdfRef(resolved));
+            // AddIfNew prepends, so add in reverse to keep PDF before text.
+            for (var i = refs.Count - 1; i >= 0; i--) AddIfNew(existingRendering, refs[i]);
         }
         else if (manifest["rendering"] is JsonObject singleRendering)
         {
             var arr = new JsonArray(singleRendering.DeepClone());
-            AddIfNew(arr, textRef);
-            if (hasImageCanvases) AddIfNew(arr, BuildPdfRef(resolved));
+            for (var i = refs.Count - 1; i >= 0; i--) AddIfNew(arr, refs[i]);
             manifest["rendering"] = arr;
         }
         else
         {
-            manifest["rendering"] = hasImageCanvases
-                ? new JsonArray(BuildPdfRef(resolved), textRef)
-                : new JsonArray(textRef);
+            manifest["rendering"] = new JsonArray([.. refs]);
         }
+    }
+
+    /// <summary>True when any canvas is painted with an image (i.e. can become a PDF page).</summary>
+    private static bool HasImageCanvas(JsonObject manifest)
+    {
+        foreach (var canvas in manifest["items"] as JsonArray ?? [])
+        {
+            foreach (var annoPage in canvas?["items"] as JsonArray ?? [])
+            {
+                foreach (var anno in annoPage?["items"] as JsonArray ?? [])
+                {
+                    var body = anno?["body"];
+                    if (body is JsonArray arr) body = arr.FirstOrDefault();
+                    var type = body?["type"]?.GetValue<string>() ?? body?["@type"]?.GetValue<string>();
+                    if (string.Equals(type, "Image", StringComparison.OrdinalIgnoreCase)) return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void InjectCanvasAnnotationRefs(JsonObject manifest, ResolvedRequest resolved, Text text)

@@ -172,8 +172,9 @@ backward-compatible viewers. Any pre-existing `service` entries in the Manifest 
 
 **Plain text link** — added when: any words were indexed.
 
-**PDF link** — added when: at least one image-based (non-temporal) canvas has words indexed
-and the stored Manifest has painting annotations with image URLs the PDF renderer can fetch.
+**PDF link** — added when: the `Pdf` service is enabled for the job and the stored Manifest has
+at least one image-based (non-temporal) canvas, with painting annotations whose image URLs the
+PDF renderer can fetch. Text is not required — canvases without it become image-only PDF pages.
 For `sourceUri` jobs these come from the source Manifest's own painting annotations; for
 `sourceData` jobs they are the `imageUri` values echoed into the synthesised Manifest.
 Temporal-only sources (audio/video with WebVTT) never produce a PDF.
