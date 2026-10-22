@@ -433,7 +433,7 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     }
 
     [Fact]
-    public async Task PutJob_WithBodyChangingServices_Returns400AndKeepsJob()
+    public async Task PutJob_WithBodyChangingServices_RebuildsWithNewServices()
     {
         var id = "e2e/put-change-services";
         const string sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x";
@@ -446,23 +446,25 @@ public class BuildAndSearchTests(E2ETestContext ctx)
         });
         await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
 
-        // Only inserted PDFs can currently be updated.
         var put = await ctx.BuilderClient.PutAsJsonAsync($"/textbuilder/{id}", new
         {
             id,
             sourceUri,
             services = (int)(JobServices.Search | JobServices.Autocomplete),
         });
-        put.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        (await put.Content.ReadAsStringAsync()).ShouldContain("services cannot be changed.");
+        put.StatusCode.ShouldBe(HttpStatusCode.Accepted);
 
         var json = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
-        json["services"]!.GetValue<int>().ShouldBe((int)JobServices.Search);
-        json["invocationCount"]!.GetValue<int>().ShouldBe(1);
+        json["services"]!.GetValue<int>().ShouldBe((int)(JobServices.Search | JobServices.Autocomplete));
+        json["invocationCount"]!.GetValue<int>().ShouldBe(2);
+
+        // Autocomplete was not built on the first run; it is now.
+        var acResponse = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=ann");
+        acResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
 
     [Fact]
-    public async Task PutJob_SourceDataJobWithBody_Returns400()
+    public async Task PutJob_SourceDataJobWithBody_ReplacesPages()
     {
         var id = "e2e/put-sourcedata-body";
         await BuildRestrictedSourceDataAsync(id, (int)JobServices.Search);
@@ -470,11 +472,14 @@ public class BuildAndSearchTests(E2ETestContext ctx)
         var put = await ctx.BuilderClient.PutAsJsonAsync($"/textbuilder/{id}", new
         {
             id,
-            sourceData = SourceDataPages(),
+            sourceData = SourceDataPages().Take(2).ToArray(),
             services = (int)JobServices.Search,
         });
+        put.StatusCode.ShouldBe(HttpStatusCode.Accepted);
 
-        put.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        var json = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
+        json["totalPages"]!.GetValue<int>().ShouldBe(2);
+        json["invocationCount"]!.GetValue<int>().ShouldBe(2);
     }
 
     [Fact]

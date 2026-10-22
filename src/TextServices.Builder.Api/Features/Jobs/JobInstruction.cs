@@ -6,8 +6,8 @@ using TextServices.Storage;
 namespace TextServices.Builder.Api.Features.Jobs;
 
 /// <summary>
-/// Body for <c>POST /textbuilder</c>, and optionally for <c>PUT /textbuilder/{id}</c> to update
-/// a job's inserted PDFs before reprocessing. One of <see cref="SourceUri"/> or
+/// Body for <c>POST /textbuilder</c>, and optionally for <c>PUT /textbuilder/{id}</c> to replace
+/// a job's definition before reprocessing. One of <see cref="SourceUri"/> or
 /// <see cref="SourceData"/> must be provided.
 /// </summary>
 public class JobInstruction : IValidatableObject

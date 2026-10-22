@@ -33,7 +33,7 @@ internal static class JobEndpoints
         });
 
         // Body is optional: without one the stored job definition is reprocessed as-is.
-        // With one, only inserted PDFs (sourceData) can currently be changed.
+        // With one, the body replaces the whole job definition (everything except the id).
         routes.MapPut("/textbuilder/{*id:minlength(1)}", async (string id, JobInstruction? instruction, ISender sender) =>
         {
             if (instruction != null)
@@ -55,10 +55,6 @@ internal static class JobEndpoints
             {
                 ReprocessStatus.NotFound => Results.NotFound(),
                 ReprocessStatus.Conflict => Results.Conflict(result.Response),
-                ReprocessStatus.Invalid => Results.ValidationProblem(new Dictionary<string, string[]>
-                {
-                    [string.Empty] = [.. result.Errors!],
-                }),
                 _ => Results.Accepted($"/textbuilder/{id}", result.Response),
             };
         });

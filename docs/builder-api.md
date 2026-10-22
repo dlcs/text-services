@@ -125,15 +125,16 @@ The request body is optional:
 
 - **No body** — the job is rebuilt from its stored definition. For `sourceUri` jobs the Manifest
   is re-fetched, and any inserted PDFs are kept.
-- **With a body** — updates the job's [inserted PDFs](#inserting-pdfs-into-sourceuri-jobs), then
-  rebuilds it. This is currently the only change that can be made to an existing job:
-  - Only jobs created from a `sourceUri` can be updated this way.
-  - The body uses the same format and validation as `POST /textbuilder`, and its `id` must match
-    the URL.
-  - `sourceData` replaces the stored inserted PDFs. Omit it (or send `[]`) to remove them.
-  - `sourceUri`, `services`, `title` and `customTypes` must match the stored job (an omitted
-    field counts as its default, e.g. `services` as `-1`). A request that changes any of them is
-    rejected with `400`, rather than silently ignoring the change.
+- **With a body** — replaces the job's definition, then rebuilds it. This is a full replacement
+  (standard `PUT` semantics), not a partial update:
+  - The body is a complete job definition, in the same format and with the same validation as
+    `POST /textbuilder`.
+  - Its `id` must match the URL; the `id` is the only thing that cannot be changed.
+  - `sourceUri`, `sourceData`, `services`, `title` and `customTypes` are all replaced. A field
+    left out is cleared or reset to its default rather than kept from the stored job — e.g.
+    omitting `sourceData` removes any [inserted PDFs](#inserting-pdfs-into-sourceuri-jobs), and
+    omitting `services` enables all services. Send every field you want to keep.
+  - A job can be switched between `sourceUri` and `sourceData`.
 
 ```http
 PUT /textbuilder/my-collection/my-book
@@ -144,7 +145,8 @@ Content-Type: application/json
   "sourceUri": "https://example.org/iiif/my-book/manifest",
   "sourceData": [
     { "type": "pdf", "input": "https://example.org/files/new-cover.pdf", "index": 0 }
-  ]
+  ],
+  "services": 3
 }
 ```
 
@@ -154,7 +156,7 @@ Content-Type: application/json
 |---|---|
 | `202 Accepted` | Reprocess job enqueued. |
 | `404 Not Found` | No job with this `id`. |
-| `400 Bad Request` | Body supplied but invalid, its `id` does not match the URL, the job was not created from a `sourceUri`, or it changes a field other than `sourceData`. |
+| `400 Bad Request` | Body supplied but invalid, or its `id` does not match the URL. |
 | `409 Conflict` | The job is currently `Running`; it cannot be re-queued until it finishes. A `Waiting` job can be re-queued (its pending run is replaced). |
 
 ---

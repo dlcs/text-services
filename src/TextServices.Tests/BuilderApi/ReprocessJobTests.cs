@@ -81,7 +81,7 @@ public sealed class ReprocessJobTests : IDisposable
     }
 
     [Fact]
-    public async Task Handle_WithInstructionChangingOtherFields_ReturnsInvalidAndKeepsJob()
+    public async Task Handle_WithInstruction_ReplacesAllFields()
     {
         var job = await CreateCompletedJob();
         var instruction = new JobInstruction
@@ -95,23 +95,35 @@ public sealed class ReprocessJobTests : IDisposable
 
         var result = await MakeHandler().Handle(new ReprocessJobRequest(job.Id, instruction), CancellationToken.None);
 
-        result.Status.ShouldBe(ReprocessStatus.Invalid);
-        result.Errors.ShouldBe(
-        [
-            "sourceUri cannot be changed.",
-            "services cannot be changed.",
-            "title cannot be changed.",
-            "customTypes cannot be changed.",
-        ]);
+        result.Status.ShouldBe(ReprocessStatus.Ok);
         var updated = (await _db.Jobs.FindAsync(job.Id))!;
-        updated.SourceDataJson.ShouldBe(job.SourceDataJson);
-        updated.Status.ShouldBe(JobStatus.Completed);
-        updated.InvocationCount.ShouldBe(1);
-        A.CallTo(() => _textStore.DeleteArtefacts(A<string>._)).MustNotHaveHappened();
+        updated.SourceUri.ShouldBe("https://example.org/manifest-v2");
+        updated.Services.ShouldBe((int)JobServices.All);
+        updated.Title.ShouldBe("New title");
+        updated.CustomTypesJson.ShouldNotBeNull().ShouldContain("Redacted");
+        updated.Status.ShouldBe(JobStatus.Waiting);
+        updated.InvocationCount.ShouldBe(2);
+        A.CallTo(() => _textStore.DeleteArtefacts(job.Id)).MustHaveHappenedOnceExactly();
     }
 
     [Fact]
-    public async Task Handle_SourceDataJob_WithInstruction_ReturnsInvalid()
+    public async Task Handle_WithInstructionOmittingFields_ResetsThemToDefaults()
+    {
+        var job = await CreateCompletedJob();
+        var instruction = new JobInstruction { Id = job.Id, SourceUri = SourceUri };
+
+        await MakeHandler().Handle(new ReprocessJobRequest(job.Id, instruction), CancellationToken.None);
+
+        // Full replacement: omitted fields are not carried over from the stored job.
+        var updated = (await _db.Jobs.FindAsync(job.Id))!;
+        updated.SourceDataJson.ShouldBeNull();
+        updated.Services.ShouldBe((int)JobServices.All);
+        updated.Title.ShouldBeNull();
+        updated.CustomTypesJson.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_SourceDataJob_WithSourceUriInstruction_SwitchesSource()
     {
         var job = new BuilderJob
         {
@@ -126,17 +138,15 @@ public sealed class ReprocessJobTests : IDisposable
         _db.Jobs.Add(job);
         await _db.SaveChangesAsync();
 
-        var instruction = new JobInstruction
-        {
-            Id = job.Id,
-            SourceData = [new PageInstruction { Id = "https://example.org/c/2", Width = 1000, Height = 1500 }],
-        };
+        var instruction = new JobInstruction { Id = job.Id, SourceUri = SourceUri };
 
         var result = await MakeHandler().Handle(new ReprocessJobRequest(job.Id, instruction), CancellationToken.None);
 
-        result.Status.ShouldBe(ReprocessStatus.Invalid);
-        result.Errors!.ShouldHaveSingleItem().ShouldStartWith("Only jobs created from a sourceUri can be updated.");
-        (await _db.Jobs.FindAsync(job.Id))!.InvocationCount.ShouldBe(1);
+        result.Status.ShouldBe(ReprocessStatus.Ok);
+        var updated = (await _db.Jobs.FindAsync(job.Id))!;
+        updated.SourceUri.ShouldBe(SourceUri);
+        updated.SourceDataJson.ShouldBeNull();
+        updated.InvocationCount.ShouldBe(2);
     }
 
     [Fact]
@@ -162,7 +172,7 @@ public sealed class ReprocessJobTests : IDisposable
         result.Status.ShouldBe(ReprocessStatus.NotFound);
     }
 
-    /// <summary>An instruction matching the stored job in every field except sourceData.</summary>
+    /// <summary>An instruction matching the stored job in every field except sourceData (omitted).</summary>
     private static JobInstruction MatchingInstruction(string id) =>
         new() { Id = id, SourceUri = SourceUri, Services = Services, Title = Title };
 
