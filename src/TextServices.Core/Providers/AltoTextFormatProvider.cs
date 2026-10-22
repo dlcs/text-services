@@ -49,7 +49,7 @@ public class AltoTextFormatProvider(ILogger<AltoTextFormatProvider>? logger = nu
             return;
         }
 
-        accumulator.BeginPage(imageIdentifier);
+        accumulator.BeginPage(imageIdentifier, width: canvasWidth, height: canvasHeight);
 
         // Tracks composed blocks encountered while iterating words.
         // Key: ALTO ID attribute of the ComposedBlock element (or a fallback hash).

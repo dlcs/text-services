@@ -7,6 +7,7 @@ using TextServices.Search.Api.Features.Autocomplete;
 using TextServices.Search.Api.Features.Figures;
 using TextServices.Search.Api.Features.PlainText;
 using TextServices.Search.Api.Features.Search;
+using TextServices.Search.Api.Features.Svg;
 using TextServices.Search.Api.Features.TextAugmented;
 using TextServices.Search.Api.Services;
 using TextServices.Storage;
@@ -150,6 +151,20 @@ public class CapabilityGatingTests
 
         var result = await handler.Handle(
             new WordAnnotationsRequest(Id, 0, SelfUrl), CancellationToken.None);
+
+        result.ShouldBeNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // SvgHandler — JobServices.Svg
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Svg_WhenSvgFlagAbsent_ReturnsNull()
+    {
+        var handler = new SvgHandler(new AllNullStore(), new StubTextCache(JobServices.Search));
+
+        var result = await handler.Handle(new SvgRequest(Id, 0), CancellationToken.None);
 
         result.ShouldBeNull();
     }

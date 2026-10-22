@@ -88,7 +88,7 @@ public class W3cAnnotationTextFormatProvider(ILogger<W3cAnnotationTextFormatProv
         // Mixed spatial/temporal annotations on a single canvas are not expected
         // in practice; if they occur the first annotation's type wins.
         var isTemporalContent = entries[0].Target.IsTemporal;
-        accumulator.BeginPage(imageIdentifier, isTemporalContent);
+        accumulator.BeginPage(imageIdentifier, isTemporalContent, canvasWidth, canvasHeight);
 
         foreach (var (bodyText, target) in entries)
         {

@@ -1,7 +1,7 @@
 # Search API
 
 The Search API provides IIIF Content Search (v1 and v2) and Autocomplete endpoints, plus
-several derived outputs: plain text, PDF, identified figures, and a search-service-decorated
+several derived outputs: plain text, PDF, per-canvas SVG text, identified figures, and a search-service-decorated
 copy of the original Manifest. All endpoints are read-only.
 
 ## Base path
@@ -298,6 +298,7 @@ Returns the original IIIF Presentation 3 Manifest stored by the Builder API, aug
 - **`rendering`** array prepended with a plain-text link and, for image-based manifests, a PDF download link.
 - **`annotations`** (manifest-level) prepended with a reference to the identified figures `AnnotationPage`, when figures were found during the build.
 - Each canvas's **`annotations`** array prepended with references to the line-level and word-level annotation pages for that canvas (only for canvases that have at least one word).
+- Each canvas's **`rendering`** array appended with a link to the [SVG text rendering](#get-svgv1nid) for that canvas (only for image-based canvases that have at least one word, and when the `Svg` service flag is enabled).
 
 This is the recommended way to give a viewer working search without modifying the authoritative
 Manifest. Load the URL directly in any IIIF v3 viewer that supports content search.
@@ -405,6 +406,50 @@ pre-warming.
 
 ---
 
+### GET /svg/v1/{n}/{**id}
+
+Returns an SVG document containing the text of canvas `{n}` (zero-based), for overlaying on the
+canvas image so that the page text can be selected and copied. It is linked from each canvas's
+`rendering` property in the [text-augmented Manifest](#get-text-augmentedv3id):
+
+```json
+{
+  "id": "https://search.example.org/svg/v1/0/my-collection/my-book",
+  "type": "Image",
+  "label": { "en": ["SVG XML for page text"] },
+  "format": "image/svg+xml"
+}
+```
+
+The SVG `viewBox` matches the canvas dimensions. Each text line becomes one `<text>` element
+positioned over the line's bounding box and stretched to its width with
+`lengthAdjust="spacingAndGlyphs"`. The text is transparent (via an embedded `<style>`) so it is
+invisible but selectable. The document is generated dynamically from the in-memory index.
+
+**Response** — `Content-Type: image/svg+xml`:
+
+```xml
+<svg viewBox="0 0 2000 3000" xmlns="http://www.w3.org/2000/svg">
+  <text x="120" y="232" textLength="1450" font-size="48" lengthAdjust="spacingAndGlyphs" class="text-line-segment">The quick brown fox</text>
+  <style>
+    .text-line-segment { fill: rgba(0,0,0,0) }
+    .text-line-segment::selection { fill: #fff; background: rgba(15, 76, 155, 0.8) }
+  </style>
+</svg>
+```
+
+The canvas index precedes the job id in the path for the same reason as the
+[annotation endpoints](#url-structure-note).
+
+**Responses**
+
+| Status | Meaning |
+|---|---|
+| `200 OK` | SVG document. A canvas with no words returns an SVG with no `<text>` elements. |
+| `404 Not Found` | No index for this `id`, `{n}` is out of range, the canvas is temporal (audio/video), canvas dimensions are unknown, or the `Svg` service flag is disabled for this job. |
+
+---
+
 ### GET /identified/figures/{**id}
 
 Returns a IIIF `AnnotationPage` whose `items` are `painting` annotations targeting canvas
@@ -488,10 +533,11 @@ introduced — all endpoints are considered enabled.
 | `/search/v1/` and `/search/v2/` | `Search` (value `1`) |
 | `/autocomplete/v1/` and `/autocomplete/v2/` | `Autocomplete` (value `2`) |
 | `/text/v1/` | `FullText` (value `4`) |
-| `/rendering/pdf/v1/` | `Pdf` (value `8`) |
-| `/text-augmented/v3/` | `TextAugmented` (value `16`) |
-| `/annotations/lines/v1/`, `/annotations/words/v1/`, `/annotations/manifest/v1/` | `Annotations` (value `32`) |
+| `/annotations/lines/v1/`, `/annotations/words/v1/`, `/annotations/manifest/v1/` | `Annotations` (value `8`) |
+| `/rendering/pdf/v1/` | `Pdf` (value `16`) |
+| `/text-augmented/v3/` | `TextAugmented` (value `32`) |
 | `/identified/figures/` | `Figures` (value `64`) |
+| `/svg/v1/` (and the per-canvas `rendering` link in `/text-augmented/v3/`) | `Svg` (value `128`) |
 
 ---
 

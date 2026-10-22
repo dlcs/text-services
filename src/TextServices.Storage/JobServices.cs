@@ -16,5 +16,6 @@ public enum JobServices
     Pdf = 1 << 4,  // Searchable PDF endpoint (on-demand generation)
     TextAugmented = 1 << 5,  // Decorated manifest (text-augmented) endpoint
     Figures = 1 << 6,  // Identified figures (ComposedBlock) endpoint
+    Svg = 1 << 7,  // Per-canvas SVG text rendering endpoint
     All = ~0,
 }

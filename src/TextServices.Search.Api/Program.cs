@@ -15,6 +15,7 @@ using TextServices.Search.Api.Features.Figures;
 using TextServices.Search.Api.Features.Pdf;
 using TextServices.Search.Api.Features.PlainText;
 using TextServices.Search.Api.Features.Search;
+using TextServices.Search.Api.Features.Svg;
 using TextServices.Search.Api.Features.TextAugmented;
 using TextServices.Search.Api.Services;
 using TextServices.Storage;
@@ -143,6 +144,7 @@ app.MapCacheEndpoints()
    .MapPdfEndpoints()
    .MapFiguresEndpoints()
    .MapAnnotationEndpoints()
+   .MapSvgEndpoints()
    .MapTextAugmentedEndpoints()
    .MapProxyEndpoints();
 

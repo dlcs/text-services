@@ -609,4 +609,19 @@ public class AltoParsingTests
         text.Images[0].ImageIdentifier.ShouldBe("https://example.org/canvas/1");
         text.Images[1].ImageIdentifier.ShouldBe("https://example.org/canvas/2");
     }
+
+    [Fact]
+    public void TextBuilder_RecordsCanvasDimensionsOnImage()
+    {
+        // ALTO page is 500x500 but the canvas is 2000x3000 — the canvas size is what's recorded.
+        var page = MakeAlto(NsV2, 500, 500,
+            """<String CONTENT="alpha" HPOS="0" VPOS="0" WIDTH="50" HEIGHT="20"/>""");
+
+        var builder = new TextBuilder();
+        builder.AddPage("https://example.org/canvas/1", 2000, 3000, page, profile: NsV2);
+        var text = builder.Build().Text;
+
+        text.Images[0].Width.ShouldBe(2000);
+        text.Images[0].Height.ShouldBe(3000);
+    }
 }

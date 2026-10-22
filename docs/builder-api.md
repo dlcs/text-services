@@ -357,10 +357,11 @@ want enabled. Omitting `services` (or supplying `-1`) enables everything.
 | `Search` | `1` | IIIF Content Search v1 and v2 endpoints |
 | `Autocomplete` | `2` | Autocomplete v1 and v2 endpoints |
 | `FullText` | `4` | Plain-text endpoint (`/text/v1/`) |
-| `Pdf` | `8` | PDF endpoint (`/rendering/pdf/v1/`) |
-| `TextAugmented` | `16` | Text-augmented Manifest endpoint (`/text-augmented/v3/`) |
-| `Annotations` | `32` | Line/word annotation pages and manifest-level annotations endpoint |
+| `Annotations` | `8` | Line/word annotation pages and manifest-level annotations endpoint |
+| `Pdf` | `16` | PDF endpoint (`/rendering/pdf/v1/`) |
+| `TextAugmented` | `32` | Text-augmented Manifest endpoint (`/text-augmented/v3/`) |
 | `Figures` | `64` | Identified figures endpoint (`/identified/figures/`) |
+| `Svg` | `128` | Per-canvas SVG text endpoint (`/svg/v1/`) and its canvas `rendering` link in the text-augmented Manifest |
 
 **Example** — Search and Autocomplete only (`1 | 2 = 3`):
 

@@ -35,13 +35,19 @@ public class TextAccumulator
     /// <summary>
     /// Signals the start of a new page. Must be called before adding any words for that page.
     /// </summary>
-    public void BeginPage(string imageIdentifier, bool isTemporalContent = false)
+    /// <param name="imageIdentifier">Canvas identifier.</param>
+    /// <param name="isTemporalContent">True for temporal (VTT) content.</param>
+    /// <param name="width">Canvas width in pixels, if known.</param>
+    /// <param name="height">Canvas height in pixels, if known.</param>
+    public void BeginPage(string imageIdentifier, bool isTemporalContent = false, int width = 0, int height = 0)
     {
         _images.Add(new Image
         {
             StartCharacter = _normText.Length,
             ImageIdentifier = imageIdentifier,
             IsTemporalContent = isTemporalContent,
+            Width = width,
+            Height = height,
         });
         // Do NOT reset _lineCounter here. Li must be a globally unique line number
         // across the entire document (matching both reference implementations).

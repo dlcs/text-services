@@ -23,4 +23,10 @@ public class Image
 
     /// <summary>True when this canvas carries temporal (VTT) content; false for spatial (image) canvases.</summary>
     [ProtoMember(3)] public bool IsTemporalContent { get; set; }
+
+    /// <summary>Canvas width in pixels; 0 when unknown (e.g. temporal content or indexes built before this was recorded).</summary>
+    [ProtoMember(4)] public int Width { get; set; }
+
+    /// <summary>Canvas height in pixels; 0 when unknown (e.g. temporal content or indexes built before this was recorded).</summary>
+    [ProtoMember(5)] public int Height { get; set; }
 }

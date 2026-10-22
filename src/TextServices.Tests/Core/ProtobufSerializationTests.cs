@@ -102,6 +102,24 @@ public class ProtobufSerializationTests
     }
 
     [Fact]
+    public void Image_Dimensions_RoundTrip()
+    {
+        var acc = new TextAccumulator();
+        acc.BeginPage("https://example.org/canvas/1", width: 2000, height: 3000);
+        acc.NextLine();
+        acc.AddWord("Hello", "hello", 0, 0, 50, 20);
+        var original = acc.Build().Text;
+
+        using var ms = new MemoryStream();
+        Serializer.Serialize(ms, original);
+        ms.Position = 0;
+        var roundTripped = Serializer.Deserialize<Text>(ms);
+
+        roundTripped.Images[0].Width.ShouldBe(2000);
+        roundTripped.Images[0].Height.ShouldBe(3000);
+    }
+
+    [Fact]
     public void Text_Search_WorksAfterRoundTrip()
     {
         var original = BuildResult().Text;
