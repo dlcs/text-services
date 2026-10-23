@@ -47,7 +47,8 @@ public class PdfHandler(
         var existing = await textStore.LoadPdf(request.Id);
         if (existing != null) return existing;
 
-        if (!await textStore.Exists(request.Id)) return null;
+        // Text is optional (pages without it are image-only), but the Manifest is required.
+        if (!await textStore.ManifestExists(request.Id)) return null;
 
         await generationService.EnsureGenerated(request.Id, ct);
 
@@ -69,7 +70,7 @@ public class PdfHandler(
             return PdfTriggerResult.AlreadyExists;
         }
 
-        if (!await textStore.Exists(request.Id)) return PdfTriggerResult.NotFound;
+        if (!await textStore.ManifestExists(request.Id)) return PdfTriggerResult.NotFound;
 
         if (generationService.IsGenerating(request.Id)) return PdfTriggerResult.Queued;
 

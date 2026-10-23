@@ -1,10 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
+using TextServices.Builder.Api.Data;
 using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Features.Jobs;
 
 /// <summary>
-/// POST body for <c>POST /textbuilder</c>. One of <see cref="SourceUri"/> or
+/// Body for <c>POST /textbuilder</c>, and optionally for <c>PUT /textbuilder/{id}</c> to replace
+/// a job's definition before reprocessing. One of <see cref="SourceUri"/> or
 /// <see cref="SourceData"/> must be provided.
 /// </summary>
 public class JobInstruction : IValidatableObject
@@ -44,6 +47,19 @@ public class JobInstruction : IValidatableObject
     /// Each entry defines the message rendered centred on the generated PDF page.
     /// </summary>
     public Dictionary<string, CustomPageType>? CustomTypes { get; set; }
+
+    /// <summary>
+    /// Copies the caller-settable job definition onto <paramref name="job"/>, replacing any
+    /// existing values. Server-managed fields (status, counts, etc.) are left untouched.
+    /// </summary>
+    internal void ApplyTo(BuilderJob job)
+    {
+        job.SourceUri = SourceUri;
+        job.SourceDataJson = SourceData != null ? JsonSerializer.Serialize(SourceData) : null;
+        job.Services = (int)Services;
+        job.Title = Title;
+        job.CustomTypesJson = CustomTypes != null ? JsonSerializer.Serialize(CustomTypes) : null;
+    }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

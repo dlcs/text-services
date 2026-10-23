@@ -383,6 +383,8 @@ sources (audio/video with VTT captions) return 404.
 
 The PDF contains one page per image-based canvas, in Manifest order. Canvases without text are
 included as image-only pages, with no searchable text layer. Audio/video canvases are omitted.
+Text isn't required at all: a job whose canvases have no text still gets a PDF, made entirely of
+image-only pages.
 For jobs with [inserted PDFs](builder-api.md#inserting-pdfs-into-sourceuri-jobs) or custom page
 types, those pages are included at their positions too.
 
@@ -391,7 +393,7 @@ types, those pages are included at their positions too.
 | Status | Meaning |
 |---|---|
 | `200 OK` | PDF stream (`application/pdf`). |
-| `404 Not Found` | No text index for this `id`, or the source is temporal-only. |
+| `404 Not Found` | No job (stored Manifest) for this `id`, the `Pdf` service is not enabled, or the source has no image canvases (e.g. temporal-only). |
 
 ---
 
@@ -406,7 +408,7 @@ pre-warming.
 |---|---|
 | `202 Accepted` | PDF generation queued or already in progress. `Location` header contains the GET URL. |
 | `200 OK` | PDF already exists. Body contains `{ "location": "..." }` with the download URL. |
-| `404 Not Found` | No text index for this `id`, or the source is temporal-only. |
+| `404 Not Found` | No job (stored Manifest) for this `id`, the `Pdf` service is not enabled, or the source has no image canvases (e.g. temporal-only). |
 | `503 Service Unavailable` | Trigger queue is full. Retry after the `Retry-After` header interval (seconds). |
 
 ---

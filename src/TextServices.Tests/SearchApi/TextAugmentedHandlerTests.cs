@@ -221,14 +221,72 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
+    public async Task Handle_TemporalOnlyContentWithPdfFulfilled_NoPdfLink()
+    {
+        // Legacy jobs marked Pdf fulfilled whenever text was saved, including temporal-only content.
+        var handler = MakeHandler(V3Manifest(), cachedText: TemporalText(), capabilities: JobServices.All);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.ShouldHaveSingleItem()!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+    }
+
+    [Fact]
     public async Task Handle_TextNotBuilt_NoRenderingLinks()
     {
+        // No capabilities file (legacy job), so every service reads as enabled, but a
+        // text-less legacy job has no PDF.
         var handler = MakeHandler(V3Manifest(), noText: true);
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
         result!["rendering"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_TextNotBuiltButPdfFulfilled_AddsPdfLinkOnly()
+    {
+        // e.g. a sourceData job of inserted PDFs only: no text and no image canvas in the
+        // synthesised Manifest, but the builder recorded Pdf as fulfilled.
+        var handler = MakeHandler(V3Manifest(), noText: true,
+            capabilities: JobServices.Pdf | JobServices.TextAugmented);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        // A PDF doesn't need text, but there's no plain text to link to.
+        var rendering = result!["rendering"]!.AsArray();
+        rendering.Count.ShouldBe(1);
+        rendering[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedPdfUrl);
+        result["service"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_TextNotBuiltAndPdfNotFulfilled_NoRenderingLinks()
+    {
+        var handler = MakeHandler(V3Manifest(), noText: true,
+            capabilities: JobServices.All & ~JobServices.Pdf);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["rendering"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_PdfServiceDisabled_NoPdfLink()
+    {
+        var handler = MakeHandler(V3Manifest(),
+            capabilities: JobServices.All & ~JobServices.Pdf);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["rendering"]!.AsArray();
+        rendering.ShouldHaveSingleItem()!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
     }
 
     [Fact]
@@ -674,6 +732,7 @@ public class TextAugmentedHandlerTests
         public Task DeleteArtefacts(string key) => Task.CompletedTask;
     }
 
+    /// <param name="capabilities">Null means no capabilities file (all services enabled).</param>
     private sealed class StubTextCache(Text? text, JobServices? capabilities = null) : ITextCache
     {
         public Task<Text?> GetTextAsync(string key, CancellationToken ct = default)

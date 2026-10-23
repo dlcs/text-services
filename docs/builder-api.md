@@ -86,7 +86,7 @@ Returns a paged list of all jobs, newest first.
 |---|---|---|
 | `page` | `1` | Page number (1-based). |
 | `pageSize` | `20` | Items per page. |
-| `status` | _(all)_ | Filter by status: `Waiting`, `Processing`, `Completed`, `Failed`. |
+| `status` | _(all)_ | Filter by status: `Waiting`, `Running`, `Completed`, `Failed`. |
 
 **Response** — a paged result wrapper:
 
@@ -118,8 +118,37 @@ Returns the current state of a job.
 
 ### PUT /textbuilder/{**id} — reprocess a job
 
-Re-enqueues a previously completed or failed job. The existing text artefacts are overwritten
-when the new run completes.
+Re-enqueues an existing job that is not currently `Running`. Existing artefacts are deleted and rebuilt, and
+`invocationCount` is incremented.
+
+The request body is optional:
+
+- **No body** — the job is rebuilt from its stored definition. For `sourceUri` jobs the Manifest
+  is re-fetched, and any inserted PDFs are kept.
+- **With a body** — replaces the job's definition, then rebuilds it. This is a full replacement
+  (standard `PUT` semantics), not a partial update:
+  - The body is a complete job definition, in the same format and with the same validation as
+    `POST /textbuilder`.
+  - Its `id` must match the URL; the `id` is the only thing that cannot be changed.
+  - `sourceUri`, `sourceData`, `services`, `title` and `customTypes` are all replaced. A field
+    left out is cleared or reset to its default rather than kept from the stored job — e.g.
+    omitting `sourceData` removes any [inserted PDFs](#inserting-pdfs-into-sourceuri-jobs), and
+    omitting `services` enables all services. Send every field you want to keep.
+  - A job can be switched between `sourceUri` and `sourceData`.
+
+```http
+PUT /textbuilder/my-collection/my-book
+Content-Type: application/json
+
+{
+  "id": "my-collection/my-book",
+  "sourceUri": "https://example.org/iiif/my-book/manifest",
+  "sourceData": [
+    { "type": "pdf", "input": "https://example.org/files/new-cover.pdf", "index": 0 }
+  ],
+  "services": 3
+}
+```
 
 **Responses**
 
@@ -127,7 +156,8 @@ when the new run completes.
 |---|---|
 | `202 Accepted` | Reprocess job enqueued. |
 | `404 Not Found` | No job with this `id`. |
-| `409 Conflict` | The job is currently in `Waiting` or `Processing` state; it cannot be re-queued until it finishes. |
+| `400 Bad Request` | Body supplied but invalid, or its `id` does not match the URL. |
+| `409 Conflict` | The job is currently `Running`; it cannot be re-queued until it finishes. A `Waiting` job can be re-queued (its pending run is replaced). |
 
 ---
 
@@ -151,7 +181,7 @@ Removes the job record from the database. Does **not** delete the stored text ar
 | `id` | string | Job identifier as supplied on creation. |
 | `sourceUri` | string\|null | Manifest URI, if one was provided. |
 | `sourceData` | array\|null | Inline page sequence, if one was provided. |
-| `status` | string | `Waiting`, `Processing`, `Completed`, or `Failed`. |
+| `status` | string | `Waiting`, `Running`, `Completed`, or `Failed`. |
 | `created` | ISO 8601 | When the job was accepted. |
 | `started` | ISO 8601\|null | When the Hangfire worker picked it up. |
 | `finished` | ISO 8601\|null | When processing ended (success or failure). |

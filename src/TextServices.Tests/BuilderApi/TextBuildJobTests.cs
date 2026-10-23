@@ -591,7 +591,7 @@ public sealed class TextBuildJobTests : IDisposable
     public async Task ExecuteAsync_EmptyText_AllServices_OnlyTextAugmentedFulfilled()
     {
         // No text, but all services requested. The synthetic manifest is still saved,
-        // so TextAugmented is the only service that can be fulfilled.
+        // so TextAugmented is fulfilled; the page has no image, so there's nothing for a PDF.
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
@@ -614,6 +614,50 @@ public sealed class TextBuildJobTests : IDisposable
         fulfilled.ShouldNotHaveFlag(JobServices.Autocomplete);
         fulfilled.ShouldNotHaveFlag(JobServices.Pdf);
         fulfilled.ShouldNotHaveFlag(JobServices.FullText);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_EmptyText_ImageCanvas_PdfFulfilledWithoutText()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    ImageUri = "https://example.org/image/1.jpg",
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        var job = await CreateJob("test/empty-text-image",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var sut = MakeJob(altoFetcher: new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null)));
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        var fulfilled = (JobServices)updated!.FulfilledServices!.Value;
+        fulfilled.ShouldHaveFlag(JobServices.Pdf);
+        fulfilled.ShouldNotHaveFlag(JobServices.Search);
+
+        // The PDF is rendered from the Manifest alone; no empty Text artefact is stored.
+        (await _textStore.Exists(job.Id)).ShouldBeFalse();
+        (await _textStore.LoadManifest(job.Id)).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_EmptyText_TemporalCanvasOnly_PdfNotFulfilled()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1920, Height = 1080, Duration = 60,
+                    ImageUri = "https://example.org/video.mp4" },
+        };
+
+        var job = await CreateJob("test/empty-text-av",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        await MakeJob().ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        ((JobServices)updated!.FulfilledServices!.Value).ShouldNotHaveFlag(JobServices.Pdf);
     }
 
     [Fact]

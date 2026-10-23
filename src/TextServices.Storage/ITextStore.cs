@@ -90,6 +90,13 @@ public interface ITextStore
     Task<bool> Exists(string key);
 
     /// <summary>
+    /// Returns <see langword="true"/> if a stored Manifest exists for the given key, without
+    /// loading it. The default loads the Manifest; implementations should override it with a
+    /// cheaper check.
+    /// </summary>
+    async Task<bool> ManifestExists(string key) => await LoadManifest(key) != null;
+
+    /// <summary>
     /// Persists the <see cref="JobServices"/> capability flags for the given key as a
     /// plain integer. Only written when the flags differ from the default (all services
     /// enabled); callers that read <see langword="null"/> should treat all services as enabled.
