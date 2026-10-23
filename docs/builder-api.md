@@ -34,7 +34,8 @@ Enqueues a new text-building job.
 | `sourceData` | array | one of | Inline page sequence (see [sourceData format](#sourcedata-format)). No source Manifest exists; the Builder API synthesises a minimal skeleton Manifest from the page list. |
 | `services` | integer | no | Bitmask of services to build and expose. Default: `-1` (all enabled). See [Service flags](#service-flags). |
 
-Exactly one of `sourceUri` or `sourceData` must be provided.
+One of `sourceUri` or `sourceData` must be provided. Both may be supplied together only to add
+PDFs to a `sourceUri` job — see [Inserting PDFs into sourceUri jobs](#inserting-pdfs-into-sourceuri-jobs).
 
 **Responses**
 
@@ -178,6 +179,9 @@ Use `sourceData` when you already know the page sequence and text file URLs and 
 Builder API to fetch and reduce a Manifest. The format aligns with the
 [Fireball](https://github.com/dlcs/fireball) PDF assembly service payload.
 
+Pages are processed in array order, unless every page sets `index`, in which case they are ordered
+by `index` (see [Page fields](#page-fields)).
+
 ```json
 {
   "id": "my-collection/my-book",
@@ -239,6 +243,7 @@ Builder API to fetch and reduce a Manifest. The format aligns with the
 | `profile` | string\|null | IIIF `seeAlso` profile URI — used alongside `format` to select the text-format provider. |
 | `format` | string\|null | MIME type (e.g. `text/vtt`). |
 | `label` | string\|null | Fallback label; used for provider selection when `profile` is absent. |
+| `index` | int\|null | Position of the page in the sequence. Must be unique within `sourceData`. For `sourceData`-only jobs it is optional, but if set on any page it must be set on all, and pages are then ordered by `index` instead of array order. Alongside `sourceUri`, required on each `"pdf"`-type page and gives its position relative to the Manifest's canvases; only `0` (before the first canvas) is currently supported. |
 
 ### pdf-type pages
 
@@ -253,6 +258,29 @@ centred on the page.
 
 The `input` URI must be a fetchable PDF: `http/https` (fetched via HTTP) or `file://` (read
 from disk). S3 URIs are not yet supported for pdf-type embedding.
+
+### Inserting PDFs into sourceUri jobs
+
+To insert a PDF into the output of a job built from a Manifest, supply `sourceData` alongside
+`sourceUri`, containing only `"pdf"`-type entries with an `index` giving their position
+relative to the Manifest's canvases. Only `"index": 0` (before the first canvas, e.g. a cover
+page) is currently supported:
+
+```jsonc
+{
+  "id": "my-collection/my-book",
+  "sourceUri": "https://org.example/manifest123.json",
+  "sourceData": [
+    { "type": "pdf", "input": "https://example.org/files/cover.pdf", "index": 0 }
+  ]
+}
+```
+
+Every page of the embedded PDF is included, so multiple pages at one position are supplied as
+a single multi-page PDF. The request is rejected with `400`
+if any `sourceData` entry has a `type` other than `"pdf"`, an `index` other than `0`, or no
+`input`, or if two entries share the same `index`. Inserted PDFs are retained when the job is reprocessed via
+`PUT`. As with all pdf-type pages, they do not appear in the stored Manifest or the text index.
 
 ### Custom page types
 

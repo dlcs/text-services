@@ -152,7 +152,136 @@ public sealed class TextBuildJobTests : IDisposable
         // Manifest JSON should have been stored.
         var storedManifest = await _textStore.LoadManifest(job.Id);
         storedManifest.ShouldNotBeNull();
+
+        // Page sequence is stored for every Pdf-enabled job, in Manifest order.
+        var sequence = await _textStore.LoadPageSequence(job.Id);
+        sequence.ShouldNotBeNull();
+        var entries = JsonDocument.Parse(sequence).RootElement.GetProperty("pages");
+        entries.GetArrayLength().ShouldBe(1);
+        entries[0].GetProperty("canvasId").GetString().ShouldBe("https://example.org/c/1");
     }
+
+    [Fact]
+    public async Task ExecuteAsync_SourceUri_PdfNotRequested_NoPageSequence()
+    {
+        var job = await CreateJob("test/uri-nopdf",
+            sourceUri: "https://example.org/manifest", services: JobServices.Search);
+
+        await MakeJob(manifestFetcher: SingleCanvasManifest(), altoFetcher: SingleCanvasAlto())
+            .ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        (await _textStore.LoadPageSequence(job.Id)).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SourceUriWithNonZeroIndexPdf_Fails()
+    {
+        // Bypasses JobInstruction validation, which only accepts index 0 with sourceUri.
+        var coverJson = JsonSerializer.Serialize(new List<PageInstruction>
+        {
+            new() { Type = "pdf", Index = 1, Input = "https://example.org/closing.pdf" },
+        });
+        var job = await CreateJob("test/uri-bad-index",
+            sourceUri: "https://example.org/manifest", sourceDataJson: coverJson);
+
+        await MakeJob(manifestFetcher: SingleCanvasManifest(), altoFetcher: SingleCanvasAlto())
+            .ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Failed);
+        updated.Errors.ShouldNotBeNull();
+        updated.Errors.ShouldContain("index 1");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SourceUriWithCoverPage_PrependsCoverAndSavesPageSequence()
+    {
+        var coverJson = JsonSerializer.Serialize(new List<PageInstruction>
+        {
+            new() { Type = "pdf", Index = 0, Input = "https://example.org/cover.pdf" },
+        });
+        var job = await CreateJob("test/uri-cover",
+            sourceUri: "https://example.org/manifest", sourceDataJson: coverJson);
+
+        var sut = MakeJob(manifestFetcher: SingleCanvasManifest(), altoFetcher: SingleCanvasAlto());
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Completed);
+        updated.TotalPages.ShouldBe(2);
+
+        var storedPages = JsonSerializer.Deserialize<List<PageInstruction>>(updated.SourceDataJson!)!;
+        storedPages.Select(p => p.Type).ShouldBe(["pdf", null]);
+        storedPages[0].Input.ShouldBe("https://example.org/cover.pdf");
+
+        var sequence = await _textStore.LoadPageSequence(job.Id);
+        sequence.ShouldNotBeNull();
+        var entries = JsonDocument.Parse(sequence).RootElement.GetProperty("pages");
+        entries.GetArrayLength().ShouldBe(2);
+        entries[0].GetProperty("type").GetString().ShouldBe("pdf");
+        entries[0].GetProperty("input").GetString().ShouldBe("https://example.org/cover.pdf");
+        entries[1].GetProperty("canvasId").GetString().ShouldBe("https://example.org/c/1");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SourceUriWithCoverPage_Reprocessed_CoverRetainedOnce()
+    {
+        var coverJson = JsonSerializer.Serialize(new List<PageInstruction>
+        {
+            new() { Type = "pdf", Index = 0, Input = "https://example.org/cover.pdf" },
+        });
+        var job = await CreateJob("test/uri-cover-reprocess",
+            sourceUri: "https://example.org/manifest", sourceDataJson: coverJson);
+
+        // Second run reads the SourceDataJson written by the first, as PUT does.
+        await MakeJob(manifestFetcher: SingleCanvasManifest(), altoFetcher: SingleCanvasAlto())
+            .ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+        await MakeJob(manifestFetcher: SingleCanvasManifest(), altoFetcher: SingleCanvasAlto())
+            .ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        var storedPages = JsonSerializer.Deserialize<List<PageInstruction>>(updated!.SourceDataJson!)!;
+        storedPages.Select(p => p.Type).ShouldBe(["pdf", null]);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_InlineSourceDataWithIndex_PagesOrderedByIndex()
+    {
+        var sourceDataJson = JsonSerializer.Serialize(new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/2", Width = 1000, Height = 1500, Index = 2 },
+            new() { Type = "pdf", Input = "https://example.org/cover.pdf", Index = 0 },
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500, Index = 1 },
+        });
+        var job = await CreateJob("test/indexed", sourceDataJson: sourceDataJson);
+
+        await MakeJob().ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var sequence = await _textStore.LoadPageSequence(job.Id);
+        sequence.ShouldNotBeNull();
+        var entries = JsonDocument.Parse(sequence).RootElement.GetProperty("pages");
+        entries.GetArrayLength().ShouldBe(3);
+        entries[0].GetProperty("type").GetString().ShouldBe("pdf");
+        entries[1].GetProperty("canvasId").GetString().ShouldBe("https://example.org/c/1");
+        entries[2].GetProperty("canvasId").GetString().ShouldBe("https://example.org/c/2");
+    }
+
+    private static FakeManifestFetcher SingleCanvasManifest() =>
+        new("https://example.org/manifest",
+            """{"@context":"https://iiif.io/api/presentation/3/context.json"}""",
+            [
+                new PageInstruction
+                {
+                    Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml",
+                },
+            ]);
+
+    private static IAltoFetcher SingleCanvasAlto() =>
+        FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("parliament"),
+        });
 
     // -------------------------------------------------------------------------
     // Sparse / missing ALTO

@@ -117,17 +117,36 @@ public class TextBuildJob(
             if (needsManifest)
                 await textStore.SaveManifest(job.Id, result.Json);
 
-            job.SourceDataJson = JsonSerializer.Serialize(result.Pages);
+            // SourceDataJson is overwritten with the reduced page list below, so recover any
+            // indexed pdf entries from it first. The reducer never emits pdf entries, so this
+            // also holds on reprocess, when SourceDataJson is the output of a previous run.
+            var indexedPdfs = DeserialisePages(job.SourceDataJson).Where(p => p.IsIndexedPdf()).ToList();
 
-            logger.LogInformation("Manifest fetched for {JobId}: {PageCount} canvases", job.Id, result.Pages.Count);
-            return result.Pages;
+            // All indexed pdfs are placed before the first canvas, which is only correct for
+            // index 0. Guards against JobInstruction validation being relaxed without
+            // positional insertion being implemented here.
+            var unsupported = indexedPdfs.FirstOrDefault(p => p.Index != 0);
+            if (unsupported != null)
+            {
+                throw new InvalidOperationException(
+                    $"Inserted PDFs for sourceUri jobs only support index 0; found index {unsupported.Index}.");
+            }
+
+            List<PageInstruction> allPages = [.. indexedPdfs, .. result.Pages];
+
+            job.SourceDataJson = JsonSerializer.Serialize(allPages);
+
+            logger.LogInformation("Manifest fetched for {JobId}: {PageCount} canvases, {PdfCount} inserted PDF(s)",
+                job.Id, result.Pages.Count, indexedPdfs.Count);
+            return allPages;
         }
 
         // sourceData path: deserialise inline pages, then synthesise a skeleton manifest
         // so text-augmented and PDF work identically regardless of how the job was submitted.
-        IReadOnlyList<PageInstruction> pages = job.SourceDataJson != null
-            ? JsonSerializer.Deserialize<List<PageInstruction>>(job.SourceDataJson) ?? []
-            : [];
+        // index is all-or-nothing (enforced by JobInstruction); when set it determines order.
+        IReadOnlyList<PageInstruction> pages = DeserialisePages(job.SourceDataJson);
+        if (pages.Any(p => p.Index != null))
+            pages = pages.OrderBy(p => p.Index).ToList();
 
         if (needsManifest && pages.Count > 0)
         {
@@ -138,6 +157,9 @@ public class TextBuildJob(
 
         return pages;
     }
+
+    private static List<PageInstruction> DeserialisePages(string? json) =>
+        json != null ? JsonSerializer.Deserialize<List<PageInstruction>>(json) ?? [] : [];
 
     private async Task<(int WordCount, int ImageCount, List<string> Errors, JobServices Fulfilled)> ProcessPages(
         BuilderJob job,
@@ -255,10 +277,9 @@ public class TextBuildJob(
         // endpoints that actually have artefacts (e.g. no search service when text is empty).
         await textStore.SaveCapabilities(job.Id, (int)fulfilled);
 
-        // For sourceData jobs, persist the full page sequence (including pdf-embed entries
-        // that have no canvas in the synthesised manifest) so the PDF builder can
-        // reconstruct the complete assembly order, including embedded PDFs.
-        if (job.SourceUri == null && services.HasFlag(JobServices.Pdf))
+        // Persist the full page sequence (including pdf-embed entries that have no canvas in
+        // the manifest) so the PDF builder can reconstruct the complete assembly order.
+        if (services.HasFlag(JobServices.Pdf))
         {
             var pageSequenceJson = BuildPageSequenceJson(job, pages);
             await textStore.SavePageSequence(job.Id, pageSequenceJson);
@@ -279,7 +300,7 @@ public class TextBuildJob(
         foreach (var page in pages)
         {
             JsonObject entry;
-            if (string.Equals(page.Type, "pdf", StringComparison.OrdinalIgnoreCase))
+            if (page.IsPdf())
             {
                 entry = new JsonObject { ["type"] = "pdf", ["input"] = page.Input };
             }

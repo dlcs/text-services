@@ -59,11 +59,22 @@ public class JobInstructionTests
         var results = Validate(new JobInstruction { Id = "my-job" });
 
         results.ShouldContain(r =>
-            r.ErrorMessage == "Exactly one of sourceUri or sourceData must be provided.");
+            r.ErrorMessage == "One of sourceUri or sourceData must be provided.");
     }
 
+    // -------------------------------------------------------------------------
+    // Source — sourceUri + sourceData (indexed pdf entries)
+    // -------------------------------------------------------------------------
+
+    private const string CoverPageOnlyError =
+        "When sourceUri is provided, sourceData may only contain entries with type 'pdf' and index 0.";
+
+    private static PageInstruction CoverPage(string type = "pdf", int? index = 0,
+        string? input = "https://example.org/cover.pdf") =>
+        new() { Type = type, Index = index, Input = input };
+
     [Fact]
-    public void BothSourceUriAndSourceData_FailsValidation()
+    public void BothSourceUriAndSourceData_NonPdfPage_FailsValidation()
     {
         var results = Validate(new JobInstruction
         {
@@ -72,8 +83,136 @@ public class JobInstructionTests
             SourceData = [Page()],
         });
 
+        results.ShouldContain(r => r.ErrorMessage == CoverPageOnlyError);
+    }
+
+    [Theory]
+    [InlineData("pdf")]
+    [InlineData("PDF")]
+    public void BothSourceUriAndSourceData_PdfCoverPage_PassesValidation(string pdfType)
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceUri = "https://example.org/manifest",
+            SourceData = [CoverPage(type: pdfType)],
+        });
+
+        results.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(-1)]
+    [InlineData(null)]
+    public void BothSourceUriAndSourceData_PdfWithIndexOtherThanZero_FailsValidation(int? index)
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceUri = "https://example.org/manifest",
+            SourceData = [CoverPage(index: index)],
+        });
+
+        results.ShouldContain(r => r.ErrorMessage == CoverPageOnlyError);
+    }
+
+    [Fact]
+    public void BothSourceUriAndSourceData_CustomType_FailsValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceUri = "https://example.org/manifest",
+            SourceData = [CoverPage(type: "redacted")],
+        });
+
+        results.ShouldContain(r => r.ErrorMessage == CoverPageOnlyError);
+    }
+
+    [Fact]
+    public void BothSourceUriAndSourceData_DuplicateIndex_FailsValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceUri = "https://example.org/manifest",
+            SourceData = [CoverPage(), CoverPage(input: "https://example.org/disclaimer.pdf")],
+        });
+
+        results.ShouldContain(r => r.ErrorMessage == "Each 'index' in sourceData must be unique.");
+    }
+
+    [Fact]
+    public void SourceDataOnly_DuplicateIndex_FailsValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceData = [CoverPage(index: 2), Page(), CoverPage(index: 2)],
+        });
+
+        results.ShouldContain(r => r.ErrorMessage == "Each 'index' in sourceData must be unique.");
+    }
+
+    // -------------------------------------------------------------------------
+    // SourceData only — index all-or-nothing
+    // -------------------------------------------------------------------------
+
+    private const string IndexAllOrNothingError =
+        "If 'index' is set on any sourceData entry, it must be set on all entries.";
+
+    private static PageInstruction IndexedPage(int? index, string id = "https://example.org/canvas/1") =>
+        new() { Id = id, Index = index };
+
+    [Fact]
+    public void SourceDataOnly_IndexSetOnSomeEntries_FailsValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceData = [IndexedPage(1), IndexedPage(null, "https://example.org/canvas/2")],
+        });
+
+        results.ShouldContain(r => r.ErrorMessage == IndexAllOrNothingError);
+    }
+
+    [Fact]
+    public void SourceDataOnly_IndexSetOnAllEntries_PassesValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceData = [IndexedPage(2), IndexedPage(1, "https://example.org/canvas/2"), CoverPage(index: 0)],
+        });
+
+        results.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void SourceDataOnly_IndexSetOnNoEntries_PassesValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceData = [Page(), Page(id: null, type: "pdf")],
+        });
+
+        results.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void BothSourceUriAndSourceData_CoverPageWithoutInput_FailsValidation()
+    {
+        var results = Validate(new JobInstruction
+        {
+            Id = "my-job",
+            SourceUri = "https://example.org/manifest",
+            SourceData = [CoverPage(input: null)],
+        });
+
         results.ShouldContain(r =>
-            r.ErrorMessage == "Provide sourceUri or sourceData, not both.");
+            r.ErrorMessage == "Each pdf page in sourceData must supply an 'input' (PDF URI).");
     }
 
     [Fact]
@@ -115,7 +254,7 @@ public class JobInstructionTests
         });
 
         results.ShouldContain(r =>
-            r.ErrorMessage == "Exactly one of sourceUri or sourceData must be provided.");
+            r.ErrorMessage == "One of sourceUri or sourceData must be provided.");
     }
 
     // -------------------------------------------------------------------------
