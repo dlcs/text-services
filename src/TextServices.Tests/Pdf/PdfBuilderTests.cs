@@ -361,6 +361,71 @@ public sealed class PdfBuilderTests
         ReadPdf(output).GetNumberOfPages().ShouldBe(1);
     }
 
+    [Fact]
+    public async Task BuildAsync_NoPageSequence_MatchesPageSequenceOfManifestCanvases()
+    {
+        // Jobs built before the page sequence was always stored have none, and use the
+        // Manifest-order fallback. Their PDF must match the one built from the sequence
+        // TextBuildJob now stores (one canvasId entry per reduced canvas, AV included).
+        const string manifest =
+            """
+            {"items":[
+              {"id":"https://example.org/canvas/1","width":200,"height":300,
+               "items":[{"items":[{"motivation":"painting","body":{"type":"Image","id":"https://example.org/image/1.jpg","width":200,"height":300}}]}]},
+              {"id":"https://example.org/canvas/av","duration":60,
+               "items":[{"items":[{"motivation":"painting","body":{"type":"Sound","id":"https://example.org/audio.mp3"}}]}]},
+              {"id":"https://example.org/canvas/2","width":200,"height":300,
+               "items":[{"items":[{"motivation":"painting","body":{"type":"Image","id":"https://example.org/image/2.jpg","width":200,"height":300}}]}]},
+              {"id":"https://example.org/canvas/3","width":200,"height":300,
+               "items":[{"items":[{"motivation":"painting","body":{"type":"Image","id":"https://example.org/image/3.jpg","width":200,"height":300}}]}]}
+            ]}
+            """;
+        const string pageSeq =
+            """
+            {
+              "pages": [
+                { "canvasId": "https://example.org/canvas/1" },
+                { "canvasId": "https://example.org/canvas/av" },
+                { "canvasId": "https://example.org/canvas/2" },
+                { "canvasId": "https://example.org/canvas/3" }
+              ]
+            }
+            """;
+
+        var withoutSequence = await BuildAndDescribe(manifest, null);
+        var withSequence = await BuildAndDescribe(manifest, pageSeq);
+
+        withoutSequence.Pages.ShouldBe(withSequence.Pages);
+        withoutSequence.Requested.ShouldBe(withSequence.Requested);
+        withoutSequence.Pages.Count.ShouldBe(3);
+
+        async Task<(List<string> Pages, List<string?> Requested)> BuildAndDescribe(string json, string? sequence)
+        {
+            var requested = new List<string?>();
+            var factory = CreateFactory(req =>
+            {
+                requested.Add(req.RequestUri?.ToString());
+                return OkImage(TinyPng);
+            });
+            // Canvas 2 has no text, so text.Images holds canvases 1 and 3 (indexes 0 and 1).
+            var text = MakeText(["https://example.org/canvas/1", "https://example.org/canvas/3"]);
+            text.Words = new Dictionary<int, Word>
+            {
+                [0] = new() { ContentRaw = "alpha", X = 10, Y = 10, W = 50, H = 20, Idx = 0 },
+                [1] = new() { ContentRaw = "gamma", X = 10, Y = 10, W = 50, H = 20, Idx = 1 },
+            };
+
+            using var output = new MemoryStream();
+            await MakeSut(factory).BuildAsync(text, json, sequence, output, CancellationToken.None);
+
+            using var pdf = ReadPdf(output);
+            var pages = Enumerable.Range(1, pdf.GetNumberOfPages())
+                .Select(n => PdfTextExtractor.GetTextFromPage(pdf.GetPage(n)).Trim())
+                .ToList();
+            return (pages, requested);
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
