@@ -221,8 +221,23 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
+    public async Task Handle_TemporalOnlyContentWithPdfFulfilled_NoPdfLink()
+    {
+        // Legacy jobs marked Pdf fulfilled whenever text was saved, including temporal-only content.
+        var handler = MakeHandler(V3Manifest(), cachedText: TemporalText(), capabilities: JobServices.All);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["rendering"].ShouldBeOfType<JsonArray>();
+        rendering.ShouldHaveSingleItem()!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+    }
+
+    [Fact]
     public async Task Handle_TextNotBuilt_NoRenderingLinks()
     {
+        // No capabilities file (legacy job), so every service reads as enabled, but a
+        // text-less legacy job has no PDF.
         var handler = MakeHandler(V3Manifest(), noText: true);
 
         var result = await handler.Handle(
@@ -232,9 +247,12 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
-    public async Task Handle_TextNotBuiltButImageCanvas_AddsPdfLinkOnly()
+    public async Task Handle_TextNotBuiltButPdfFulfilled_AddsPdfLinkOnly()
     {
-        var handler = MakeHandler(V3ManifestWithImageCanvas(), noText: true);
+        // e.g. a sourceData job of inserted PDFs only: no text and no image canvas in the
+        // synthesised Manifest, but the builder recorded Pdf as fulfilled.
+        var handler = MakeHandler(V3Manifest(), noText: true,
+            capabilities: JobServices.Pdf | JobServices.TextAugmented);
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
@@ -247,9 +265,21 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
+    public async Task Handle_TextNotBuiltAndPdfNotFulfilled_NoRenderingLinks()
+    {
+        var handler = MakeHandler(V3Manifest(), noText: true,
+            capabilities: JobServices.All & ~JobServices.Pdf);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["rendering"].ShouldBeNull();
+    }
+
+    [Fact]
     public async Task Handle_PdfServiceDisabled_NoPdfLink()
     {
-        var handler = MakeHandler(V3ManifestWithImageCanvas(),
+        var handler = MakeHandler(V3Manifest(),
             capabilities: JobServices.All & ~JobServices.Pdf);
 
         var result = await handler.Handle(
@@ -603,15 +633,6 @@ public class TextAugmentedHandlerTests
 
     private static ResolvedRequest DefaultResolved(string id = "test/book")
         => new(id, SelfUrl, SelfUrl, SearchBase);
-
-    private static string V3ManifestWithImageCanvas() =>
-        """
-        {"id":"https://example.org/m/1","type":"Manifest","items":[
-          {"id":"canvas/1","type":"Canvas","width":200,"height":300,"items":[
-            {"type":"AnnotationPage","items":[
-              {"type":"Annotation","motivation":"painting",
-               "body":{"id":"https://example.org/image/1.jpg","type":"Image"},"target":"canvas/1"}]}]}]}
-        """;
 
     private static TextAugmentedHandler MakeHandler(
         string? manifestJson,

@@ -52,13 +52,15 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         var resolvedRequestUris = request.Resolved;
         ReplaceSelfUrl(manifest, resolvedRequestUris.SelfUrl);
 
-        // A PDF doesn't need text, so its link is offered for any job with image canvases.
-        // Temporal-only manifests (VTT/audio/video) have no page images to render into a PDF.
-        var includePdf = await textCache.IsEnabledAsync(request.Id, JobServices.Pdf, ct)
-                         && (text?.Images.Any(img => !img.IsTemporalContent) == true || HasImageCanvas(manifest));
-
+        // The builder only marks Pdf fulfilled when the job has a page it can render, so the
+        // stored capabilities decide whether to link a PDF. Each branch has a check for legacy jobs.
         if (text != null)
         {
+            // Pdf used to be fulfilled for temporal-only (VTT/audio/video) content too, which
+            // has no page images.
+            var includePdf = await textCache.IsEnabledAsync(request.Id, JobServices.Pdf, ct)
+                             && text.Images.Any(img => !img.IsTemporalContent);
+
             InjectSearchServices(manifest, resolvedRequestUris);
             InjectRenderingLinks(manifest, resolvedRequestUris, includeText: true, includePdf);
             InjectCanvasAnnotationRefs(manifest, resolvedRequestUris, text);
@@ -68,7 +70,11 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         else
         {
             logger.LogDebug("Text not found: {Id}", request.Id);
-            if (includePdf)
+
+            // Without a capabilities file every service reads as enabled, but text-less jobs
+            // built before that file existed never had a PDF, so require Pdf to be recorded.
+            var capabilities = await textCache.GetCapabilitiesAsync(request.Id, ct);
+            if (capabilities?.HasFlag(JobServices.Pdf) == true)
             {
                 InjectRenderingLinks(manifest, resolvedRequestUris, includeText: false, includePdf: true);
             }
@@ -160,7 +166,6 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
 
         if (manifest["rendering"] is JsonArray existingRendering)
         {
-            // AddIfNew prepends, so add in reverse to keep PDF before text.
             for (var i = refs.Count - 1; i >= 0; i--) AddIfNew(existingRendering, refs[i]);
         }
         else if (manifest["rendering"] is JsonObject singleRendering)
@@ -173,25 +178,6 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         {
             manifest["rendering"] = new JsonArray([.. refs]);
         }
-    }
-
-    /// <summary>True when any canvas is painted with an image (i.e. can become a PDF page).</summary>
-    private static bool HasImageCanvas(JsonObject manifest)
-    {
-        foreach (var canvas in manifest["items"] as JsonArray ?? [])
-        {
-            foreach (var annoPage in canvas?["items"] as JsonArray ?? [])
-            {
-                foreach (var anno in annoPage?["items"] as JsonArray ?? [])
-                {
-                    var body = anno?["body"];
-                    if (body is JsonArray arr) body = arr.FirstOrDefault();
-                    var type = body?["type"]?.GetValue<string>() ?? body?["@type"]?.GetValue<string>();
-                    if (string.Equals(type, "Image", StringComparison.OrdinalIgnoreCase)) return true;
-                }
-            }
-        }
-        return false;
     }
 
     private void InjectCanvasAnnotationRefs(JsonObject manifest, ResolvedRequest resolved, Text text)
