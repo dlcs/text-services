@@ -68,7 +68,7 @@ No ASP.NET, no storage, no HTTP. Callers supply parsed content per page.
 - `SaveFigures` / `LoadFigures` — IIIF AnnotationPage JSON for ComposedBlocks
 - `SaveAnnotations` / `LoadAnnotations` — manifest-level line annotations
 - `SaveCapabilities` / `LoadCapabilities` — `JobServices` bitmask (null = all enabled)
-- `SavePageSequence` / `LoadPageSequence` — ordered page list for sourceData jobs
+- `SavePageSequence` / `LoadPageSequence` — ordered page list used to assemble PDFs (saved for every Pdf-enabled job)
 - `DeleteArtefacts` — removes all artefacts for a key (call before reprocessing)
 - `Exists` — checks whether a Text artefact exists
 

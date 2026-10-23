@@ -39,10 +39,9 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
     /// <param name="text">Stored word/image index.</param>
     /// <param name="manifestJson">Stored manifest JSON (used to resolve image URLs).</param>
     /// <param name="pageSequenceJson">
-    /// When non-null (sourceData jobs, and sourceUri jobs with inserted PDFs), the stored
-    /// page-sequence JSON drives the assembly order, including any embedded-PDF and
-    /// custom-type pages.
-    /// When null (other sourceUri jobs), one page is emitted per image canvas in Manifest order.
+    /// When non-null, the stored page-sequence JSON drives the assembly order, including any
+    /// embedded-PDF and custom-type pages.
+    /// When null, one page is emitted per image canvas in Manifest order.
     /// </param>
     /// <param name="output">Stream to write the PDF to.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -73,7 +72,7 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
 
         if (pageSequenceJson != null)
         {
-            // sourceData job: full assembly including pdf-embed and custom-type pages.
+            // Full assembly including pdf-embed and custom-type pages.
             var entries = ParsePageSequence(pageSequenceJson);
 
             // Pre-determine reference page size from the first image canvas so that
@@ -115,8 +114,8 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         }
         else
         {
-            // sourceUri job: one page per image canvas in Manifest order. Canvases without
-            // text are included, with no text layer. Non-image (AV) canvases are not parsed.
+            // One page per image canvas in Manifest order. Canvases without text are included,
+            // with no text layer. Non-image (AV) canvases are not parsed.
             foreach (var pageInfo in orderedManifestPages)
             {
                 ct.ThrowIfCancellationRequested();

@@ -153,8 +153,44 @@ public sealed class TextBuildJobTests : IDisposable
         var storedManifest = await _textStore.LoadManifest(job.Id);
         storedManifest.ShouldNotBeNull();
 
-        // No inserted PDFs — PDF uses the manifest order, so no page sequence is stored.
+        // Page sequence is stored for every Pdf-enabled job, in Manifest order.
+        var sequence = await _textStore.LoadPageSequence(job.Id);
+        sequence.ShouldNotBeNull();
+        var entries = JsonDocument.Parse(sequence).RootElement.GetProperty("pages");
+        entries.GetArrayLength().ShouldBe(1);
+        entries[0].GetProperty("canvasId").GetString().ShouldBe("https://example.org/c/1");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SourceUri_PdfNotRequested_NoPageSequence()
+    {
+        var job = await CreateJob("test/uri-nopdf",
+            sourceUri: "https://example.org/manifest", services: JobServices.Search);
+
+        await MakeJob(manifestFetcher: SingleCanvasManifest(), altoFetcher: SingleCanvasAlto())
+            .ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
         (await _textStore.LoadPageSequence(job.Id)).ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SourceUriWithNonZeroIndexPdf_Fails()
+    {
+        // Bypasses JobInstruction validation, which only accepts index 0 with sourceUri.
+        var coverJson = JsonSerializer.Serialize(new List<PageInstruction>
+        {
+            new() { Type = "pdf", Index = 1, Input = "https://example.org/closing.pdf" },
+        });
+        var job = await CreateJob("test/uri-bad-index",
+            sourceUri: "https://example.org/manifest", sourceDataJson: coverJson);
+
+        await MakeJob(manifestFetcher: SingleCanvasManifest(), altoFetcher: SingleCanvasAlto())
+            .ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Failed);
+        updated.Errors.ShouldNotBeNull();
+        updated.Errors.ShouldContain("index 1");
     }
 
     [Fact]

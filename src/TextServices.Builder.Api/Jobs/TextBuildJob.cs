@@ -120,8 +120,18 @@ public class TextBuildJob(
             // SourceDataJson is overwritten with the reduced page list below, so recover any
             // indexed pdf entries from it first. The reducer never emits pdf entries, so this
             // also holds on reprocess, when SourceDataJson is the output of a previous run.
-            // Only index 0 is currently accepted, so all are placed before the first canvas.
             var indexedPdfs = DeserialisePages(job.SourceDataJson).Where(p => p.IsIndexedPdf()).ToList();
+
+            // All indexed pdfs are placed before the first canvas, which is only correct for
+            // index 0. Guards against JobInstruction validation being relaxed without
+            // positional insertion being implemented here.
+            var unsupported = indexedPdfs.FirstOrDefault(p => p.Index != 0);
+            if (unsupported != null)
+            {
+                throw new InvalidOperationException(
+                    $"Inserted PDFs for sourceUri jobs only support index 0; found index {unsupported.Index}.");
+            }
+
             List<PageInstruction> allPages = [.. indexedPdfs, .. result.Pages];
 
             job.SourceDataJson = JsonSerializer.Serialize(allPages);
@@ -267,10 +277,9 @@ public class TextBuildJob(
         // endpoints that actually have artefacts (e.g. no search service when text is empty).
         await textStore.SaveCapabilities(job.Id, (int)fulfilled);
 
-        // For sourceData jobs, and sourceUri jobs with inserted PDFs, persist the full page
-        // sequence (including pdf-embed entries that have no canvas in the manifest) so the
-        // PDF builder can reconstruct the complete assembly order, including embedded PDFs.
-        if ((job.SourceUri == null || pages.Any(p => p.IsPdf())) && services.HasFlag(JobServices.Pdf))
+        // Persist the full page sequence (including pdf-embed entries that have no canvas in
+        // the manifest) so the PDF builder can reconstruct the complete assembly order.
+        if (services.HasFlag(JobServices.Pdf))
         {
             var pageSequenceJson = BuildPageSequenceJson(job, pages);
             await textStore.SavePageSequence(job.Id, pageSequenceJson);
