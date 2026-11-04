@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using TextServices.Builder.Api.Configuration;
 using TextServices.Builder.Api.Data;
 using TextServices.Builder.Api.Jobs;
+using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Features.Jobs;
 
@@ -41,7 +42,7 @@ public class CreateJobHandler(
             SourceDataJson = sourceDataJson,
             Status = JobStatus.Waiting,
             Created = DateTimeOffset.UtcNow,
-            Services = (int)instruction.Services,
+            Services = (int)instruction.Services.WithImpliedServices(),
             Title = instruction.Title,
             CustomTypesJson = instruction.CustomTypes != null
                 ? System.Text.Json.JsonSerializer.Serialize(instruction.CustomTypes)

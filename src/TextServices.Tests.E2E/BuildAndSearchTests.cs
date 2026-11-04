@@ -413,6 +413,31 @@ public class BuildAndSearchTests(E2ETestContext ctx)
         acResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task PostJob_AutocompleteOnly_ImpliesSearch()
+    {
+        const int autocompleteOnly = (int)JobServices.Autocomplete;
+        var id = "e2e/flags-autocomplete-implies-search";
+
+        await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceData = SourceDataPages(),
+            services = autocompleteOnly,
+        });
+
+        var body = await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
+        var services = (JobServices)JsonNode.Parse(body)!["services"]!.GetValue<int>();
+        services.HasFlag(JobServices.Search).ShouldBeTrue();
+        services.HasFlag(JobServices.Autocomplete).ShouldBeTrue();
+
+        var searchResponse = await ctx.SearchClient.GetAsync($"/search/v1/{id}?q=annual");
+        searchResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var acResponse = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=ann");
+        acResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
     // -------------------------------------------------------------------------
     // Route safety — ID is required on all mutation / resource endpoints
     // -------------------------------------------------------------------------
