@@ -186,6 +186,39 @@ public class TextAugmentedHandlerTests
         autocomplete["profile"]!.GetValue<string>().ShouldBe("http://iiif.io/api/search/1/autocomplete");
     }
 
+    [Fact]
+    public async Task Handle_SearchWithoutAutocomplete_SearchServicesHaveNoNestedAutocomplete()
+    {
+        var handler = MakeHandler(V3Manifest(), capabilities: JobServices.Search | JobServices.TextAugmented);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service.Count.ShouldBe(2);
+        service[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV2);
+        service[0]!["service"].ShouldBeNull();
+        service[1]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV1);
+        service[1]!["service"].ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(JobServices.Pdf | JobServices.TextAugmented)]
+    [InlineData(JobServices.Svg | JobServices.TextAugmented)]
+    [InlineData(JobServices.Autocomplete | JobServices.TextAugmented)]
+    public async Task Handle_SearchNotEnabled_NoSearchServicesOrContext(JobServices capabilities)
+    {
+        // Text exists (it is also built for PDF/SVG) but Search was not built.
+        var handler = MakeHandler(V3Manifest(), capabilities: capabilities);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result["service"].ShouldBeNull();
+        result["@context"]!.GetValue<string>().ShouldBe("http://iiif.io/api/presentation/3/context.json");
+    }
+
     // -------------------------------------------------------------------------
     // Rendering links (PDF + plain text)
     // -------------------------------------------------------------------------

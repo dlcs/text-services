@@ -533,8 +533,9 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_AutocompleteOnly_SavesAutocompleteButNotText()
+    public async Task ExecuteAsync_AutocompleteOnly_AlsoBuildsSearch()
     {
+        // Autocomplete implies Search, even when the stored job services don't include Search.
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
@@ -553,8 +554,13 @@ public sealed class TextBuildJobTests : IDisposable
         var sut = MakeJob(altoFetcher: altoFetcher);
         await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
 
-        (await _textStore.LoadText(job.Id)).ShouldBeNull();
+        (await _textStore.LoadText(job.Id)).ShouldNotBeNull();
         (await _textStore.LoadAutoComplete(job.Id)).ShouldNotBeNull();
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        var fulfilled = (JobServices)updated!.FulfilledServices!.Value;
+        fulfilled.ShouldHaveFlag(JobServices.Search);
+        fulfilled.ShouldHaveFlag(JobServices.Autocomplete);
     }
 
     [Fact]
