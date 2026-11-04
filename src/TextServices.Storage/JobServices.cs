@@ -19,3 +19,13 @@ public enum JobServices
     Svg = 1 << 7,  // Per-canvas SVG text rendering endpoint
     All = ~0,
 }
+
+public static class JobServicesExtensions
+{
+    /// <summary>
+    /// Adds any services that a requested service depends on. Autocomplete is only discoverable
+    /// as a nested service of Search in a IIIF Manifest, so requesting Autocomplete implies Search.
+    /// </summary>
+    public static JobServices WithImpliedServices(this JobServices services)
+        => services.HasFlag(JobServices.Autocomplete) ? services | JobServices.Search : services;
+}

@@ -423,8 +423,8 @@ want enabled. Omitting `services` (or supplying `-1`) enables everything.
 
 | Flag name | Value | What it controls |
 |---|---|---|
-| `Search` | `1` | IIIF Content Search v1 and v2 endpoints |
-| `Autocomplete` | `2` | Autocomplete v1 and v2 endpoints |
+| `Search` | `1` | IIIF Content Search v1 and v2 endpoints, and their services in the text-augmented Manifest |
+| `Autocomplete` | `2` | Autocomplete v1 and v2 endpoints, nested inside the search services in the text-augmented Manifest. Implies `Search` (see below) |
 | `FullText` | `4` | Plain-text endpoint (`/text/v1/`) |
 | `Annotations` | `8` | Line/word annotation pages and manifest-level annotations endpoint |
 | `Pdf` | `16` | PDF endpoint (`/rendering/pdf/v1/`) |
@@ -448,6 +448,12 @@ its Manifest with nothing added except the updated `id`.
   "services": 3
 }
 ```
+
+IIIF only defines autocomplete as a service nested inside a search service, so `Autocomplete`
+can't be offered on its own. If `Autocomplete` is set without `Search`, `Search` is added
+automatically, and the job's `services` value in responses includes it. `Search` without
+`Autocomplete` is allowed: the text-augmented Manifest then contains search services with no
+nested autocomplete service.
 
 When `services` is anything other than `-1`, the Builder API writes a `capabilities.json` file to
 storage. The Search API reads this file and returns `404 Not Found` for any endpoint whose flag is

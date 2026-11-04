@@ -236,7 +236,8 @@ public class TextBuildJob(
         job.PagesWithoutWords = pagesWithoutWords;
 
         var result = textBuilder.Build();
-        var services = (JobServices)job.Services;
+        // Add implied services, as a job's stored services may not include them.
+        var services = ((JobServices)job.Services).WithImpliedServices();
 
         string? figuresJson = null;
         string? annotationsJson = null;
