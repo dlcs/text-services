@@ -140,6 +140,7 @@ public class TextBuildJob(
             }
 
             List<PageInstruction> allPages = [.. indexedPdfs, .. result.Pages];
+            job.SkippedCanvases = result.SkippedCanvases;
 
             job.SourceDataJson = JsonSerializer.Serialize(allPages);
 
@@ -152,6 +153,7 @@ public class TextBuildJob(
         // so text-augmented and PDF work identically regardless of how the job was submitted.
         // index is all-or-nothing (enforced by JobInstruction); when set it determines order.
         IReadOnlyList<PageInstruction> pages = DeserialisePages(job.SourceDataJson);
+        job.SkippedCanvases = 0;
         if (pages.Any(p => p.Index != null))
             pages = pages.OrderBy(p => p.Index).ToList();
 
@@ -194,20 +196,34 @@ public class TextBuildJob(
         var textBuilder = new TextBuilder(loggerFactory);
         var errors = fetched.Where(r => r.Error != null).Select(r => r.Error!).ToList();
         int completed = 0;
+        int pagesWithoutWords = 0;
 
         foreach (var fetchedPage in fetched)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var page = fetchedPage.Page;
+            var wordsBefore = textBuilder.WordCount;
+            bool? handled = null;
             if (fetchedPage.Xml != null)
             {
-                textBuilder.AddPage(page.Id!, page.Width, page.Height, fetchedPage.Xml, page.Profile, page.Format, page.Label);
+                handled = textBuilder.AddPage(page.Id!, page.Width, page.Height, fetchedPage.Xml, page.Profile,
+                    page.Format, page.Label);
             }
             else if (fetchedPage.StringContent != null)
             {
-                textBuilder.AddTranscriptPage(page.Id!, page.Width, page.Height, fetchedPage.StringContent,
+                handled = textBuilder.AddTranscriptPage(page.Id!, page.Width, page.Height, fetchedPage.StringContent,
                     profile: page.Profile, format: page.Format, label: page.Label);
+            }
+
+            if (handled == false)
+            {
+                errors.Add($"{page.Id}: unsupported text format at {page.TextUri} " +
+                           $"(profile '{page.Profile}', format '{page.Format}')");
+            }
+            else if (handled == true && textBuilder.WordCount == wordsBefore)
+            {
+                pagesWithoutWords++;
             }
 
             completed++;
@@ -218,6 +234,9 @@ public class TextBuildJob(
                 await db.SaveChangesAsync();
             }
         }
+
+        job.PagesWithoutTextSource = pagesToFetch.Count(page => page.TextUri == null);
+        job.PagesWithoutWords = pagesWithoutWords;
 
         var result = textBuilder.Build();
         var services = (JobServices)job.Services;
@@ -498,9 +517,12 @@ public class TextBuildJob(
             {
                 var json = await annotationPageFetcher.FetchAsync(page.TextUri, ct);
                 if (json == null)
+                {
                     logger.LogDebug("Annotation page not found for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
-                else
-                    logger.LogDebug("Annotation page fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
+                    return NotFound(page);
+                }
+
+                logger.LogDebug("Annotation page fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
                 return new FetchedPage(page, null, json, null);
             }
 
@@ -508,15 +530,22 @@ public class TextBuildJob(
             {
                 var vtt = await vttFetcher.FetchAsync(page.TextUri, ct);
                 if (vtt == null)
+                {
                     logger.LogDebug("VTT not found for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
-                else
-                    logger.LogDebug("VTT fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
+                    return NotFound(page);
+                }
+
+                logger.LogDebug("VTT fetched for canvas {CanvasId}: {Url}", page.Id, page.TextUri);
                 return new FetchedPage(page, null, vtt, null);
             }
 
             var xml = await altoFetcher.FetchAsync(page.TextUri, ct);
             if (xml == null)
+            {
                 logger.LogDebug("No ALTO content at {AltoUri} for canvas {CanvasId} — skipping", page.TextUri, page.Id);
+                return NotFound(page);
+            }
+
             return new FetchedPage(page, xml, null, null);
         }
         catch (Exception ex)
@@ -525,4 +554,8 @@ public class TextBuildJob(
             return new FetchedPage(page, null, null, $"{page.Id}: {ex.Message}");
         }
     }
+
+    // Error for a page whose fetcher returned no text
+    private static FetchedPage NotFound(PageInstruction page) =>
+        new(page, null, null, $"{page.Id}: no text found at {page.TextUri}");
 }

@@ -61,9 +61,21 @@ namespace TextServices.Builder.Api.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("pages_completed");
 
+                    b.Property<int>("PagesWithoutTextSource")
+                        .HasColumnType("integer")
+                        .HasColumnName("pages_without_text_source");
+
+                    b.Property<int>("PagesWithoutWords")
+                        .HasColumnType("integer")
+                        .HasColumnName("pages_without_words");
+
                     b.Property<int>("Services")
                         .HasColumnType("integer")
                         .HasColumnName("services");
+
+                    b.Property<int>("SkippedCanvases")
+                        .HasColumnType("integer")
+                        .HasColumnName("skipped_canvases");
 
                     b.Property<string>("SourceDataJson")
                         .HasColumnType("text")
