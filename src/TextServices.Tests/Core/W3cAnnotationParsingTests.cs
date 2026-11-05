@@ -285,7 +285,7 @@ public class W3cAnnotationParsingTests
         }
         """;
 
-        var pages = new ManifestReducer().Reduce(manifest);
+        var pages = new ManifestReducer().Reduce(manifest).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].TextUri.ShouldBe("https://example.org/annotations/1");
@@ -313,7 +313,7 @@ public class W3cAnnotationParsingTests
         }
         """;
 
-        var pages = new ManifestReducer().Reduce(manifest);
+        var pages = new ManifestReducer().Reduce(manifest).Pages;
 
         pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
         pages[0].Format.ShouldNotBe(W3cAnnotationTextFormatProvider.FormatSentinel);
@@ -350,7 +350,7 @@ public class W3cAnnotationParsingTests
         // The canvas has embedded items but no recognised format (not ALTO/hOCR/VTT),
         // and FindExternalAnnotationPage should skip it because items are present.
         // Result: Text = null (sparse), not a sentinel URL.
-        var pages = new ManifestReducer().Reduce(manifest);
+        var pages = new ManifestReducer().Reduce(manifest).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].TextUri.ShouldBeNull();

@@ -22,6 +22,9 @@ public class TextAccumulator
     private bool _hasContent;
     private int _lastWordNormPosition = -1;
 
+    /// <summary>Number of words added so far, across all pages.</summary>
+    public int WordCount => _wordCounter;
+
     /// <summary>Zero-based index of the current image being accumulated.</summary>
     public int CurrentImageIndex => _images.Count - 1;
 

@@ -23,6 +23,16 @@ public class JobResponse
     public int PagesCompleted { get; set; }
     public int TotalWordCount { get; set; }
     public int TotalImageCount { get; set; }
+
+    /// <summary>See <see cref="BuilderJob.SkippedCanvases"/>.</summary>
+    public int SkippedCanvases { get; set; }
+
+    /// <summary>See <see cref="BuilderJob.PagesWithoutTextSource"/>.</summary>
+    public int PagesWithoutTextSource { get; set; }
+
+    /// <summary>See <see cref="BuilderJob.PagesWithoutWords"/>.</summary>
+    public int PagesWithoutWords { get; set; }
+
     public string? Errors { get; set; }
 
     /// <summary>
@@ -124,6 +134,9 @@ public class JobResponse
             PagesCompleted = job.PagesCompleted,
             TotalWordCount = job.TotalWordCount,
             TotalImageCount = job.TotalImageCount,
+            SkippedCanvases = job.SkippedCanvases,
+            PagesWithoutTextSource = job.PagesWithoutTextSource,
+            PagesWithoutWords = job.PagesWithoutWords,
             Errors = job.Errors,
             InvocationCount = job.InvocationCount,
             SearchV1 = searchV1,

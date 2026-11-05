@@ -31,6 +31,15 @@ public class BuilderJob
     public int TotalWordCount { get; set; }
     public int TotalImageCount { get; set; }
 
+    /// <summary>Canvases in the source manifest that weren't processed as pages.</summary>
+    public int SkippedCanvases { get; set; }
+
+    /// <summary>Pages that have no text source.</summary>
+    public int PagesWithoutTextSource { get; set; }
+
+    /// <summary>Pages whose text source was read but contained no words.</summary>
+    public int PagesWithoutWords { get; set; }
+
     /// <summary>Error message(s) accumulated during processing. Null if no errors.</summary>
     public string? Errors { get; set; }
 

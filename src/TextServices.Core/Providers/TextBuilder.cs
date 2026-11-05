@@ -70,7 +70,11 @@ public class TextBuilder
     /// <param name="profile">IIIF seeAlso profile URI (used to select the provider).</param>
     /// <param name="format">IIIF seeAlso format MIME type (used to select the provider).</param>
     /// <param name="label">IIIF seeAlso label (used to select the provider if profile and format don't identify it).</param>
-    public void AddPage(
+    /// <returns>
+    /// <see langword="false"/> if <paramref name="root"/> was provided but no provider supports its format, otherwise
+    /// <see langword="true"/>.
+    /// </returns>
+    public bool AddPage(
         string id,
         int canvasWidth,
         int canvasHeight,
@@ -79,7 +83,7 @@ public class TextBuilder
         string? format = null,
         string? label = null)
     {
-        if (root == null) return;
+        if (root == null) return true;
 
         // Default fallback: treat XML with no format metadata at all as ALTO.
         var textFormat = string.IsNullOrEmpty(profile) && string.IsNullOrEmpty(format) && string.IsNullOrEmpty(label)
@@ -89,16 +93,21 @@ public class TextBuilder
         if (provider == null)
         {
             _logger.LogWarning("No provider found for page '{Id}' (profile='{Profile}', format='{Format}', label='{Label}')", id, profile, format, label);
-            return;
+            return false;
         }
 
         provider.ProcessPage(_accumulator, root, id, canvasWidth, canvasHeight);
+        return true;
     }
 
     /// <summary>
     /// Adds one transcript page (VTT or similar plain-text format) to the build.
     /// </summary>
-    public void AddTranscriptPage(
+    /// <returns>
+    /// <see langword="false"/> if <paramref name="rawContent"/> was provided but no provider supports its format,
+    /// otherwise <see langword="true"/>.
+    /// </returns>
+    public bool AddTranscriptPage(
         string id,
         int canvasWidth,
         int canvasHeight,
@@ -107,16 +116,20 @@ public class TextBuilder
         string? format = null,
         string? label = null)
     {
-        if (rawContent == null) return;
+        if (rawContent == null) return true;
         var textFormat = TextFormatDetector.Detect(profile, format, label);
         var provider = _transcriptProviders.FirstOrDefault(p => p.Format == textFormat);
         if (provider == null)
         {
             _logger.LogWarning("No provider found for transcript page '{Id}' (profile='{Profile}', format='{Format}', label='{Label}')", id, profile, format, label);
-            return;
+            return false;
         }
         provider.ProcessPage(_accumulator, rawContent, id, canvasWidth, canvasHeight);
+        return true;
     }
+
+    /// <summary>Number of words added so far, across all pages.</summary>
+    public int WordCount => _accumulator.WordCount;
 
     /// <summary>
     /// Finalises the build and returns the result.

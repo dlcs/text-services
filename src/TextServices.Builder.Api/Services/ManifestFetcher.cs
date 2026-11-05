@@ -8,7 +8,7 @@ public sealed class ManifestFetcher(IResourceFetcher fetcher, IManifestReducer r
             ?? throw new InvalidOperationException($"Manifest not found at: {uri}");
         using var reader = new StreamReader(stream);
         var json = await reader.ReadToEndAsync(ct);
-        var pages = reducer.Reduce(json);
-        return new ManifestFetchResult(json, pages);
+        var reduced = reducer.Reduce(json);
+        return new ManifestFetchResult(json, reduced.Pages, reduced.SkippedCanvases);
     }
 }
