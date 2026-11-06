@@ -16,7 +16,8 @@ public class BuilderJob
 
     /// <summary>
     /// JSON-serialised array of <see cref="Features.Jobs.PageInstruction"/>, when the job
-    /// was submitted with inline <c>sourceData</c>. Null when <see cref="SourceUri"/> is set.
+    /// was submitted with inline <c>sourceData</c>. For <see cref="SourceUri"/> jobs, holds any
+    /// submitted pdf entries and, once processed, the page list reduced from the Manifest.
     /// </summary>
     public string? SourceDataJson { get; set; }
 

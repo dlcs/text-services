@@ -157,17 +157,23 @@ public class S3TextStore(IOptions<S3TextStoreOptions> options, IAmazonS3 s3, ILo
     }
 
     /// <inheritdoc/>
-    public async Task<bool> Exists(string key)
+    public Task<bool> Exists(string key) => ObjectExists(key, TextFileName);
+
+    /// <inheritdoc/>
+    public Task<bool> ManifestExists(string key) => ObjectExists(key, ManifestFileName);
+
+    // HEAD request — checks presence without downloading the object.
+    private async Task<bool> ObjectExists(string key, string fileName)
     {
         try
         {
-            await s3.GetObjectMetadataAsync(_bucket, GetS3Key(key, TextFileName));
-            logger.LogDebug("Artefact exists for '{Key}'", key);
+            await s3.GetObjectMetadataAsync(_bucket, GetS3Key(key, fileName));
+            logger.LogDebug("{Type} exists for '{Key}'", fileName, key);
             return true;
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            logger.LogDebug("Artefact not found for '{Key}'", key);
+            logger.LogDebug("{Type} not found for '{Key}'", fileName, key);
             return false;
         }
     }

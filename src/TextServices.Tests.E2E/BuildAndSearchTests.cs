@@ -414,6 +414,169 @@ public class BuildAndSearchTests(E2ETestContext ctx)
     }
 
     // -------------------------------------------------------------------------
+    // PDF without text
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task BuildJob_ImageCanvasesWithoutText_PdfAvailable()
+    {
+        var id = "e2e/pdf-no-text";
+
+        var post = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceData = new[]
+            {
+                new { id = "https://example.org/canvas/1", width = 2000, height = 3000, imageUri = "https://example.org/image/1.jpg" },
+                new { id = "https://example.org/canvas/2", width = 2000, height = 3000, imageUri = "https://example.org/image/2.jpg" },
+            },
+        });
+        post.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+
+        var json = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
+        json["status"]!.GetValue<string>().ShouldBe("Completed");
+        json["totalWordCount"]!.GetValue<int>().ShouldBe(0);
+        var fulfilled = (JobServices)json["fulfilledServices"]!.GetValue<int>();
+        fulfilled.HasFlag(JobServices.Pdf).ShouldBeTrue();
+        fulfilled.HasFlag(JobServices.Search).ShouldBeFalse();
+
+        // The text-augmented Manifest links to the PDF, with no search services.
+        var manifest = JsonNode.Parse(
+            await ctx.SearchClient.GetStringAsync($"/text-augmented/v3/{id}"))!;
+        manifest["rendering"]!.AsArray()
+            .ShouldContain(r => r!["format"]!.GetValue<string>() == "application/pdf");
+        manifest["service"].ShouldBeNull();
+    }
+
+    // -------------------------------------------------------------------------
+    // Builder API — reprocess (PUT)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task PutJob_WithoutBody_ReprocessesStoredDefinition()
+    {
+        var id = "e2e/put-no-body";
+        await BuildRestrictedSourceDataAsync(id, (int)JobServices.Search);
+
+        var put = await ctx.BuilderClient.PutAsync($"/textbuilder/{id}", content: null);
+        put.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+
+        var json = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
+        json["status"]!.GetValue<string>().ShouldBe("Completed");
+        json["services"]!.GetValue<int>().ShouldBe((int)JobServices.Search);
+        json["invocationCount"]!.GetValue<int>().ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task PutJob_WithBodyChangingServices_RebuildsWithNewServices()
+    {
+        var id = "e2e/put-change-services";
+        const string sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x";
+
+        await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceUri,
+            services = (int)JobServices.Search,
+        });
+        await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
+
+        var put = await ctx.BuilderClient.PutAsJsonAsync($"/textbuilder/{id}", new
+        {
+            id,
+            sourceUri,
+            services = (int)(JobServices.Search | JobServices.Autocomplete),
+        });
+        put.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+
+        var json = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
+        json["services"]!.GetValue<int>().ShouldBe((int)(JobServices.Search | JobServices.Autocomplete));
+        json["invocationCount"]!.GetValue<int>().ShouldBe(2);
+
+        // Autocomplete was not built on the first run; it is now.
+        var acResponse = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=ann");
+        acResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task PutJob_SourceDataJobWithBody_ReplacesPages()
+    {
+        var id = "e2e/put-sourcedata-body";
+        await BuildRestrictedSourceDataAsync(id, (int)JobServices.Search);
+
+        var put = await ctx.BuilderClient.PutAsJsonAsync($"/textbuilder/{id}", new
+        {
+            id,
+            sourceData = SourceDataPages().Take(2).ToArray(),
+            services = (int)JobServices.Search,
+        });
+        put.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+
+        var json = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
+        json["totalPages"]!.GetValue<int>().ShouldBe(2);
+        json["invocationCount"]!.GetValue<int>().ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task PutJob_WithBodyWithoutSourceData_RemovesInsertedPdf()
+    {
+        var id = "e2e/put-remove-pdf";
+        const string sourceUri = "https://iiif.wellcomecollection.org/presentation/b2888193x";
+
+        await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceUri,
+            sourceData = new[] { new { type = "pdf", input = "https://example.org/cover.pdf", index = 0 } },
+        });
+        var first = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
+        first["sourceData"]!.AsArray().Count(p => p!["type"]?.GetValue<string>() == "pdf").ShouldBe(1);
+
+        var put = await ctx.BuilderClient.PutAsJsonAsync($"/textbuilder/{id}", new { id, sourceUri });
+        put.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+
+        var second = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
+        second["status"]!.GetValue<string>().ShouldBe("Completed");
+        second["sourceData"]!.AsArray().Count(p => p!["type"]?.GetValue<string>() == "pdf").ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task PutJob_BodyIdDoesNotMatchUrl_Returns400()
+    {
+        var response = await ctx.BuilderClient.PutAsJsonAsync("/textbuilder/e2e/put-id-mismatch", new
+        {
+            id = "e2e/something-else",
+            sourceData = SourceDataPages(),
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PutJob_InvalidBody_Returns400()
+    {
+        // Neither sourceUri nor sourceData.
+        var response = await ctx.BuilderClient.PutAsJsonAsync("/textbuilder/e2e/put-invalid", new
+        {
+            id = "e2e/put-invalid",
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PutJob_UnknownJobWithBody_Returns404()
+    {
+        var response = await ctx.BuilderClient.PutAsJsonAsync("/textbuilder/e2e/put-unknown", new
+        {
+            id = "e2e/put-unknown",
+            sourceData = SourceDataPages(),
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    // -------------------------------------------------------------------------
     // Route safety — ID is required on all mutation / resource endpoints
     // -------------------------------------------------------------------------
 
@@ -483,6 +646,19 @@ public class BuildAndSearchTests(E2ETestContext ctx)
 
         await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
         return id;
+    }
+
+    private async Task BuildRestrictedSourceDataAsync(string id, int services)
+    {
+        var post = await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceData = SourceDataPages(),
+            services,
+        });
+
+        post.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
     }
 
     /// <summary>

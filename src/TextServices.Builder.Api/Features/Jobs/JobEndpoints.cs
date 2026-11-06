@@ -9,17 +9,8 @@ internal static class JobEndpoints
     {
         routes.MapPost("/textbuilder", async (JobInstruction instruction, ISender sender) =>
         {
-            var validationResults = new List<ValidationResult>();
-            if (!Validator.TryValidateObject(instruction,
-                    new ValidationContext(instruction), validationResults, validateAllProperties: true))
-            {
-                var errors = validationResults
-                    .GroupBy(r => r.MemberNames.FirstOrDefault() ?? string.Empty)
-                    .ToDictionary(
-                        g => g.Key,
-                        g => g.Select(r => r.ErrorMessage ?? "Invalid").ToArray());
-                return Results.ValidationProblem(errors);
-            }
+            if (Validate(instruction) is { } validationProblem)
+                return validationProblem;
 
             var result = await sender.Send(new CreateJobRequest(instruction));
 
@@ -41,9 +32,25 @@ internal static class JobEndpoints
             return response == null ? Results.NotFound() : Results.Ok(response);
         });
 
-        routes.MapPut("/textbuilder/{*id:minlength(1)}", async (string id, ISender sender) =>
+        // Body is optional: without one the stored job definition is reprocessed as-is.
+        // With one, the body replaces the whole job definition (everything except the id).
+        routes.MapPut("/textbuilder/{*id:minlength(1)}", async (string id, JobInstruction? instruction, ISender sender) =>
         {
-            var result = await sender.Send(new ReprocessJobRequest(id));
+            if (instruction != null)
+            {
+                if (instruction.Id != id)
+                {
+                    return Results.ValidationProblem(new Dictionary<string, string[]>
+                    {
+                        [nameof(JobInstruction.Id)] = ["Body id must match the id in the URL."],
+                    });
+                }
+
+                if (Validate(instruction) is { } validationProblem)
+                    return validationProblem;
+            }
+
+            var result = await sender.Send(new ReprocessJobRequest(id, instruction));
             return result.Status switch
             {
                 ReprocessStatus.NotFound => Results.NotFound(),
@@ -59,5 +66,22 @@ internal static class JobEndpoints
         });
 
         return routes;
+    }
+
+    private static IResult? Validate(JobInstruction instruction)
+    {
+        var validationResults = new List<ValidationResult>();
+        if (Validator.TryValidateObject(instruction,
+                new ValidationContext(instruction), validationResults, validateAllProperties: true))
+        {
+            return null;
+        }
+
+        var errors = validationResults
+            .GroupBy(r => r.MemberNames.FirstOrDefault() ?? string.Empty)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(r => r.ErrorMessage ?? "Invalid").ToArray());
+        return Results.ValidationProblem(errors);
     }
 }

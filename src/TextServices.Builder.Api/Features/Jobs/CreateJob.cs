@@ -28,25 +28,13 @@ public class CreateJobHandler(
             return new CreateJobResult(true, JobResponse.From(existing, options.Value));
         }
 
-        string? sourceDataJson = null;
-        if (instruction.SourceData != null)
-        {
-            sourceDataJson = System.Text.Json.JsonSerializer.Serialize(instruction.SourceData);
-        }
-
         var job = new BuilderJob
         {
             Id = instruction.Id,
-            SourceUri = instruction.SourceUri,
-            SourceDataJson = sourceDataJson,
             Status = JobStatus.Waiting,
             Created = DateTimeOffset.UtcNow,
-            Services = (int)instruction.Services,
-            Title = instruction.Title,
-            CustomTypesJson = instruction.CustomTypes != null
-                ? System.Text.Json.JsonSerializer.Serialize(instruction.CustomTypes)
-                : null,
         };
+        instruction.ApplyTo(job);
 
         db.Jobs.Add(job);
         await db.SaveChangesAsync(ct);

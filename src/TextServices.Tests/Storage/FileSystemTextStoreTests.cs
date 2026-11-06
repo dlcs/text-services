@@ -47,6 +47,22 @@ public sealed class FileSystemTextStoreTests : IDisposable
         result.ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task ManifestExists_BeforeSave_ReturnsFalse()
+    {
+        (await _store.ManifestExists("a/b/c")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ManifestExists_AfterSaveManifest_ReturnsTrue()
+    {
+        await _store.SaveManifest("a/b/c", """{"type":"Manifest"}""");
+
+        (await _store.ManifestExists("a/b/c")).ShouldBeTrue();
+        // Independent of the Text artefact.
+        (await _store.Exists("a/b/c")).ShouldBeFalse();
+    }
+
     // -------------------------------------------------------------------------
     // Text round-trip
     // -------------------------------------------------------------------------

@@ -8,7 +8,12 @@ using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Features.Jobs;
 
-public record ReprocessJobRequest(string Id) : IRequest<ReprocessJobResult>;
+/// <param name="Id">Job to reprocess.</param>
+/// <param name="Instruction">
+/// Optional replacement job definition. When null, the stored definition is reused.
+/// Must already be validated, with an <c>Id</c> matching <paramref name="Id"/>.
+/// </param>
+public record ReprocessJobRequest(string Id, JobInstruction? Instruction = null) : IRequest<ReprocessJobResult>;
 
 public enum ReprocessStatus { Ok, NotFound, Conflict }
 
@@ -18,6 +23,10 @@ public record ReprocessJobResult(ReprocessStatus Status, JobResponse? Response);
 /// Resets an existing job back to Waiting and re-enqueues it via Hangfire so the
 /// manifest and all ALTO files are re-fetched and the Text/AutoComplete artefacts
 /// are rebuilt from scratch.
+///
+/// When an instruction is supplied it replaces the whole stored job definition (PUT
+/// semantics): every caller-settable field is overwritten, and omitted fields are cleared
+/// or reset to their defaults rather than kept.
 ///
 /// Returns 409 if the job is currently Running — wait for it to finish first.
 /// </summary>
@@ -50,6 +59,10 @@ public class ReprocessJobHandler(
 
         // Notify the Search API to evict its in-process cache for this key.
         _ = InvalidateCacheAsync(job.Id);
+
+        // Replace the stored definition. For sourceUri jobs this also discards the reduced
+        // page list from the previous run, so only pdf entries in the new body are kept.
+        request.Instruction?.ApplyTo(job);
 
         // Reset all transient fields.
         job.Status = JobStatus.Waiting;

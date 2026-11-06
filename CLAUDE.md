@@ -84,7 +84,7 @@ Implementations: `FileSystemTextStore`, `S3TextStore`.
 - `POST /textbuilder` — enqueue a job; returns 202 with `Location: /textbuilder/{id}`
 - `GET /textbuilder` — list jobs (paged, filterable by status)
 - `GET /textbuilder/{**id}` — job state
-- `PUT /textbuilder/{**id}` — reprocess (re-enqueue) an existing job
+- `PUT /textbuilder/{**id}` — reprocess (re-enqueue) an existing job; an optional `JobInstruction` body fully replaces the stored job definition first (everything except `id`; omitted fields reset to defaults)
 - `DELETE /textbuilder/{**id}` — delete job record and stored artefacts
 
 **Job instruction (POST/PUT body):**

@@ -1,4 +1,5 @@
 using AsyncKeyedLock;
+using TextServices.Core.Models;
 using TextServices.Pdf;
 using TextServices.Storage;
 
@@ -35,12 +36,8 @@ public class PdfGenerationService(
 
     private async Task GenerateAsync(string id, CancellationToken ct)
     {
-        var text = await textStore.LoadText(id);
-        if (text == null)
-        {
-            logger.LogWarning("No Text artefact for {Id}", id);
-            return;
-        }
+        // No Text artefact means no text was found; every page is then rendered image-only.
+        var text = await textStore.LoadText(id) ?? new Text();
 
         var manifestJson = await textStore.LoadManifest(id);
         if (manifestJson == null)

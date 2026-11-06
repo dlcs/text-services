@@ -148,6 +148,25 @@ public class S3TextStoreTests
         exists.ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task ManifestExists_NoManifest_ReturnsFalse()
+    {
+        var store = MakeStore(new FakeS3());
+        (await store.ManifestExists("no/such/key")).ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ManifestExists_AfterSaveManifest_ReturnsTrue()
+    {
+        var store = MakeStore(new FakeS3());
+
+        await store.SaveManifest("a/b", """{"type":"Manifest"}""");
+
+        (await store.ManifestExists("a/b")).ShouldBeTrue();
+        // Independent of the Text artefact.
+        (await store.Exists("a/b")).ShouldBeFalse();
+    }
+
     // -------------------------------------------------------------------------
     // Key prefix
     // -------------------------------------------------------------------------

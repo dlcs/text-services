@@ -17,7 +17,7 @@ public class PdfHandlerTests
     [Fact]
     public async Task Trigger_ServiceDisabled_ReturnsNotFound()
     {
-        var handler = MakeTriggerHandler(pdfEnabled: false, pdfExists: false, textExists: false);
+        var handler = MakeTriggerHandler(pdfEnabled: false, pdfExists: false, manifestExists: false);
 
         var result = await handler.Handle(new PdfTriggerRequest(Id), CancellationToken.None);
 
@@ -25,9 +25,9 @@ public class PdfHandlerTests
     }
 
     [Fact]
-    public async Task Trigger_NoTextArtefact_ReturnsNotFound()
+    public async Task Trigger_NoManifest_ReturnsNotFound()
     {
-        var handler = MakeTriggerHandler(pdfEnabled: true, pdfExists: false, textExists: false);
+        var handler = MakeTriggerHandler(pdfEnabled: true, pdfExists: false, manifestExists: false);
 
         var result = await handler.Handle(new PdfTriggerRequest(Id), CancellationToken.None);
 
@@ -37,7 +37,7 @@ public class PdfHandlerTests
     [Fact]
     public async Task Trigger_PdfAlreadyExists_ReturnsAlreadyExists()
     {
-        var handler = MakeTriggerHandler(pdfEnabled: true, pdfExists: true, textExists: true);
+        var handler = MakeTriggerHandler(pdfEnabled: true, pdfExists: true, manifestExists: true);
 
         var result = await handler.Handle(new PdfTriggerRequest(Id), CancellationToken.None);
 
@@ -48,7 +48,7 @@ public class PdfHandlerTests
     public async Task Trigger_GenerationInProgress_ReturnsQueued()
     {
         var handler = MakeTriggerHandler(
-            pdfEnabled: true, pdfExists: false, textExists: true, isGenerating: true);
+            pdfEnabled: true, pdfExists: false, manifestExists: true, isGenerating: true);
 
         var result = await handler.Handle(new PdfTriggerRequest(Id), CancellationToken.None);
 
@@ -59,7 +59,7 @@ public class PdfHandlerTests
     public async Task Trigger_EnqueueSucceeds_ReturnsQueued()
     {
         var handler = MakeTriggerHandler(
-            pdfEnabled: true, pdfExists: false, textExists: true,
+            pdfEnabled: true, pdfExists: false, manifestExists: true,
             isGenerating: false, enqueueResult: true);
 
         var result = await handler.Handle(new PdfTriggerRequest(Id), CancellationToken.None);
@@ -71,7 +71,7 @@ public class PdfHandlerTests
     public async Task Trigger_QueueFull_ReturnsServiceBusy()
     {
         var handler = MakeTriggerHandler(
-            pdfEnabled: true, pdfExists: false, textExists: true,
+            pdfEnabled: true, pdfExists: false, manifestExists: true,
             isGenerating: false, enqueueResult: false);
 
         var result = await handler.Handle(new PdfTriggerRequest(Id), CancellationToken.None);
@@ -86,7 +86,7 @@ public class PdfHandlerTests
     [Fact]
     public async Task Get_ServiceDisabled_ReturnsNull()
     {
-        var handler = MakeGetHandler(pdfEnabled: false, existingPdf: null, textExists: false);
+        var handler = MakeGetHandler(pdfEnabled: false, existingPdf: null, manifestExists: false);
 
         var result = await handler.Handle(new PdfRequest(Id), CancellationToken.None);
 
@@ -94,9 +94,9 @@ public class PdfHandlerTests
     }
 
     [Fact]
-    public async Task Get_NoTextArtefact_ReturnsNull()
+    public async Task Get_NoManifest_ReturnsNull()
     {
-        var handler = MakeGetHandler(pdfEnabled: true, existingPdf: null, textExists: false);
+        var handler = MakeGetHandler(pdfEnabled: true, existingPdf: null, manifestExists: false);
 
         var result = await handler.Handle(new PdfRequest(Id), CancellationToken.None);
 
@@ -107,7 +107,7 @@ public class PdfHandlerTests
     public async Task Get_PdfAlreadyExists_ReturnsCachedStream()
     {
         var stream = new MemoryStream([1, 2, 3]);
-        var handler = MakeGetHandler(pdfEnabled: true, existingPdf: stream, textExists: true);
+        var handler = MakeGetHandler(pdfEnabled: true, existingPdf: stream, manifestExists: true);
 
         var result = await handler.Handle(new PdfRequest(Id), CancellationToken.None);
 
@@ -118,7 +118,7 @@ public class PdfHandlerTests
     public async Task Get_PdfAbsent_CallsEnsureGeneratedThenLoadsStream()
     {
         var generated = new MemoryStream([4, 5, 6]);
-        var store = new StubPdfStore(initialPdf: null, textExists: true, afterGeneration: generated);
+        var store = new StubPdfStore(initialPdf: null, manifestExists: true, afterGeneration: generated);
         var generationService = new StubPdfGenerationService(isGenerating: false, onEnsure: store.MarkGenerated);
         var handler = MakeHandlerWith(store, generationService, new StubPdfGenerationQueue(enqueueResult: true));
 
@@ -135,22 +135,22 @@ public class PdfHandlerTests
     private static PdfHandler MakeTriggerHandler(
         bool pdfEnabled,
         bool pdfExists,
-        bool textExists,
+        bool manifestExists,
         bool isGenerating = false,
         bool enqueueResult = true)
     {
         var store = new StubPdfStore(
             initialPdf: pdfExists ? new MemoryStream() : null,
-            textExists: textExists);
+            manifestExists: manifestExists);
         var cache = new StubPdfTextCache(pdfEnabled ? null : JobServices.Search);
         var genService = new StubPdfGenerationService(isGenerating);
         var queue = new StubPdfGenerationQueue(enqueueResult);
         return new PdfHandler(store, cache, genService, queue);
     }
 
-    private static PdfHandler MakeGetHandler(bool pdfEnabled, Stream? existingPdf, bool textExists)
+    private static PdfHandler MakeGetHandler(bool pdfEnabled, Stream? existingPdf, bool manifestExists)
     {
-        var store = new StubPdfStore(initialPdf: existingPdf, textExists: textExists);
+        var store = new StubPdfStore(initialPdf: existingPdf, manifestExists: manifestExists);
         var cache = new StubPdfTextCache(pdfEnabled ? null : JobServices.Search);
         var genService = new StubPdfGenerationService(isGenerating: false);
         var queue = new StubPdfGenerationQueue(enqueueResult: true);
@@ -163,7 +163,7 @@ public class PdfHandlerTests
         IPdfGenerationQueue queue)
         => new(store, new StubPdfTextCache(null), generationService, queue);
 
-    private sealed class StubPdfStore(Stream? initialPdf, bool textExists, Stream? afterGeneration = null)
+    private sealed class StubPdfStore(Stream? initialPdf, bool manifestExists, Stream? afterGeneration = null)
         : ITextStore
     {
         private bool _generated;
@@ -173,7 +173,8 @@ public class PdfHandlerTests
         public Task<Stream?> LoadPdf(string key)
             => Task.FromResult(_generated ? afterGeneration : initialPdf);
 
-        public Task<bool> Exists(string key) => Task.FromResult(textExists);
+        // Text never exists: a PDF needs only the Manifest, so every test runs without text.
+        public Task<bool> Exists(string key) => Task.FromResult(false);
 
         public Task SaveText(string key, Text text) => Task.CompletedTask;
         public Task<Text?> LoadText(string key) => Task.FromResult<Text?>(null);
@@ -182,7 +183,7 @@ public class PdfHandlerTests
         public Task SaveRawText(string key, string raw) => Task.CompletedTask;
         public Task<string?> LoadRawText(string key) => Task.FromResult<string?>(null);
         public Task SaveManifest(string key, string json) => Task.CompletedTask;
-        public Task<string?> LoadManifest(string key) => Task.FromResult<string?>(null);
+        public Task<string?> LoadManifest(string key) => Task.FromResult(manifestExists ? "{}" : null);
         public Task SaveFigures(string key, string json) => Task.CompletedTask;
         public Task<string?> LoadFigures(string key) => Task.FromResult<string?>(null);
         public Task SaveAnnotations(string key, string json) => Task.CompletedTask;
