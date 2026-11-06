@@ -234,16 +234,15 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
-    public async Task Handle_TextNotBuiltNoCapabilities_AddsPdfLinkOnly()
+    public async Task Handle_NoCapabilities_ReturnsNull()
     {
-        // No capabilities file, so every service reads as enabled.
-        var handler = MakeHandler(V3Manifest(), noText: true);
+        // No capabilities file, e.g. a job still running or one that failed: nothing is enabled.
+        var handler = MakeHandler(V3Manifest(), capabilities: null);
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
-        var rendering = result!["rendering"]!.AsArray();
-        rendering.ShouldHaveSingleItem()!["id"]!.GetValue<string>().ShouldBe(ExpectedPdfUrl);
+        result.ShouldBeNull();
     }
 
     [Fact]
@@ -268,7 +267,7 @@ public class TextAugmentedHandlerTests
     public async Task Handle_TextNotBuiltAndPdfNotFulfilled_NoRenderingLinks()
     {
         var handler = MakeHandler(V3Manifest(), noText: true,
-            capabilities: JobServices.All & ~JobServices.Pdf);
+            capabilities: JobServices.All & ~JobServices.Pdf & ~JobServices.FullText);
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
@@ -625,6 +624,137 @@ public class TextAugmentedHandlerTests
         result!["items"]![0]!["rendering"].ShouldBeNull();
     }
 
+    // -------------------------------------------------------------------------
+    // Capability gating
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task Handle_SearchFlagAbsent_NoSearchServicesOrContext()
+    {
+        var handler = MakeHandler(V3Manifest(), capabilities: JobServices.All & ~JobServices.Search);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["service"].ShouldBeNull();
+        result["@context"]!.GetValue<string>().ShouldBe("http://iiif.io/api/presentation/3/context.json");
+    }
+
+    [Fact]
+    public async Task Handle_AutocompleteFlagAbsent_SearchServicesWithoutAutocomplete()
+    {
+        var handler = MakeHandler(V3Manifest(), capabilities: JobServices.All & ~JobServices.Autocomplete);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service.Count.ShouldBe(2);
+        service[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV2);
+        service[0]!["service"].ShouldBeNull();
+        service[1]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV1);
+        service[1]!["service"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_SearchAndAutocompleteEnabled_SearchServicesIncludeAutocomplete()
+    {
+        var handler = MakeHandler(V3Manifest(), capabilities: JobServices.Search | JobServices.Autocomplete | JobServices.TextAugmented);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var service = result!["service"].ShouldBeOfType<JsonArray>();
+        service[0]!["service"]![0]!["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV2);
+        service[1]!["service"]![0]!["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV1);
+    }
+
+    [Fact]
+    public async Task Handle_FullTextFlagAbsent_NoPlainTextLink()
+    {
+        var handler = MakeHandler(V3Manifest(), capabilities: JobServices.All & ~JobServices.FullText);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["rendering"]!.AsArray();
+        rendering.ShouldHaveSingleItem()!["id"]!.GetValue<string>().ShouldBe(ExpectedPdfUrl);
+    }
+
+    [Fact]
+    public async Task Handle_FullTextAndPdfFlagsAbsent_NoRenderingLinks()
+    {
+        var handler = MakeHandler(V3Manifest(),
+            capabilities: JobServices.All & ~JobServices.FullText & ~JobServices.Pdf);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["rendering"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_TextNotBuiltButFullTextFulfilled_AddsPlainTextLink()
+    {
+        // Plain text is saved independently of the Text artefact.
+        var handler = MakeHandler(V3Manifest(), noText: true,
+            capabilities: JobServices.FullText | JobServices.TextAugmented);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        var rendering = result!["rendering"]!.AsArray();
+        rendering.ShouldHaveSingleItem()!["id"]!.GetValue<string>().ShouldBe(ExpectedRawTextUrl);
+        result["service"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_AnnotationsFlagAbsent_NoCanvasOrManifestAnnotationRefs()
+    {
+        const string annotationsJson = """{"type":"AnnotationPage","items":[]}""";
+        var handler = MakeHandler(V3ManifestWithCanvases(), annotationsJson: annotationsJson,
+            capabilities: JobServices.All & ~JobServices.Annotations);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["annotations"].ShouldBeNull();
+        result["items"]![0]!["annotations"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_FiguresFlagAbsent_NoFiguresRef()
+    {
+        const string figuresJson = """{"type":"AnnotationPage","items":[]}""";
+        var handler = MakeHandler(V3Manifest(), figuresJson: figuresJson,
+            capabilities: JobServices.All & ~JobServices.Figures);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["annotations"].ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_OnlyTextAugmentedEnabled_ManifestUnchangedExceptId()
+    {
+        const string annotationsJson = """{"type":"AnnotationPage","items":[]}""";
+        var handler = MakeHandler(V3ManifestWithCanvases(), annotationsJson: annotationsJson,
+            figuresJson: annotationsJson, capabilities: JobServices.TextAugmented);
+
+        var result = await handler.Handle(
+            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
+
+        result!["id"]!.GetValue<string>().ShouldBe(SelfUrl);
+        result["service"].ShouldBeNull();
+        result["rendering"].ShouldBeNull();
+        result["annotations"].ShouldBeNull();
+        result["@context"].ShouldBeNull();
+        var canvas = result["items"]![0]!;
+        canvas["annotations"].ShouldBeNull();
+        canvas["rendering"].ShouldBeNull();
+    }
+
     private static string V3ManifestWithCanvases(string? canvasRendering = null)
     {
         var rendering = canvasRendering == null ? "" : $",\"rendering\":{canvasRendering}";
@@ -640,7 +770,7 @@ public class TextAugmentedHandlerTests
         string? figuresJson = null,
         Text? cachedText = null,
         bool noText = false,
-        JobServices? capabilities = null)
+        JobServices? capabilities = JobServices.All)
         => new(new StubTextStore(manifestJson, annotationsJson, figuresJson),
             new StubTextCache(noText ? null : (cachedText ?? SpatialText()), capabilities),
             new NullLogger<TextAugmentedHandler>());
@@ -732,8 +862,8 @@ public class TextAugmentedHandlerTests
         public Task DeleteArtefacts(string key) => Task.CompletedTask;
     }
 
-    /// <param name="capabilities">Null means no capabilities file (all services enabled).</param>
-    private sealed class StubTextCache(Text? text, JobServices? capabilities = null) : ITextCache
+    /// <param name="capabilities">Null means no capabilities file (no services enabled).</param>
+    private sealed class StubTextCache(Text? text, JobServices? capabilities) : ITextCache
     {
         public Task<Text?> GetTextAsync(string key, CancellationToken ct = default)
             => Task.FromResult(text);

@@ -421,6 +421,13 @@ want enabled. Omitting `services` (or supplying `-1`) enables everything.
 | `Figures` | `64` | Identified figures endpoint (`/identified/figures/`) |
 | `Svg` | `128` | Per-canvas SVG text endpoint (`/svg/v1/`) and its canvas `rendering` link in the text-augmented Manifest |
 
+The text-augmented Manifest only links to services whose flag is set and which the builder
+fulfilled: search services (`Search`), the autocomplete service nested within them
+(`Autocomplete`, only added alongside `Search`), the plain-text and PDF `rendering` links
+(`FullText`, `Pdf`), canvas and Manifest annotation pages (`Annotations`), the figures annotation
+page (`Figures`) and canvas SVG renderings (`Svg`). A job with only `TextAugmented` set serves
+its Manifest with nothing added except the updated `id`.
+
 **Example** — Search and Autocomplete only (`1 | 2 = 3`):
 
 ```json

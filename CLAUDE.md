@@ -67,7 +67,7 @@ No ASP.NET, no storage, no HTTP. Callers supply parsed content per page.
 - `SavePdf` / `LoadPdf` — searchable PDF derivative
 - `SaveFigures` / `LoadFigures` — IIIF AnnotationPage JSON for ComposedBlocks
 - `SaveAnnotations` / `LoadAnnotations` — manifest-level line annotations
-- `SaveCapabilities` / `LoadCapabilities` — `JobServices` bitmask (null = all enabled)
+- `SaveCapabilities` / `LoadCapabilities` — `JobServices` bitmask of fulfilled services (null = none enabled)
 - `SavePageSequence` / `LoadPageSequence` — ordered page list used to assemble PDFs (saved for every Pdf-enabled job)
 - `DeleteArtefacts` — removes all artefacts for a key (call before reprocessing)
 - `Exists` — checks whether a Text artefact exists
@@ -224,6 +224,6 @@ The Demo app needs `appsettings.Development.json` with Builder and Search API ba
 - **Autocomplete buckets**: 3-character prefix. Words longer than 2 characters only. Ordered by length then alphabetically.
 - **Job IDs with slashes**: Handled throughout with catch-all route parameters `{**id}`.
 - **Protobuf field numbers**: Never change once assigned.
-- **`JobServices` bitmask**: Controls which derivatives are built and which endpoints are active. A null capabilities file means all services are enabled.
+- **`JobServices` bitmask**: Controls which derivatives are built and which endpoints are active. The capabilities file is the last artefact a job writes, so a missing file (job running or failed) means no services are enabled. The text-augmented Manifest only links to services enabled in it.
 - **`DeleteArtefacts`**: Call before reprocessing a job so stale derivatives from a previous run don't persist.
 - **`AllowFileImageProxy`**: Only enable in trusted local-dev environments.

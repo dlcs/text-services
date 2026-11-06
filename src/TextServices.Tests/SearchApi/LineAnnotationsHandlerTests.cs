@@ -319,7 +319,7 @@ public class LineAnnotationsHandlerTests
         public Task<AutoComplete?> GetAutoCompleteAsync(string key, CancellationToken ct = default)
             => Task.FromResult<AutoComplete?>(null);
         public Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default)
-            => Task.FromResult<JobServices?>(null);
+            => Task.FromResult<JobServices?>(JobServices.All);
         public void Invalidate(string key) { }
     }
 }

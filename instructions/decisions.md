@@ -1074,3 +1074,30 @@ point `refWidthPt / refHeightPt` is unknown. `DetermineReferenceSizeAsync` solve
 
 Falls back to A4 if no image page exists (edge case: a PDF consisting entirely of pdf-type and
 custom-type pages).
+
+---
+
+## 2026-11-06 — Missing capabilities file means no services enabled (issue #75)
+
+### Problem
+
+The Search API treated a missing `capabilities.json` as every service enabled. Every release
+writes the file for every completed job, so the only jobs without one are those still running
+(including reprocesses, after `DeleteArtefacts`) or that failed part-way. Their Manifest and other
+artefacts were saved before the file, so those jobs exposed every endpoint and the text-augmented
+Manifest linked to every service, including ones never requested.
+
+### Decision
+
+- `CapabilitiesExtensions.IsEnabledAsync` returns `false` when capabilities are null.
+- `TextBuildJob` writes the capabilities file as the last artefact of a job, so a job exposes
+  nothing until all its artefacts are saved.
+- A failed job calls `DeleteArtefacts`, so it leaves nothing in storage. A cleanup error is logged
+  and the job is still marked Failed. The completion notification is sent after the try/catch,
+  so it can't change the job's status.
+- The text-augmented handler gates every injected link on its flag: search services (`Search`),
+  nested autocomplete (`Autocomplete`, only alongside `Search`), plain text (`FullText`), PDF
+  (`Pdf`), canvas and Manifest annotations (`Annotations`), figures (`Figures`) and SVG (`Svg`).
+
+This replaces the "no file = all enabled" rule in the 2026-05-01 service bitmask entry. No
+released build has completed jobs without the file, so nothing relied on that rule.

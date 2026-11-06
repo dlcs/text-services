@@ -80,26 +80,33 @@ public class TextBuildJob(
                     "TextBuildJob completed for {JobId}: {WordCount} words, {ImageCount} images, " +
                     "{ErrorCount} page error(s)",
                     jobId, wordCount, imageCount, errors.Count);
-
-                await jobNotifier.Notify(
-                    new JobCompletionNotification(job.Id, job.Status, job.Finished,
-                        job.TotalPages, job.TotalWordCount, job.Errors, job.InvocationCount),
-                    cancellationToken.ShutdownToken);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "TextBuildJob failed for {JobId}", jobId);
+
+                // A failed job fulfils nothing, so remove anything it saved before failing.
+                try
+                {
+                    await textStore.DeleteArtefacts(job.Id);
+                }
+                catch (Exception cleanupEx)
+                {
+                    logger.LogError(cleanupEx, "Failed to delete artefacts for failed job {JobId}", jobId);
+                }
+
                 job.Status = JobStatus.Failed;
                 job.Errors = ex.Message;
                 job.FulfilledServices = (int)JobServices.None;
                 job.Finished = DateTimeOffset.UtcNow;
                 await db.SaveChangesAsync();
-
-                await jobNotifier.Notify(
-                    new JobCompletionNotification(job.Id, job.Status, job.Finished,
-                        job.TotalPages, job.TotalWordCount, job.Errors, job.InvocationCount),
-                    cancellationToken.ShutdownToken);
             }
+
+            // Sent once the outcome is recorded, so the notification can't affect the job's status.
+            await jobNotifier.Notify(
+                new JobCompletionNotification(job.Id, job.Status, job.Finished,
+                    job.TotalPages, job.TotalWordCount, job.Errors, job.InvocationCount),
+                cancellationToken.ShutdownToken);
         }
     }
 
@@ -275,10 +282,6 @@ public class TextBuildJob(
         if (services.HasFlag(JobServices.TextAugmented) && manifestSaved)
             fulfilled |= JobServices.TextAugmented;
 
-        // Always write capabilities using the fulfilled bitmask so the Search API only exposes
-        // endpoints that actually have artefacts (e.g. no search service when text is empty).
-        await textStore.SaveCapabilities(job.Id, (int)fulfilled);
-
         // Persist the full page sequence (including pdf-embed entries that have no canvas in
         // the manifest) so the PDF builder can reconstruct the complete assembly order.
         if (services.HasFlag(JobServices.Pdf))
@@ -286,6 +289,12 @@ public class TextBuildJob(
             var pageSequenceJson = BuildPageSequenceJson(job, pages);
             await textStore.SavePageSequence(job.Id, pageSequenceJson);
         }
+
+        // Always write capabilities using the fulfilled bitmask so the Search API only exposes
+        // endpoints that actually have artefacts (e.g. no search service when text is empty).
+        // The Search API treats a missing file as no services enabled, so this is written last:
+        // a job that is still running, or fails part-way, exposes nothing.
+        await textStore.SaveCapabilities(job.Id, (int)fulfilled);
 
         return (result.Text.Words.Count, result.Text.Images.Length, errors, fulfilled);
     }
