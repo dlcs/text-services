@@ -234,16 +234,16 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
-    public async Task Handle_TextNotBuilt_NoRenderingLinks()
+    public async Task Handle_TextNotBuiltNoCapabilities_AddsPdfLinkOnly()
     {
-        // No capabilities file (legacy job), so every service reads as enabled, but a
-        // text-less legacy job has no PDF.
+        // No capabilities file, so every service reads as enabled.
         var handler = MakeHandler(V3Manifest(), noText: true);
 
         var result = await handler.Handle(
             new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
 
-        result!["rendering"].ShouldBeNull();
+        var rendering = result!["rendering"]!.AsArray();
+        rendering.ShouldHaveSingleItem()!["id"]!.GetValue<string>().ShouldBe(ExpectedPdfUrl);
     }
 
     [Fact]

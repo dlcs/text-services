@@ -53,7 +53,7 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         ReplaceSelfUrl(manifest, resolvedRequestUris.SelfUrl);
 
         // The builder only marks Pdf fulfilled when the job has a page it can render, so the
-        // stored capabilities decide whether to link a PDF. Each branch has a check for legacy jobs.
+        // stored capabilities decide whether to link a PDF.
         if (text != null)
         {
             // Pdf used to be fulfilled for temporal-only (VTT/audio/video) content too, which
@@ -71,10 +71,7 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         {
             logger.LogDebug("Text not found: {Id}", request.Id);
 
-            // Without a capabilities file every service reads as enabled, but text-less jobs
-            // built before that file existed never had a PDF, so require Pdf to be recorded.
-            var capabilities = await textCache.GetCapabilitiesAsync(request.Id, ct);
-            if (capabilities?.HasFlag(JobServices.Pdf) == true)
+            if (await textCache.IsEnabledAsync(request.Id, JobServices.Pdf, ct))
             {
                 InjectRenderingLinks(manifest, resolvedRequestUris, includeText: false, includePdf: true);
             }
