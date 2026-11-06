@@ -142,7 +142,7 @@ public class PdfHandlerTests
         var store = new StubPdfStore(
             initialPdf: pdfExists ? new MemoryStream() : null,
             manifestExists: manifestExists);
-        var cache = new StubPdfTextCache(pdfEnabled ? null : JobServices.Search);
+        var cache = new StubPdfTextCache(pdfEnabled ? JobServices.Pdf : JobServices.Search);
         var genService = new StubPdfGenerationService(isGenerating);
         var queue = new StubPdfGenerationQueue(enqueueResult);
         return new PdfHandler(store, cache, genService, queue);
@@ -151,7 +151,7 @@ public class PdfHandlerTests
     private static PdfHandler MakeGetHandler(bool pdfEnabled, Stream? existingPdf, bool manifestExists)
     {
         var store = new StubPdfStore(initialPdf: existingPdf, manifestExists: manifestExists);
-        var cache = new StubPdfTextCache(pdfEnabled ? null : JobServices.Search);
+        var cache = new StubPdfTextCache(pdfEnabled ? JobServices.Pdf : JobServices.Search);
         var genService = new StubPdfGenerationService(isGenerating: false);
         var queue = new StubPdfGenerationQueue(enqueueResult: true);
         return new PdfHandler(store, cache, genService, queue);
@@ -161,7 +161,7 @@ public class PdfHandlerTests
         ITextStore store,
         IPdfGenerationService generationService,
         IPdfGenerationQueue queue)
-        => new(store, new StubPdfTextCache(null), generationService, queue);
+        => new(store, new StubPdfTextCache(JobServices.Pdf), generationService, queue);
 
     private sealed class StubPdfStore(Stream? initialPdf, bool manifestExists, Stream? afterGeneration = null)
         : ITextStore
@@ -197,8 +197,8 @@ public class PdfHandlerTests
     }
 
     /// <summary>
-    /// Passes null capabilities (all services enabled) when <paramref name="capabilities"/> is null.
-    /// Pass a specific flags value to simulate a capabilities file that excludes certain services.
+    /// Returns <paramref name="capabilities"/> as the stored capabilities file; null simulates a
+    /// missing file (no services enabled).
     /// </summary>
     private sealed class StubPdfTextCache(JobServices? capabilities) : ITextCache
     {

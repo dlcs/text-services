@@ -98,14 +98,14 @@ public interface ITextStore
 
     /// <summary>
     /// Persists the <see cref="JobServices"/> capability flags for the given key as a
-    /// plain integer. Only written when the flags differ from the default (all services
-    /// enabled); callers that read <see langword="null"/> should treat all services as enabled.
+    /// plain integer. Written as the last artefact of a completed job, so callers that read
+    /// <see langword="null"/> should treat no services as enabled.
     /// </summary>
     Task SaveCapabilities(string key, int services);
 
     /// <summary>
     /// Loads the capability flags for the given key, or <see langword="null"/> if no
-    /// capabilities file exists (caller should assume all services are enabled).
+    /// capabilities file exists (caller should assume no services are enabled).
     /// </summary>
     Task<int?> LoadCapabilities(string key);
 

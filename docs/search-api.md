@@ -529,11 +529,10 @@ Each endpoint checks whether its corresponding service flag is enabled before re
 flags are set at job creation time via the `services` field on the Builder API POST request (see
 [Service flags](builder-api.md#service-flags)).
 
-When a job was built with a restricted `services` value, the Builder API writes a
-`capabilities.json` file to storage. The Search API reads this file and returns `404 Not Found`
-for any endpoint whose flag is absent. When no capabilities file is present — the case for all
-jobs submitted with the default `-1` (all services), and for jobs created before this feature was
-introduced — all endpoints are considered enabled.
+When a job completes, the Builder API writes a `capabilities.json` file to storage recording the
+services it fulfilled. The Search API reads this file and returns `404 Not Found` for any endpoint
+whose flag is absent. The file is the last artefact a job writes, so when no capabilities file is
+present (a job that is still running or that failed) no endpoints are enabled.
 
 | Endpoint(s) | Required flag |
 |---|---|

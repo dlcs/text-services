@@ -48,37 +48,45 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         }
 
         var text = await textCache.GetTextAsync(request.Id, ct);
+        if (text == null) logger.LogDebug("Text not found: {Id}", request.Id);
+
+        // Only services the job asked for (and the builder fulfilled) are added to the Manifest.
+        var capabilities = await textCache.GetCapabilitiesAsync(request.Id, ct) ?? JobServices.None;
+        bool IsEnabled(JobServices service) => capabilities.HasFlag(service);
 
         var resolvedRequestUris = request.Resolved;
         ReplaceSelfUrl(manifest, resolvedRequestUris.SelfUrl);
 
-        // The builder only marks Pdf fulfilled when the job has a page it can render, so the
-        // stored capabilities decide whether to link a PDF.
+        // Autocomplete is described as a child of the search service, so it can't be added alone.
+        if (text != null && IsEnabled(JobServices.Search))
+        {
+            InjectSearchServices(manifest, resolvedRequestUris,
+                includeAutocomplete: IsEnabled(JobServices.Autocomplete));
+        }
+
+        // The builder only marks Pdf fulfilled when the job has a page it can render. Pdf used to
+        // be fulfilled for temporal-only (VTT/audio/video) content too, which has no page images.
+        var includePdf = IsEnabled(JobServices.Pdf)
+                         && (text == null || text.Images.Any(img => !img.IsTemporalContent));
+
+        // The builder only marks FullText fulfilled when plain text was saved.
+        var includeText = IsEnabled(JobServices.FullText);
+
+        if (includePdf || includeText)
+            InjectRenderingLinks(manifest, resolvedRequestUris, includeText, includePdf);
+
         if (text != null)
         {
-            // Pdf used to be fulfilled for temporal-only (VTT/audio/video) content too, which
-            // has no page images.
-            var includePdf = await textCache.IsEnabledAsync(request.Id, JobServices.Pdf, ct)
-                             && text.Images.Any(img => !img.IsTemporalContent);
-
-            InjectSearchServices(manifest, resolvedRequestUris);
-            InjectRenderingLinks(manifest, resolvedRequestUris, includeText: true, includePdf);
-            InjectCanvasAnnotationRefs(manifest, resolvedRequestUris, text);
-            if (await textCache.IsEnabledAsync(request.Id, JobServices.Svg, ct))
+            if (IsEnabled(JobServices.Annotations))
+                InjectCanvasAnnotationRefs(manifest, resolvedRequestUris, text);
+            if (IsEnabled(JobServices.Svg))
                 InjectCanvasSvgRenderings(manifest, resolvedRequestUris, text);
         }
-        else
-        {
-            logger.LogDebug("Text not found: {Id}", request.Id);
 
-            if (await textCache.IsEnabledAsync(request.Id, JobServices.Pdf, ct))
-            {
-                InjectRenderingLinks(manifest, resolvedRequestUris, includeText: false, includePdf: true);
-            }
-        }
-
-        await InjectManifestAnnotationsRefAsync(manifest, resolvedRequestUris, request.Id);
-        await InjectFiguresRefAsync(manifest, resolvedRequestUris, request.Id);
+        if (IsEnabled(JobServices.Annotations))
+            await InjectManifestAnnotationsRefAsync(manifest, resolvedRequestUris, request.Id);
+        if (IsEnabled(JobServices.Figures))
+            await InjectFiguresRefAsync(manifest, resolvedRequestUris, request.Id);
 
         return manifest;
     }
@@ -91,18 +99,13 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
             manifest["id"] = selfUrl;
     }
 
-    private void InjectSearchServices(JsonObject manifest, ResolvedRequest resolved)
+    private void InjectSearchServices(JsonObject manifest, ResolvedRequest resolved, bool includeAutocomplete)
     {
         logger.LogDebug("Adding search-services: {Id}", resolved.EffectiveId);
         var searchServiceV2 = new JsonObject
         {
             ["id"] = resolved.SearchV2Url(),
             ["type"] = "SearchService2",
-            ["service"] = new JsonArray(new JsonObject
-            {
-                ["id"] = resolved.AutocompleteV2Url(),
-                ["type"] = "AutoCompleteService2",
-            }),
         };
 
         var searchServiceV1 = new JsonObject
@@ -110,13 +113,22 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
             ["id"] = resolved.SearchV1Url(),
             ["type"] = "SearchService1",
             ["profile"] = "http://iiif.io/api/search/1/search",
-            ["service"] = new JsonArray(new JsonObject
+        };
+
+        if (includeAutocomplete)
+        {
+            searchServiceV2["service"] = new JsonArray(new JsonObject
+            {
+                ["id"] = resolved.AutocompleteV2Url(),
+                ["type"] = "AutoCompleteService2",
+            });
+            searchServiceV1["service"] = new JsonArray(new JsonObject
             {
                 ["id"] = resolved.AutocompleteV1Url(),
                 ["type"] = "AutoCompleteService1",
                 ["profile"] = "http://iiif.io/api/search/1/autocomplete",
-            }),
-        };
+            });
+        }
 
         // Insert v2 then v1 at position 0 so v2 appears first.
         // Existing services (e.g. IIIF Image services) are pushed down, not displaced.
