@@ -11,7 +11,7 @@ namespace TextServices.Builder.Api.Services;
 /// </summary>
 public class ManifestReducer : IManifestReducer
 {
-    public IReadOnlyList<PageInstruction> Reduce(string manifestJson)
+    public ReducedManifest Reduce(string manifestJson)
     {
         using var doc = JsonDocument.Parse(manifestJson);
         var root = doc.RootElement;
@@ -24,13 +24,18 @@ public class ManifestReducer : IManifestReducer
         }
 
         if (!root.TryGetProperty("items", out var items))
-            return [];
+            return new ReducedManifest([], 0);
 
         var pages = new List<PageInstruction>();
+        var skippedCanvases = 0;
 
         foreach (var canvas in items.EnumerateArray())
         {
-            if (!canvas.TryGetProperty("id", out var idEl)) continue;
+            if (!canvas.TryGetProperty("id", out var idEl))
+            {
+                skippedCanvases++;
+                continue;
+            }
 
             var id = idEl.GetString() ?? string.Empty;
             var source = FindTextSource(canvas);
@@ -49,7 +54,10 @@ public class ManifestReducer : IManifestReducer
                     TextFormatDetector.Detect(source.Profile, source.Format, source.Label)
                         is TextFormat.Vtt or TextFormat.AnnotationPage;
                 if (!hasDuration || !isTemporalSource)
+                {
+                    skippedCanvases++;
                     continue;
+                }
             }
 
             pages.Add(new PageInstruction
@@ -66,7 +74,7 @@ public class ManifestReducer : IManifestReducer
             });
         }
 
-        return pages;
+        return new ReducedManifest(pages, skippedCanvases);
     }
 
     // -------------------------------------------------------------------------

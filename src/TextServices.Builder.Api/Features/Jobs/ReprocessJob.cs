@@ -72,6 +72,9 @@ public class ReprocessJobHandler(
         job.PagesCompleted = 0;
         job.TotalWordCount = 0;
         job.TotalImageCount = 0;
+        job.SkippedCanvases = 0;
+        job.PagesWithoutTextSource = 0;
+        job.PagesWithoutWords = 0;
         job.Errors = null;
         job.HangfireJobId = null;
         job.InvocationCount++;
