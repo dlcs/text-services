@@ -39,4 +39,8 @@
     <ProjectReference Include="..\TextServices.Infrastructure\TextServices.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="SearchApi\bash.exe.stackdump" />
+  </ItemGroup>
+
 </Project>

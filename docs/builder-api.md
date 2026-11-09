@@ -498,5 +498,41 @@ Builder API configuration lives under the `TextServices` key in `appsettings.jso
 | `TextServices:Storage:S3:BucketName` | `""` | S3 bucket for stored artefacts. When set, the S3 store is used instead of the filesystem store. |
 | `TextServices:Storage:S3:KeyPrefix` | `""` | Optional prefix for all S3 object keys (e.g. `"textservices/"`). A trailing `/` is added automatically if omitted. |
 | `TextServices:Notifications:TopicArn` | `""` | ARN of an SNS topic to publish a notification to when a job completes (success or failure). Leave empty to disable notifications. |
+| `TextServices:IpBlocking:BlockedIpRanges` | `[]` | Additional IP ranges, in CIDR notation, that HTTP fetches (`sourceUri` Manifests, text resources, annotation pages) may not connect to. See [Blocked IP addresses](#blocked-ip-addresses). |
+| `TextServices:IpBlocking:AllowedIpRanges` | `[]` | IP ranges, in CIDR notation, that HTTP fetches may connect to despite being otherwise blocked. Overrides both default and configured blocks; instance-metadata addresses can never be allowed. See [Blocked IP addresses](#blocked-ip-addresses). |
+
+### Blocked IP addresses
+
+HTTP fetches of job content are refused if the host resolves to a blocked IP address. The check is made each time a
+connection is opened, so it applies to every redirect hop and to hostnames whose DNS records point at internal
+addresses. If a host resolves to a mix of allowed and blocked addresses then the connection is refused outright.
+Proxies are not used for these fetches, as connecting through a proxy would bypass the check.
+
+| Range | Description | Can be allowed? |
+|---|---|---|
+| `169.254.169.254/32`, `fd00:ec2::254/128` | Cloud instance metadata | No |
+| `127.0.0.0/8`, `::1/128` | Loopback | Yes |
+| `169.254.0.0/16`, `fe80::/10` | Link-local | Yes |
+| `fc00::/7` | IPv6 unique local | Yes |
+| `0.0.0.0/8`, `::/128` | Unspecified (connecting to these reaches loopback) | Yes |
+
+Further ranges can be blocked via `BlockedIpRanges`. `AllowedIpRanges` permits addresses that would otherwise be
+blocked, for local development and for deployments whose content legitimately sits on internal addresses. An allowed
+range wins over both default and configured blocks, so setting it widely (e.g. `0.0.0.0/0`) disables the protection.
+A warning is logged when any allowed ranges are configured. For fetching from a server running locally:
+
+```json
+{
+  "TextServices": {
+    "IpBlocking": {
+      "AllowedIpRanges": ["127.0.0.0/8", "::1/128"]
+    }
+  }
+}
+```
+
+Invalid ranges prevent the API from starting. A refused fetch fails with
+`Host '{host}' resolves to an IP address that is not permitted`, which is recorded against the job in the same way as
+any other fetch failure; the resolved address and the range that blocked it are logged.
 
 S3 credentials and region are resolved by the standard AWS SDK credential chain (environment variables, instance profile, `appsettings.json` `AWS` section). Configure the region via the `AWS:Region` key or the `AWS_DEFAULT_REGION` environment variable.
