@@ -2,6 +2,7 @@
 using Serilog;
 using Serilog.Extensions.Logging;
 using TextServices.Infrastructure.Http;
+using TextServices.Infrastructure.Http.IpBlocking;
 using TextServices.Pdf;
 using TextServices.Search.Api.Features.Pdf;
 
@@ -9,7 +10,7 @@ namespace TextServices.Search.Api.Configuration;
 
 internal static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddPdfServices(this IServiceCollection services)
+    public static IServiceCollection AddPdfServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton<PdfBuilder>();
         services.AddSingleton<IPdfGenerationService, PdfGenerationService>();
@@ -20,7 +21,8 @@ internal static class ServiceCollectionExtensions
             {
                 c.Timeout = TimeSpan.FromSeconds(60);
                 c.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgents.Search);
-            });
+            })
+            .UseIpBlocking(configuration);
 
         return services;
     }

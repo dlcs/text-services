@@ -583,6 +583,8 @@ Search API configuration lives under the `TextServices` key in `appsettings.json
 | `TextServices:PdfTriggerMaxConcurrency` | `2` | Maximum number of PDFs generated concurrently by the background trigger queue. Each in-flight generation buffers the full PDF in memory — keep this low on memory-constrained hosts. |
 | `TextServices:EnableLegacyPdfRoute` | `false` | When `true`, the PDF GET/POST endpoints are also served on the deprecated `/pdf/v1/` prefix. Only enable while existing proxy rules still route `/pdf/v1/*` to the Search API. |
 | `TextServices:AllowFileImageProxy` | `false` | When `true`, the `/proxy/image` endpoint streams local `file://` images. Only enable in trusted local-dev environments where those files are not access-controlled. |
+| `TextServices:IpBlocking:BlockedIpRanges` | `[]` | Additional IP ranges, in CIDR notation, that PDF generation may not fetch images or embedded PDFs from. Loopback, link-local, unique-local and unspecified ranges are blocked by default. See [Blocked IP addresses](builder-api.md#blocked-ip-addresses). |
+| `TextServices:IpBlocking:AllowedIpRanges` | `[]` | IP ranges, in CIDR notation, that PDF generation may fetch from despite being otherwise blocked. Overrides both default and configured blocks; instance-metadata addresses can never be allowed. |
 | `TextServices:AllowedCustomHosts` | `[]` | Hostnames accepted from the `X-Forwarded-Host` request header (e.g. custom CloudFront distributions). See [Forwarded-header URL rewriting](#forwarded-header-url-rewriting) below. |
 
 ---
