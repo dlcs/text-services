@@ -52,7 +52,6 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
 
         // Only services the job asked for (and the builder fulfilled) are added to the Manifest.
         var capabilities = await textCache.GetCapabilitiesAsync(request.Id, ct) ?? JobServices.None;
-        bool IsEnabled(JobServices service) => capabilities.HasFlag(service);
 
         var resolvedRequestUris = request.Resolved;
         ReplaceSelfUrl(manifest, resolvedRequestUris.SelfUrl);
@@ -89,6 +88,8 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
             await InjectFiguresRefAsync(manifest, resolvedRequestUris, request.Id);
 
         return manifest;
+
+        bool IsEnabled(JobServices service) => capabilities.HasFlag(service);
     }
 
     private static void ReplaceSelfUrl(JsonObject manifest, string selfUrl)
