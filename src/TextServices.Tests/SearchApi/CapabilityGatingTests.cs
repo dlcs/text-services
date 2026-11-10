@@ -18,7 +18,7 @@ namespace TextServices.Tests.SearchApi;
 /// Verifies that each Search API handler gates on the relevant
 /// <see cref="JobServices"/> flag: when the flag is absent from the stored
 /// capabilities the handler returns null (→ 404), and when capabilities is
-/// null (absent file) all services are considered enabled.
+/// null (absent file) no services are considered enabled.
 /// </summary>
 public class CapabilityGatingTests
 {
@@ -41,17 +41,32 @@ public class CapabilityGatingTests
         result.ShouldBeNull();
     }
 
+    // -------------------------------------------------------------------------
+    // IsEnabledAsync
+    // -------------------------------------------------------------------------
+
     [Fact]
-    public async Task Search_WhenCapabilitiesNull_ProceedsToTextLookup()
+    public async Task IsEnabled_WhenCapabilitiesNull_ReturnsFalse()
     {
-        // null capabilities = all enabled; text = null → null result (text not found)
-        var handler = new SearchHandler(new StubTextCache(null), new NullLogger<SearchHandler>());
+        var enabled = await new StubTextCache(null).IsEnabledAsync(Id, JobServices.Search);
 
-        var result = await handler.Handle(
-            new SearchRequest(Id, "hello", SelfUrl, SelfUrl), CancellationToken.None);
+        enabled.ShouldBeFalse();
+    }
 
-        // Gating passed; null result because text is absent, not because of gating.
-        result.ShouldBeNull();
+    [Fact]
+    public async Task IsEnabled_WhenFlagPresent_ReturnsTrue()
+    {
+        var enabled = await new StubTextCache(JobServices.Search).IsEnabledAsync(Id, JobServices.Search);
+
+        enabled.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task IsEnabled_WhenFlagAbsent_ReturnsFalse()
+    {
+        var enabled = await new StubTextCache(JobServices.Autocomplete).IsEnabledAsync(Id, JobServices.Search);
+
+        enabled.ShouldBeFalse();
     }
 
     // -------------------------------------------------------------------------
@@ -63,18 +78,6 @@ public class CapabilityGatingTests
     {
         var handler = new AutocompleteHandler(new StubTextCache(JobServices.Search));
 
-        var result = await handler.Handle(
-            new AutocompleteRequest(Id, "hel", SelfUrl), CancellationToken.None);
-
-        result.ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task Autocomplete_WhenCapabilitiesNull_ProceedsToAutocompleteLookup()
-    {
-        var handler = new AutocompleteHandler(new StubTextCache(null));
-
-        // ac = null → null result (no autocomplete artefact), not a gating failure
         var result = await handler.Handle(
             new AutocompleteRequest(Id, "hel", SelfUrl), CancellationToken.None);
 

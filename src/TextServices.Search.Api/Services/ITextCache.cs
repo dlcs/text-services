@@ -25,7 +25,7 @@ public interface ITextCache
     /// <summary>
     /// Returns the <see cref="JobServices"/> capabilities for <paramref name="key"/>,
     /// loading and caching on first access. Returns <see langword="null"/> when no
-    /// capabilities file exists — callers should treat all services as enabled in that case.
+    /// capabilities file exists — callers should treat no services as enabled in that case.
     /// </summary>
     Task<JobServices?> GetCapabilitiesAsync(string key, CancellationToken ct = default);
 

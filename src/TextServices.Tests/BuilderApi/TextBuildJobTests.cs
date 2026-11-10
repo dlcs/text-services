@@ -12,6 +12,7 @@ using TextServices.Builder.Api.Features.Jobs;
 using TextServices.Builder.Api.Jobs;
 using TextServices.Builder.Api.Services;
 using TextServices.Builder.Api.Services.Notifications;
+using TextServices.Core.Models;
 using TextServices.Storage;
 
 namespace TextServices.Tests.BuilderApi;
@@ -815,6 +816,60 @@ public sealed class TextBuildJobTests : IDisposable
         notifier.Captured[0].Status.ShouldBe(JobStatus.Failed);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_FailureAfterArtefactsSaved_DeletesArtefacts()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+        var job = await CreateJob("test/failed-cleanup",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+        });
+
+        // Capabilities are written last, so every other artefact exists when this throws.
+        var store = new FailingTextStore(_textStore) { FailSaveCapabilities = true };
+        var notifier = new CapturingJobNotifier();
+        var sut = MakeJob(altoFetcher: altoFetcher, jobNotifier: notifier, textStore: store);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Failed);
+        (await _textStore.LoadManifest(job.Id)).ShouldBeNull();
+        (await _textStore.Exists(job.Id)).ShouldBeFalse();
+        (await _textStore.LoadAutoComplete(job.Id)).ShouldBeNull();
+        (await _textStore.LoadRawText(job.Id)).ShouldBeNull();
+        (await _textStore.LoadAnnotations(job.Id)).ShouldBeNull();
+        (await _textStore.LoadPageSequence(job.Id)).ShouldBeNull();
+        (await _textStore.LoadCapabilities(job.Id)).ShouldBeNull();
+        notifier.Captured.ShouldHaveSingleItem().Status.ShouldBe(JobStatus.Failed);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CleanupFails_StillRecordsFailureAndNotifies()
+    {
+        var job = await CreateJob("test/failed-cleanup-error",
+            sourceUri: "https://example.org/bad-manifest");
+
+        var manifestFetcher = new FakeManifestFetcher(
+            _ => throw new InvalidOperationException("manifest error"));
+        var store = new FailingTextStore(_textStore) { FailDeleteArtefacts = true };
+        var notifier = new CapturingJobNotifier();
+
+        var sut = MakeJob(manifestFetcher: manifestFetcher, jobNotifier: notifier, textStore: store);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Failed);
+        updated.Errors.ShouldBe("manifest error");
+        notifier.Captured.ShouldHaveSingleItem().Status.ShouldBe(JobStatus.Failed);
+    }
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
@@ -842,7 +897,8 @@ public sealed class TextBuildJobTests : IDisposable
         IAltoFetcher? altoFetcher = null,
         IVttFetcher? vttFetcher = null,
         IAnnotationPageFetcher? annotationPageFetcher = null,
-        IJobNotifier? jobNotifier = null)
+        IJobNotifier? jobNotifier = null,
+        ITextStore? textStore = null)
     {
         return new TextBuildJob(
             _db,
@@ -851,7 +907,7 @@ public sealed class TextBuildJobTests : IDisposable
             altoFetcher ?? new FakeAltoFetcher(_ => Task.FromResult<XElement?>(null)),
             vttFetcher ?? new FakeVttFetcher(_ => Task.FromResult<string?>(null)),
             annotationPageFetcher ?? new FakeAnnotationPageFetcher(_ => Task.FromResult<string?>(null)),
-            _textStore,
+            textStore ?? _textStore,
             jobNotifier ?? new NoOpJobNotifier(),
             Options.Create(new TextServicesOptions()),
             NullLoggerFactory.Instance,
@@ -940,6 +996,40 @@ public sealed class TextBuildJobTests : IDisposable
     {
         public Task Notify(JobCompletionNotification notification, CancellationToken ct = default)
             => Task.CompletedTask;
+    }
+
+    /// <summary>Wraps a real store, optionally throwing from selected operations.</summary>
+    private sealed class FailingTextStore(ITextStore inner) : ITextStore
+    {
+        public bool FailSaveCapabilities { get; init; }
+        public bool FailDeleteArtefacts { get; init; }
+
+        public Task SaveCapabilities(string key, int services) => FailSaveCapabilities
+            ? throw new InvalidOperationException("capabilities save failed")
+            : inner.SaveCapabilities(key, services);
+
+        public Task DeleteArtefacts(string key) => FailDeleteArtefacts
+            ? throw new InvalidOperationException("delete failed")
+            : inner.DeleteArtefacts(key);
+
+        public Task SaveText(string key, Text text) => inner.SaveText(key, text);
+        public Task<Text?> LoadText(string key) => inner.LoadText(key);
+        public Task SaveAutoComplete(string key, AutoComplete ac) => inner.SaveAutoComplete(key, ac);
+        public Task<AutoComplete?> LoadAutoComplete(string key) => inner.LoadAutoComplete(key);
+        public Task SaveManifest(string key, string json) => inner.SaveManifest(key, json);
+        public Task<string?> LoadManifest(string key) => inner.LoadManifest(key);
+        public Task SaveRawText(string key, string raw) => inner.SaveRawText(key, raw);
+        public Task<string?> LoadRawText(string key) => inner.LoadRawText(key);
+        public Task SavePdf(string key, Stream s) => inner.SavePdf(key, s);
+        public Task<Stream?> LoadPdf(string key) => inner.LoadPdf(key);
+        public Task SaveFigures(string key, string json) => inner.SaveFigures(key, json);
+        public Task<string?> LoadFigures(string key) => inner.LoadFigures(key);
+        public Task SaveAnnotations(string key, string json) => inner.SaveAnnotations(key, json);
+        public Task<string?> LoadAnnotations(string key) => inner.LoadAnnotations(key);
+        public Task<bool> Exists(string key) => inner.Exists(key);
+        public Task<int?> LoadCapabilities(string key) => inner.LoadCapabilities(key);
+        public Task SavePageSequence(string key, string json) => inner.SavePageSequence(key, json);
+        public Task<string?> LoadPageSequence(string key) => inner.LoadPageSequence(key);
     }
 
     private sealed class CapturingJobNotifier : IJobNotifier
