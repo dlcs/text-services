@@ -307,13 +307,14 @@ public sealed class TextBuildJobTests : IDisposable
         updated.PagesCompleted.ShouldBe(1);
         updated.TotalWordCount.ShouldBe(0);
         updated.Errors.ShouldBeNull();
+        updated.PagesWithoutTextSource.ShouldBe(1);
 
         // No artefacts saved for an all-sparse manifest.
         (await _textStore.Exists(job.Id)).ShouldBeFalse();
     }
 
     [Fact]
-    public async Task ExecuteAsync_AltoReturnsNull_PageSkippedSilently()
+    public async Task ExecuteAsync_AltoReturnsNull_ErrorRecordedJobStillCompletes()
     {
         var pages = new List<PageInstruction>
         {
@@ -333,7 +334,87 @@ public sealed class TextBuildJobTests : IDisposable
         var updated = await _db.Jobs.FindAsync(job.Id);
         updated!.Status.ShouldBe(JobStatus.Completed);
         updated.TotalWordCount.ShouldBe(0);
+        updated.Errors.ShouldBe(
+            "https://example.org/c/1: no text found at https://example.org/alto/missing.xml");
+        updated.PagesWithoutWords.ShouldBe(0, "a missing text source is an error, not an empty page");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UnsupportedFormat_ErrorRecordedJobStillCompletes()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/text/1.xml", Profile = "https://example.org/unknown-format" },
+        };
+
+        var job = await CreateJob("test/unsupported-format",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var altoFetcher = new FakeAltoFetcher(_ => Task.FromResult<XElement?>(SampleAlto("ignored")));
+
+        var sut = MakeJob(altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Completed);
+        updated.TotalWordCount.ShouldBe(0);
+        updated.Errors.ShouldBe("https://example.org/c/1: unsupported text format at https://example.org/text/1.xml " +
+                                "(profile 'https://example.org/unknown-format', format '')");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_TextWithNoWords_CountedAsPageWithoutWords()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+            new() { Id = "https://example.org/c/2", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/2.xml" },
+        };
+
+        var job = await CreateJob("test/no-words",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("some words"),
+            ["https://example.org/alto/2.xml"] = EmptyAlto(),
+        });
+
+        var sut = MakeJob(altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Completed);
+        updated.TotalWordCount.ShouldBe(2);
         updated.Errors.ShouldBeNull();
+        updated.PagesWithoutWords.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SourceUri_RecordsSkippedCanvases()
+    {
+        var job = await CreateJob("test/skipped-canvases", sourceUri: "https://example.org/manifest");
+
+        var manifestFetcher = new FakeManifestFetcher(_ => Task.FromResult(new ManifestFetchResult(
+            """{"@context":"https://iiif.io/api/presentation/3/context.json"}""",
+            [
+                new PageInstruction
+                {
+                    Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml",
+                },
+            ],
+            SkippedCanvases: 2)));
+
+        var sut = MakeJob(manifestFetcher: manifestFetcher, altoFetcher: SingleCanvasAlto());
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        updated!.Status.ShouldBe(JobStatus.Completed);
+        updated.SkippedCanvases.ShouldBe(2);
     }
 
     // -------------------------------------------------------------------------
@@ -420,7 +501,7 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteAsync_VttFetchReturnsNull_PageSkippedSilently()
+    public async Task ExecuteAsync_VttFetchReturnsNull_ErrorRecordedJobStillCompletes()
     {
         var pages = new List<PageInstruction>
         {
@@ -439,7 +520,8 @@ public sealed class TextBuildJobTests : IDisposable
         var updated = await _db.Jobs.FindAsync(job.Id);
         updated!.Status.ShouldBe(JobStatus.Completed);
         updated.TotalWordCount.ShouldBe(0);
-        updated.Errors.ShouldBeNull();
+        updated.Errors.ShouldBe(
+            "https://example.org/c/audio: no text found at https://example.org/transcript.vtt");
     }
 
     [Fact]
@@ -799,6 +881,42 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_OnSuccess_NotificationCarriesDiagnostics()
+    {
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+            new() { Id = "https://example.org/c/2", Width = 1000, Height = 1500, TextUri = null },
+            new() { Id = "https://example.org/c/3", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/3.xml" },
+            new() { Id = "https://example.org/c/4", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/missing.xml" },
+        };
+
+        var job = await CreateJob("test/notify-diagnostics",
+            sourceDataJson: JsonSerializer.Serialize(pages));
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+            ["https://example.org/alto/3.xml"] = EmptyAlto(),
+        });
+
+        var notifier = new CapturingJobNotifier();
+        var sut = MakeJob(altoFetcher: altoFetcher, jobNotifier: notifier);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        var notification = notifier.Captured.ShouldHaveSingleItem();
+        notification.TotalWordCount.ShouldBe(2);
+        notification.SkippedCanvases.ShouldBe(0);
+        notification.PagesWithoutTextSource.ShouldBe(1);
+        notification.PagesWithoutWords.ShouldBe(1);
+        notification.Errors.ShouldBe(
+            "https://example.org/c/4: no text found at https://example.org/alto/missing.xml");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_OnFailure_NotifiesWithFailedStatus()
     {
         var job = await CreateJob("test/notify-failed",
@@ -955,6 +1073,20 @@ public sealed class TextBuildJobTests : IDisposable
                                 strings))))));
     }
 
+    /// <summary>
+    /// Generates a valid ALTO v3 XML element with a page but no text.
+    /// </summary>
+    private static XElement EmptyAlto()
+    {
+        XNamespace ns = "http://www.loc.gov/standards/alto/ns-v3#";
+        return new XElement(ns + "alto",
+            new XElement(ns + "Layout",
+                new XElement(ns + "Page",
+                    new XAttribute("WIDTH", 1000),
+                    new XAttribute("HEIGHT", 1500),
+                    new XElement(ns + "PrintSpace"))));
+    }
+
     // ---- Fakes ---------------------------------------------------------------
 
     private sealed class FakeAltoFetcher(Func<string, Task<XElement?>> impl) : IAltoFetcher
@@ -977,7 +1109,7 @@ public sealed class TextBuildJobTests : IDisposable
         private readonly Func<string, Task<ManifestFetchResult>> _impl;
 
         public FakeManifestFetcher(string uri, string json, IReadOnlyList<PageInstruction> pages)
-            : this(_ => Task.FromResult(new ManifestFetchResult(json, pages))) { }
+            : this(_ => Task.FromResult(new ManifestFetchResult(json, pages, 0))) { }
 
         public FakeManifestFetcher(Func<string, Task<ManifestFetchResult>> impl) => _impl = impl;
 

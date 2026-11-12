@@ -15,7 +15,7 @@ public class ManifestReducerTests
     public void Reduce_V3Context_Accepted()
     {
         var json = Manifest(canvases: [Canvas("https://example.org/c/1", 100, 200)]);
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages.Count.ShouldBe(1);
     }
 
@@ -29,7 +29,7 @@ public class ManifestReducerTests
               "items": []
             }
             """;
-        Should.Throw<InvalidOperationException>(() => _reducer.Reduce(json))
+        Should.Throw<InvalidOperationException>(() => _reducer.Reduce(json).Pages)
             .Message.ShouldContain("v3");
     }
 
@@ -43,7 +43,7 @@ public class ManifestReducerTests
               "items": []
             }
             """;
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages.ShouldBeEmpty();
     }
 
@@ -60,7 +60,7 @@ public class ManifestReducerTests
               "items": []
             }
             """;
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages.ShouldBeEmpty();
     }
 
@@ -72,7 +72,7 @@ public class ManifestReducerTests
     public void Reduce_ExtractsIdWidthHeight()
     {
         var json = Manifest(canvases: [Canvas("https://example.org/c/1", 4000, 6000)]);
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].Id.ShouldBe("https://example.org/c/1");
@@ -88,7 +88,7 @@ public class ManifestReducerTests
             Canvas("https://example.org/c/2", 300, 400),
             Canvas("https://example.org/c/3", 500, 600),
         ]);
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(3);
         pages[1].Id.ShouldBe("https://example.org/c/2");
@@ -98,7 +98,7 @@ public class ManifestReducerTests
     public void Reduce_NoItems_ReturnsEmpty()
     {
         var json = Manifest(canvases: []);
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages.ShouldBeEmpty();
     }
 
@@ -115,7 +115,7 @@ public class ManifestReducerTests
             profile: "http://www.loc.gov/standards/alto/ns-v3#",
             label: null)]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
@@ -128,7 +128,7 @@ public class ManifestReducerTests
             profile: "https://schemas.example.org/ALTO/ns-v2",
             label: null)]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
@@ -141,7 +141,7 @@ public class ManifestReducerTests
             labelKey: "none",
             labelValue: "METS-ALTO")]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
@@ -154,7 +154,7 @@ public class ManifestReducerTests
             labelKey: "en",
             labelValue: "alto xml")]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
@@ -167,7 +167,7 @@ public class ManifestReducerTests
             profile: "http://www.tei-c.org/ns/1.0",
             label: "TEI")]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBeNull();
     }
 
@@ -175,7 +175,7 @@ public class ManifestReducerTests
     public void Reduce_NoSeeAlso_TextIsNull()
     {
         var json = Manifest(canvases: [Canvas("https://example.org/c/1", 100, 200)]);
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBeNull();
     }
 
@@ -198,7 +198,7 @@ public class ManifestReducerTests
             """
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
@@ -221,7 +221,7 @@ public class ManifestReducerTests
             """
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBe("https://example.org/alto/1.xml");
     }
 
@@ -238,7 +238,7 @@ public class ManifestReducerTests
             profile: "text/vnd.hocr+html",
             label: null)]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBe("https://example.org/ocr/1.html");
         pages[0].Profile.ShouldBe("text/vnd.hocr+html");
     }
@@ -252,7 +252,7 @@ public class ManifestReducerTests
             labelKey: "en",
             labelValue: "Tesseract hOCR output")]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].TextUri.ShouldBe("https://example.org/ocr/1.html");
     }
 
@@ -265,7 +265,7 @@ public class ManifestReducerTests
             profile: "text/vnd.hocr+html",
             label: null)]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].Profile.ShouldBe("text/vnd.hocr+html");
     }
 
@@ -278,7 +278,7 @@ public class ManifestReducerTests
             profile: "http://www.loc.gov/standards/alto/v3/alto.xsd",
             label: null)]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages[0].Profile.ShouldBe("http://www.loc.gov/standards/alto/v3/alto.xsd");
     }
 
@@ -296,7 +296,7 @@ public class ManifestReducerTests
             Canvas("https://example.org/c/3", 100, 200),                               // no ALTO
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(3);
         pages[0].TextUri.ShouldBeNull();
@@ -322,8 +322,52 @@ public class ManifestReducerTests
             """
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Reduce_CountsSkippedCanvases_WithoutDimensionsOrId()
+    {
+        var json = Manifest(canvases: [
+            Canvas("https://example.org/c/1", 100, 200),
+            """
+            {
+              "id": "https://example.org/c/no-dimensions",
+              "type": "Canvas"
+            }
+            """,
+            """
+            {
+              "id": "https://example.org/c/audio",
+              "type": "Canvas",
+              "duration": 180.0
+            }
+            """,
+            """
+            {
+              "type": "Canvas",
+              "width": 100,
+              "height": 200
+            }
+            """
+        ]);
+
+        var reduced = _reducer.Reduce(json);
+
+        reduced.Pages.Count.ShouldBe(1);
+        reduced.SkippedCanvases.ShouldBe(3);
+    }
+
+    [Fact]
+    public void Reduce_NoSkippedCanvases_WhenAllIncluded()
+    {
+        var json = Manifest(canvases: [
+            Canvas("https://example.org/c/1", 100, 200),
+            Canvas("https://example.org/c/2", 100, 200)
+        ]);
+
+        _reducer.Reduce(json).SkippedCanvases.ShouldBe(0);
     }
 
     [Fact]
@@ -342,7 +386,7 @@ public class ManifestReducerTests
             """
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages.Count.ShouldBe(1);
         pages[0].Id.ShouldBe("https://example.org/c/video");
         pages[0].Width.ShouldBe(1920);
@@ -364,7 +408,7 @@ public class ManifestReducerTests
             Canvas("https://example.org/c/2", 4000, 6000),
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
         pages.Count.ShouldBe(2);
         pages[0].Id.ShouldBe("https://example.org/c/1");
         pages[1].Id.ShouldBe("https://example.org/c/2");
@@ -392,7 +436,7 @@ public class ManifestReducerTests
             """
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].Id.ShouldBe("https://example.org/c/audio");
@@ -419,7 +463,7 @@ public class ManifestReducerTests
             """
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].TextUri.ShouldBe("https://example.org/transcript.vtt");
@@ -437,7 +481,7 @@ public class ManifestReducerTests
                 labelValue: "METS-ALTO transcription")
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].TextUri.ShouldBe("https://example.org/alto/1");
@@ -456,7 +500,7 @@ public class ManifestReducerTests
                 label: "METS-ALTO transcription")
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].TextUri.ShouldBe("https://example.org/alto/1");
@@ -489,7 +533,7 @@ public class ManifestReducerTests
             """
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].Id.ShouldBe("https://example.org/c/audio");
@@ -523,7 +567,7 @@ public class ManifestReducerTests
             """
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].TextUri.ShouldBe("https://example.org/transcript.vtt");
@@ -547,7 +591,7 @@ public class ManifestReducerTests
             """
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(1);
         pages[0].Width.ShouldBe(0);
@@ -573,7 +617,7 @@ public class ManifestReducerTests
             """,
         ]);
 
-        var pages = _reducer.Reduce(json);
+        var pages = _reducer.Reduce(json).Pages;
 
         pages.Count.ShouldBe(2);
         pages[0].Id.ShouldBe("https://example.org/c/1");

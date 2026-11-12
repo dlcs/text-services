@@ -60,6 +60,9 @@ PDFs to a `sourceUri` job — see [Inserting PDFs into sourceUri jobs](#insertin
   "pagesCompleted": 0,
   "totalWordCount": 0,
   "totalImageCount": 0,
+  "skippedCanvases": 0,
+  "pagesWithoutTextSource": 0,
+  "pagesWithoutWords": 0,
   "errors": null,
   "services": -1,
   "searchV1": null,
@@ -185,11 +188,14 @@ Removes the job record from the database. Does **not** delete the stored text ar
 | `created` | ISO 8601 | When the job was accepted. |
 | `started` | ISO 8601\|null | When the Hangfire worker picked it up. |
 | `finished` | ISO 8601\|null | When processing ended (success or failure). |
-| `totalPages` | int | Total number of canvases in the source. |
+| `totalPages` | int | Number of canvases processed: those in the source that can hold text (see `skippedCanvases`). |
 | `pagesCompleted` | int | Canvases processed so far (useful for polling). |
 | `totalWordCount` | int | Words indexed (populated on completion). |
 | `totalImageCount` | int | Figures / tables / illustrations identified (populated on completion). |
-| `errors` | string\|null | Error message if `status` is `Failed`. |
+| `skippedCanvases` | int | Canvases in the source manifest that weren't processed: no `id`, or no `width`/`height` (unless they have a `duration` and a VTT or annotation text source). Populated on completion. |
+| `pagesWithoutTextSource` | int | Pages with no recognised text source, e.g. no ALTO, hOCR or VTT `seeAlso`. Populated on completion. |
+| `pagesWithoutWords` | int | Pages whose text source was read but contained no words. Populated on completion. |
+| `errors` | string\|null | If `status` is `Failed`, why it failed. If `Completed`, one line per page whose text couldn't be read: not found or empty (e.g. a 404), a fetch error, or an unsupported format. |
 | `services` | int | Bitmask of enabled services (see [Service flags](#service-flags)). `-1` means all enabled. |
 | `searchV1` | string\|null | URL of the IIIF Search v1 endpoint (populated on completion, when `Search` flag is set). |
 | `autocompleteV1` | string\|null | URL of the IIIF Autocomplete v1 endpoint (populated on completion, when `Autocomplete` flag is set). |
@@ -200,6 +206,11 @@ Removes the job record from the database. Does **not** delete the stored text ar
 | `textAugmented` | string\|null | URL of the text-augmented Manifest endpoint (populated on completion, when `TextAugmented` flag is set). |
 | `annotations` | string\|null | URL of the manifest-level line annotations endpoint (populated on completion, when `Annotations` flag is set). |
 | `figures` | string\|null | URL of the figures annotation page (populated on completion, when `Figures` flag is set). |
+
+> [!NOTE]
+> Jobs that finished before `skippedCanvases`, `pagesWithoutTextSource` and `pagesWithoutWords` were recorded
+> report `0` for all three, which doesn't mean nothing was skipped or empty. Reprocess the job
+> (`PUT /textbuilder/{**id}`) to populate them.
 
 ---
 
