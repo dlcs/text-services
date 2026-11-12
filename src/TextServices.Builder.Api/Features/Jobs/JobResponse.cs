@@ -95,10 +95,6 @@ public class JobResponse
             {
                 searchV1 = SearchApiRoutes.SearchV1(baseUrl, job.Id);
                 searchV2 = SearchApiRoutes.SearchV2(baseUrl, job.Id);
-            }
-
-            if (fulfilled.HasFlag(JobServices.Autocomplete))
-            {
                 autocompleteV1 = SearchApiRoutes.AutocompleteV1(baseUrl, job.Id);
                 autocompleteV2 = SearchApiRoutes.AutocompleteV2(baseUrl, job.Id);
             }

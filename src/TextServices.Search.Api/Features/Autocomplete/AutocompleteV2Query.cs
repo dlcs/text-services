@@ -11,7 +11,7 @@ public class AutocompleteV2Handler(ITextCache cache) : IRequestHandler<Autocompl
 {
     public async Task<TermPageV2?> Handle(AutocompleteV2Request request, CancellationToken ct)
     {
-        if (!await cache.IsEnabledAsync(request.Id, JobServices.Autocomplete, ct)) return null;
+        if (!await cache.IsEnabledAsync(request.Id, JobServices.Search, ct)) return null;
         if (request.Query.Trim().Length < 3)
             return new TermPageV2 { Id = request.SelfUrl };
 

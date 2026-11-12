@@ -81,7 +81,6 @@ public sealed class TextBuildJobTests : IDisposable
         updated.FulfilledServices.ShouldNotBeNull();
         var fulfilledFlags = (JobServices)updated.FulfilledServices!.Value;
         fulfilledFlags.ShouldHaveFlag(JobServices.Search);
-        fulfilledFlags.ShouldHaveFlag(JobServices.Autocomplete);
 
         (await _textStore.Exists(job.Id)).ShouldBeTrue();
         (await _textStore.LoadAutoComplete(job.Id)).ShouldNotBeNull();
@@ -591,7 +590,7 @@ public sealed class TextBuildJobTests : IDisposable
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ExecuteAsync_SearchOnly_SavesTextButNotAutocomplete()
+    public async Task ExecuteAsync_SearchOnly_SavesTextAndAutocomplete()
     {
         var pages = new List<PageInstruction>
         {
@@ -612,13 +611,13 @@ public sealed class TextBuildJobTests : IDisposable
         await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
 
         (await _textStore.LoadText(job.Id)).ShouldNotBeNull();
-        (await _textStore.LoadAutoComplete(job.Id)).ShouldBeNull();
+        (await _textStore.LoadAutoComplete(job.Id)).ShouldNotBeNull();
     }
 
     [Fact]
-    public async Task ExecuteAsync_AutocompleteOnly_AlsoBuildsSearch()
+    public async Task ExecuteAsync_RetiredAutocompleteBitOnly_SavesNeitherTextNorAutocomplete()
     {
-        // Autocomplete implies Search, even when the stored job services don't include Search.
+        // Bit 1 << 1 (formerly Autocomplete) may still be set on stored jobs; it is ignored.
         var pages = new List<PageInstruction>
         {
             new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
@@ -627,7 +626,7 @@ public sealed class TextBuildJobTests : IDisposable
 
         var job = await CreateJob("test/ac-only",
             sourceDataJson: JsonSerializer.Serialize(pages),
-            services: JobServices.Autocomplete);
+            services: (JobServices)(1 << 1));
 
         var altoFetcher = FakeAlto(new Dictionary<string, XElement>
         {
@@ -637,13 +636,12 @@ public sealed class TextBuildJobTests : IDisposable
         var sut = MakeJob(altoFetcher: altoFetcher);
         await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
 
-        (await _textStore.LoadText(job.Id)).ShouldNotBeNull();
-        (await _textStore.LoadAutoComplete(job.Id)).ShouldNotBeNull();
+        (await _textStore.LoadText(job.Id)).ShouldBeNull();
+        (await _textStore.LoadAutoComplete(job.Id)).ShouldBeNull();
 
         var updated = await _db.Jobs.FindAsync(job.Id);
         var fulfilled = (JobServices)updated!.FulfilledServices!.Value;
-        fulfilled.ShouldHaveFlag(JobServices.Search);
-        fulfilled.ShouldHaveFlag(JobServices.Autocomplete);
+        fulfilled.ShouldNotHaveFlag(JobServices.Search);
     }
 
     [Fact]
@@ -700,7 +698,6 @@ public sealed class TextBuildJobTests : IDisposable
         var fulfilled = (JobServices)updated.FulfilledServices!.Value;
         fulfilled.ShouldHaveFlag(JobServices.TextAugmented);
         fulfilled.ShouldNotHaveFlag(JobServices.Search);
-        fulfilled.ShouldNotHaveFlag(JobServices.Autocomplete);
         fulfilled.ShouldNotHaveFlag(JobServices.Pdf);
         fulfilled.ShouldNotHaveFlag(JobServices.FullText);
     }
@@ -760,7 +757,7 @@ public sealed class TextBuildJobTests : IDisposable
 
         var job = await CreateJob("test/caps-saved",
             sourceDataJson: JsonSerializer.Serialize(pages),
-            services: JobServices.Search | JobServices.Autocomplete);
+            services: JobServices.Search);
 
         var altoFetcher = FakeAlto(new Dictionary<string, XElement>
         {
@@ -773,14 +770,12 @@ public sealed class TextBuildJobTests : IDisposable
         var caps = await _textStore.LoadCapabilities(job.Id);
         var saved = (JobServices)caps!.Value;
         saved.ShouldHaveFlag(JobServices.Search);
-        saved.ShouldHaveFlag(JobServices.Autocomplete);
         saved.ShouldNotHaveFlag(JobServices.Pdf);
 
         var updated = await _db.Jobs.FindAsync(job.Id);
         updated!.FulfilledServices.ShouldNotBeNull();
         var fulfilled = (JobServices)updated.FulfilledServices!.Value;
         fulfilled.ShouldHaveFlag(JobServices.Search);
-        fulfilled.ShouldHaveFlag(JobServices.Autocomplete);
         fulfilled.ShouldNotHaveFlag(JobServices.Pdf);
     }
 
@@ -809,13 +804,11 @@ public sealed class TextBuildJobTests : IDisposable
         var caps = await _textStore.LoadCapabilities(job.Id);
         var fulfilled = (JobServices)caps.ShouldNotBeNull();
         fulfilled.ShouldHaveFlag(JobServices.Search);
-        fulfilled.ShouldHaveFlag(JobServices.Autocomplete);
 
         var updated = await _db.Jobs.FindAsync(job.Id);
         updated!.FulfilledServices.ShouldNotBeNull();
         var fulfilledOnJob = (JobServices)updated.FulfilledServices!.Value;
         fulfilledOnJob.ShouldHaveFlag(JobServices.Search);
-        fulfilledOnJob.ShouldHaveFlag(JobServices.Autocomplete);
     }
 
     private static string SimpleVtt() =>

@@ -385,15 +385,13 @@ public class BuildAndSearchTests(E2ETestContext ctx)
         var services = (JobServices)json["services"]!.GetValue<int>();
         services.HasFlag(JobServices.Search).ShouldBeTrue();
         services.HasFlag(JobServices.TextAugmented).ShouldBeTrue();
-        services.HasFlag(JobServices.Autocomplete).ShouldBeFalse();
     }
 
     [Fact]
-    public async Task ServiceFlags_SearchEnabled_AutocompleteDisabled_GatesEndpoints()
+    public async Task ServiceFlags_SearchOnly_EnablesSearchAndAutocomplete()
     {
-        // Build with Search only — capabilities file gates Autocomplete.
         const int searchOnly = (int)JobServices.Search;
-        var id = "e2e/flags-gating";
+        var id = "e2e/flags-search-only";
 
         await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
         {
@@ -404,38 +402,33 @@ public class BuildAndSearchTests(E2ETestContext ctx)
 
         await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
 
-        // Search endpoint must work.
-        var searchResponse = await ctx.SearchClient.GetAsync($"/search/v1/{id}?q=annual");
-        searchResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-
-        // Autocomplete endpoint must be gated (404).
-        var acResponse = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=ann");
-        acResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
-    }
-
-    [Fact]
-    public async Task PostJob_AutocompleteOnly_ImpliesSearch()
-    {
-        const int autocompleteOnly = (int)JobServices.Autocomplete;
-        var id = "e2e/flags-autocomplete-implies-search";
-
-        await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
-        {
-            id,
-            sourceData = SourceDataPages(),
-            services = autocompleteOnly,
-        });
-
-        var body = await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
-        var services = (JobServices)JsonNode.Parse(body)!["services"]!.GetValue<int>();
-        services.HasFlag(JobServices.Search).ShouldBeTrue();
-        services.HasFlag(JobServices.Autocomplete).ShouldBeTrue();
-
         var searchResponse = await ctx.SearchClient.GetAsync($"/search/v1/{id}?q=annual");
         searchResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         var acResponse = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=ann");
         acResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ServiceFlags_SearchDisabled_GatesSearchAndAutocomplete()
+    {
+        const int fullTextOnly = (int)JobServices.FullText;
+        var id = "e2e/flags-search-disabled";
+
+        await ctx.BuilderClient.PostAsJsonAsync("/textbuilder", new
+        {
+            id,
+            sourceData = SourceDataPages(),
+            services = fullTextOnly,
+        });
+
+        await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
+
+        var searchResponse = await ctx.SearchClient.GetAsync($"/search/v1/{id}?q=annual");
+        searchResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        var acResponse = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=ann");
+        acResponse.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     // -------------------------------------------------------------------------
@@ -502,7 +495,7 @@ public class BuildAndSearchTests(E2ETestContext ctx)
         {
             id,
             sourceUri,
-            services = (int)JobServices.Search,
+            services = (int)JobServices.FullText,
         });
         await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60));
 
@@ -510,15 +503,15 @@ public class BuildAndSearchTests(E2ETestContext ctx)
         {
             id,
             sourceUri,
-            services = (int)(JobServices.Search | JobServices.Autocomplete),
+            services = (int)JobServices.Search,
         });
         put.StatusCode.ShouldBe(HttpStatusCode.Accepted);
 
         var json = JsonNode.Parse(await ctx.WaitForJobAsync(id, TimeSpan.FromSeconds(60)))!;
-        json["services"]!.GetValue<int>().ShouldBe((int)(JobServices.Search | JobServices.Autocomplete));
+        json["services"]!.GetValue<int>().ShouldBe((int)JobServices.Search);
         json["invocationCount"]!.GetValue<int>().ShouldBe(2);
 
-        // Autocomplete was not built on the first run; it is now.
+        // Search, and so autocomplete, was not built on the first run; it is now.
         var acResponse = await ctx.SearchClient.GetAsync($"/autocomplete/v1/{id}?q=ann");
         acResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
     }

@@ -198,9 +198,9 @@ Removes the job record from the database. Does **not** delete the stored text ar
 | `errors` | string\|null | If `status` is `Failed`, why it failed. If `Completed`, one line per page whose text couldn't be read: not found or empty (e.g. a 404), a fetch error, or an unsupported format. |
 | `services` | int | Bitmask of enabled services (see [Service flags](#service-flags)). `-1` means all enabled. |
 | `searchV1` | string\|null | URL of the IIIF Search v1 endpoint (populated on completion, when `Search` flag is set). |
-| `autocompleteV1` | string\|null | URL of the IIIF Autocomplete v1 endpoint (populated on completion, when `Autocomplete` flag is set). |
+| `autocompleteV1` | string\|null | URL of the IIIF Autocomplete v1 endpoint (populated on completion, when `Search` flag is set). |
 | `searchV2` | string\|null | URL of the IIIF Search v2 endpoint (populated on completion, when `Search` flag is set). |
-| `autocompleteV2` | string\|null | URL of the IIIF Autocomplete v2 endpoint (populated on completion, when `Autocomplete` flag is set). |
+| `autocompleteV2` | string\|null | URL of the IIIF Autocomplete v2 endpoint (populated on completion, when `Search` flag is set). |
 | `fullText` | string\|null | URL of the plain-text endpoint (populated on completion, when `FullText` flag is set). |
 | `pdf` | string\|null | URL of the PDF endpoint (populated on completion, when `Pdf` flag is set). |
 | `textAugmented` | string\|null | URL of the text-augmented Manifest endpoint (populated on completion, when `TextAugmented` flag is set). |
@@ -423,8 +423,8 @@ want enabled. Omitting `services` (or supplying `-1`) enables everything.
 
 | Flag name | Value | What it controls |
 |---|---|---|
-| `Search` | `1` | IIIF Content Search v1 and v2 endpoints, and their services in the text-augmented Manifest |
-| `Autocomplete` | `2` | Autocomplete v1 and v2 endpoints, nested inside the search services in the text-augmented Manifest. Implies `Search` (see below) |
+| `Search` | `1` | IIIF Content Search and Autocomplete v1 and v2 endpoints, and their services in the text-augmented Manifest |
+| _(retired)_ | `2` | Formerly `Autocomplete`, which is now provided by `Search`. Ignored if set |
 | `FullText` | `4` | Plain-text endpoint (`/text/v1/`) |
 | `Annotations` | `8` | Line/word annotation pages and manifest-level annotations endpoint |
 | `Pdf` | `16` | PDF endpoint (`/rendering/pdf/v1/`) |
@@ -433,27 +433,23 @@ want enabled. Omitting `services` (or supplying `-1`) enables everything.
 | `Svg` | `128` | Per-canvas SVG text endpoint (`/svg/v1/`) and its canvas `rendering` link in the text-augmented Manifest |
 
 The text-augmented Manifest only links to services whose flag is set and which the builder
-fulfilled: search services (`Search`), the autocomplete service nested within them
-(`Autocomplete`, only added alongside `Search`), the plain-text and PDF `rendering` links
-(`FullText`, `Pdf`), canvas and Manifest annotation pages (`Annotations`), the figures annotation
-page (`Figures`) and canvas SVG renderings (`Svg`). A job with only `TextAugmented` set serves
+fulfilled: search services, each with a nested autocomplete service (`Search`), the plain-text
+and PDF `rendering` links (`FullText`, `Pdf`), canvas and Manifest annotation pages
+(`Annotations`), the figures annotation page (`Figures`) and canvas SVG renderings (`Svg`). A job with only `TextAugmented` set serves
 its Manifest with nothing added except the updated `id`.
 
-**Example** — Search and Autocomplete only (`1 | 2 = 3`):
+**Example** — Search and the text-augmented Manifest only (`1 | 32 = 33`):
 
 ```json
 {
   "id": "my-collection/my-book",
   "sourceUri": "https://example.org/iiif/my-book/manifest",
-  "services": 3
+  "services": 33
 }
 ```
 
-IIIF only defines autocomplete as a service nested inside a search service, so `Autocomplete`
-can't be offered on its own. If `Autocomplete` is set without `Search`, `Search` is added
-automatically, and the job's `services` value in responses includes it. `Search` without
-`Autocomplete` is allowed: the text-augmented Manifest then contains search services with no
-nested autocomplete service.
+IIIF only defines autocomplete as a service nested inside a search service, so autocomplete
+always comes with search and has no flag of its own.
 
 When `services` is anything other than `-1`, the Builder API writes a `capabilities.json` file to
 storage. The Search API reads this file and returns `404 Not Found` for any endpoint whose flag is

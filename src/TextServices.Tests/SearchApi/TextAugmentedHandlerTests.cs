@@ -187,7 +187,7 @@ public class TextAugmentedHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SearchWithoutAutocomplete_SearchServicesHaveNoNestedAutocomplete()
+    public async Task Handle_SearchEnabled_SearchServicesIncludeNestedAutocomplete()
     {
         var handler = MakeHandler(V3Manifest(), capabilities: JobServices.Search | JobServices.TextAugmented);
 
@@ -197,15 +197,15 @@ public class TextAugmentedHandlerTests
         var service = result!["service"].ShouldBeOfType<JsonArray>();
         service.Count.ShouldBe(2);
         service[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV2);
-        service[0]!["service"].ShouldBeNull();
+        service[0]!["service"]![0]!["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV2);
         service[1]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV1);
-        service[1]!["service"].ShouldBeNull();
+        service[1]!["service"]![0]!["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV1);
     }
 
     [Theory]
     [InlineData(JobServices.Pdf | JobServices.TextAugmented)]
     [InlineData(JobServices.Svg | JobServices.TextAugmented)]
-    [InlineData(JobServices.Autocomplete | JobServices.TextAugmented)]
+    [InlineData((JobServices)(1 << 1) | JobServices.TextAugmented)] // retired Autocomplete bit
     public async Task Handle_SearchNotEnabled_NoSearchServicesOrContext(JobServices capabilities)
     {
         // Text exists (it is also built for PDF/SVG) but Search was not built.
@@ -671,35 +671,6 @@ public class TextAugmentedHandlerTests
 
         result!["service"].ShouldBeNull();
         result["@context"]!.GetValue<string>().ShouldBe("http://iiif.io/api/presentation/3/context.json");
-    }
-
-    [Fact]
-    public async Task Handle_AutocompleteFlagAbsent_SearchServicesWithoutAutocomplete()
-    {
-        var handler = MakeHandler(V3Manifest(), capabilities: JobServices.All & ~JobServices.Autocomplete);
-
-        var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
-
-        var service = result!["service"].ShouldBeOfType<JsonArray>();
-        service.Count.ShouldBe(2);
-        service[0]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV2);
-        service[0]!["service"].ShouldBeNull();
-        service[1]!["id"]!.GetValue<string>().ShouldBe(ExpectedSearchV1);
-        service[1]!["service"].ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task Handle_SearchAndAutocompleteEnabled_SearchServicesIncludeAutocomplete()
-    {
-        var handler = MakeHandler(V3Manifest(), capabilities: JobServices.Search | JobServices.Autocomplete | JobServices.TextAugmented);
-
-        var result = await handler.Handle(
-            new TextAugmentedRequest("test/book", DefaultResolved()), CancellationToken.None);
-
-        var service = result!["service"].ShouldBeOfType<JsonArray>();
-        service[0]!["service"]![0]!["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV2);
-        service[1]!["service"]![0]!["id"]!.GetValue<string>().ShouldBe(ExpectedAutocompleteV1);
     }
 
     [Fact]

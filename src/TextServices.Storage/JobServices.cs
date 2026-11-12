@@ -9,8 +9,9 @@ namespace TextServices.Storage;
 public enum JobServices
 {
     None = 0,
-    Search = 1 << 0,  // IIIF Search v1/v2 endpoints
-    Autocomplete = 1 << 1,  // IIIF Search autocomplete endpoints
+    Search = 1 << 0,  // IIIF Search v1/v2 and autocomplete v1/v2 endpoints
+    // 1 << 1 is retired (formerly Autocomplete, now provided by Search). Don't reuse it: stored
+    // jobs and capabilities files may still have it set, and it is ignored.
     FullText = 1 << 2,  // Raw plain-text endpoint
     Annotations = 1 << 3,  // Per-canvas and manifest line-annotation endpoints
     Pdf = 1 << 4,  // Searchable PDF endpoint (on-demand generation)
@@ -18,14 +19,4 @@ public enum JobServices
     Figures = 1 << 6,  // Identified figures (ComposedBlock) endpoint
     Svg = 1 << 7,  // Per-canvas SVG text rendering endpoint
     All = ~0,
-}
-
-public static class JobServicesExtensions
-{
-    /// <summary>
-    /// Adds any services that a requested service depends on. Autocomplete is only discoverable
-    /// as a nested service of Search in a IIIF Manifest, so requesting Autocomplete implies Search.
-    /// </summary>
-    public static JobServices WithImpliedServices(this JobServices services)
-        => services.HasFlag(JobServices.Autocomplete) ? services | JobServices.Search : services;
 }
