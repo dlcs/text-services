@@ -103,10 +103,7 @@ public class TextBuildJob(
             }
 
             // Sent once the outcome is recorded, so the notification can't affect the job's status.
-            await jobNotifier.Notify(
-                new JobCompletionNotification(job.Id, job.Status, job.Finished,
-                    job.TotalPages, job.TotalWordCount, job.Errors, job.InvocationCount),
-                cancellationToken.ShutdownToken);
+            await jobNotifier.Notify(JobCompletionNotification.FromJob(job), cancellationToken.ShutdownToken);
         }
     }
 
