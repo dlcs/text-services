@@ -18,4 +18,4 @@ public interface IManifestFetcher
 /// <param name="Json">The raw manifest JSON as returned by the server.</param>
 /// <param name="Pages">Reduced page sequence.</param>
 /// <param name="SkippedCanvases">Number of canvases in the manifest that aren't in <paramref name="Pages"/>.</param>
-public record ManifestFetchResult(string Json, IReadOnlyList<PageInstruction> Pages, int SkippedCanvases = 0);
+public record ManifestFetchResult(string Json, IReadOnlyList<PageInstruction> Pages, int SkippedCanvases);

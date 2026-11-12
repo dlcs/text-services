@@ -207,6 +207,11 @@ Removes the job record from the database. Does **not** delete the stored text ar
 | `annotations` | string\|null | URL of the manifest-level line annotations endpoint (populated on completion, when `Annotations` flag is set). |
 | `figures` | string\|null | URL of the figures annotation page (populated on completion, when `Figures` flag is set). |
 
+> [!NOTE]
+> Jobs that finished before `skippedCanvases`, `pagesWithoutTextSource` and `pagesWithoutWords` were recorded
+> report `0` for all three, which doesn't mean nothing was skipped or empty. Reprocess the job
+> (`PUT /textbuilder/{**id}`) to populate them.
+
 ---
 
 ## sourceData format

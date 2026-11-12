@@ -1109,7 +1109,7 @@ public sealed class TextBuildJobTests : IDisposable
         private readonly Func<string, Task<ManifestFetchResult>> _impl;
 
         public FakeManifestFetcher(string uri, string json, IReadOnlyList<PageInstruction> pages)
-            : this(_ => Task.FromResult(new ManifestFetchResult(json, pages))) { }
+            : this(_ => Task.FromResult(new ManifestFetchResult(json, pages, 0))) { }
 
         public FakeManifestFetcher(Func<string, Task<ManifestFetchResult>> impl) => _impl = impl;
 
