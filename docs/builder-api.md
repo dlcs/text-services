@@ -451,10 +451,10 @@ its Manifest with nothing added except the updated `id`.
 IIIF only defines autocomplete as a service nested inside a search service, so autocomplete
 always comes with search and has no flag of its own.
 
-When `services` is anything other than `-1`, the Builder API writes a `capabilities.json` file to
-storage. The Search API reads this file and returns `404 Not Found` for any endpoint whose flag is
-absent. Jobs that have no `capabilities.json` (pre-existing jobs or jobs submitted with the default)
-treat all services as enabled — backward compatible by design.
+When a job completes, the Builder API writes a `capabilities.json` file to storage recording the
+services it fulfilled. The Search API reads this file and returns `404 Not Found` for any endpoint
+whose flag is absent. The file is the last artefact a job writes, so when no capabilities file is
+present (a job that is still running or that failed) no endpoints are enabled.
 
 ---
 

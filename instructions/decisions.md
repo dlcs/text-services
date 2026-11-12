@@ -1101,3 +1101,38 @@ Manifest linked to every service, including ones never requested.
 
 This replaces the "no file = all enabled" rule in the 2026-05-01 service bitmask entry. No
 released build has completed jobs without the file, so nothing relied on that rule.
+
+---
+
+## 2026-11-12 — Autocomplete flag removed; Search provides autocomplete (issue #74)
+
+### Problem
+
+IIIF only defines autocomplete as a service nested inside a search service, so it can't be
+advertised in a Manifest on its own. With separate `Search` and `Autocomplete` flags, a job could
+request autocomplete without search, which built an autocomplete index that nothing linked to. It
+could also request search without autocomplete, which nothing needs.
+
+An earlier approach made `Autocomplete` imply `Search`. It was dropped because it kept a flag that
+could never be used alone.
+
+### Decision
+
+- `JobServices.Autocomplete` is removed. `Search` enables both the search and the autocomplete
+  endpoints.
+- Value `2` (`1 << 1`) is retired and must not be reused. Stored jobs and capabilities files may
+  still have it set. It is ignored and has no effect, and requests that set it are not rejected,
+  so `-1` (all services) keeps working.
+- `TextBuildJob` saves the AutoComplete index whenever `Search` is set, and autocomplete is no
+  longer recorded separately in `FulfilledServices`.
+- The autocomplete v1/v2 endpoints are gated on `Search`, and `JobResponse` returns the
+  `autocompleteV1`/`autocompleteV2` URLs whenever `Search` was fulfilled.
+- The text-augmented Manifest always nests the autocomplete service inside each search service.
+  The search services are still only added when `Search` is enabled.
+
+Existing jobs stored with `Search | Autocomplete` (`3`) behave exactly as `Search`. A job stored
+with value `2` but not `1` builds neither search nor autocomplete when it is reprocessed. No
+migration is needed and no other flag values change.
+
+This replaces the `Autocomplete` row in the 2026-05-01 service bitmask entry and the nested
+autocomplete gating in the 2026-11-06 entry.
