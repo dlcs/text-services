@@ -1,15 +1,13 @@
 using System.Net.Http.Headers;
-using Amazon.Extensions.NETCore.Setup;
 using Amazon.S3;
 using Amazon.SimpleNotificationService;
 using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.Extensions.Options;
-using Serilog;
-using Serilog.Extensions.Logging;
 using TextServices.Builder.Api.Services;
 using TextServices.Builder.Api.Services.Notifications;
 using TextServices.Infrastructure.Http;
+using TextServices.Infrastructure.Http.IpBlocking;
 using TextServices.Storage;
 
 namespace TextServices.Builder.Api.Configuration;
@@ -52,7 +50,7 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddFetchingServices(this IServiceCollection services)
+    public static IServiceCollection AddFetchingServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddHttpClient("Resource", client =>
         {
@@ -61,11 +59,12 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/ld+json", 0.9));
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*", 0.8));
             client.Timeout = TimeSpan.FromSeconds(30);
-        });
+        }).UseIpBlocking(configuration);
 
         services.AddScoped<IResourceFetcher>(sp => new ResourceFetcher(
             sp.GetRequiredService<IHttpClientFactory>(),
-            sp.GetService<IAmazonS3>()));
+            sp.GetService<IAmazonS3>(),
+            sp.GetRequiredService<ILogger<ResourceFetcher>>()));
 
         services.AddSingleton<IManifestReducer, ManifestReducer>()
             .AddSingleton<IManifestSynthesiser, ManifestSynthesiser>()

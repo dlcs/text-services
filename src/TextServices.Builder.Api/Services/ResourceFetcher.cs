@@ -1,6 +1,7 @@
 using System.Net;
 using Amazon.S3;
 using Amazon.S3.Model;
+using TextServices.Infrastructure.Http.IpBlocking;
 
 namespace TextServices.Builder.Api.Services;
 
@@ -12,7 +13,10 @@ namespace TextServices.Builder.Api.Services;
 ///   <item><c>s3://bucket/key</c> — Amazon S3 (requires IAmazonS3 to be registered)</item>
 /// </list>
 /// </summary>
-public sealed class ResourceFetcher(IHttpClientFactory httpClientFactory, IAmazonS3? s3) : IResourceFetcher
+public sealed class ResourceFetcher(
+    IHttpClientFactory httpClientFactory,
+    IAmazonS3? s3,
+    ILogger<ResourceFetcher> logger) : IResourceFetcher
 {
     public Task<Stream?> FetchAsync(string uri, CancellationToken ct = default)
     {
@@ -65,7 +69,18 @@ public sealed class ResourceFetcher(IHttpClientFactory httpClientFactory, IAmazo
     private async Task<Stream?> FetchHttpAsync(string uri, CancellationToken ct)
     {
         var client = httpClientFactory.CreateClient("Resource");
-        var response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct);
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, ct);
+        }
+        catch (Exception ex) when (IpAddressBlockedException.FindInChain(ex) is { } blocked)
+        {
+            logger.LogWarning(
+                "Refused to fetch {Url}: host {Host} resolves to {Address}, which is in blocked range {BlockedRange}",
+                uri, blocked.Host, blocked.Address, blocked.BlockedBy);
+            throw blocked;
+        }
 
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
         response.EnsureSuccessStatusCode();

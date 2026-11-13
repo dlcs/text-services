@@ -49,7 +49,7 @@ builder.Services.AddMediatR(cfg =>
     cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
 builder.Services.AddAwsServices(builder.Configuration)
-    .AddFetchingServices()
+    .AddFetchingServices(builder.Configuration)
     .AddNotificationServices()
     .AddTextStorage(builder.Configuration);
 
