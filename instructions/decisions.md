@@ -1118,9 +1118,11 @@ could never be used alone.
 
 ### Decision
 
-- `JobServices.Autocomplete` is removed. `Search` enables both the search and the autocomplete
+- `JobServices.Autocomplete` is retired. `Search` enables both the search and the autocomplete
   endpoints.
-- Value `2` (`1 << 1`) is retired and must not be reused. Stored jobs and capabilities files may
+- Value `2` (`1 << 1`) is retired and must not be reused. The `Autocomplete` member is kept,
+  marked `[Obsolete(..., true)]`, so any code that references it fails to build and the value
+  stays visibly taken. Stored jobs and capabilities files may
   still have it set. It is ignored and has no effect, and requests that set it are not rejected,
   so `-1` (all services) keeps working.
 - `TextBuildJob` saves the AutoComplete index whenever `Search` is set, and autocomplete is no

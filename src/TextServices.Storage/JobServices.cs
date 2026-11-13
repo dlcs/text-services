@@ -10,8 +10,14 @@ public enum JobServices
 {
     None = 0,
     Search = 1 << 0,  // IIIF Search v1/v2 and autocomplete v1/v2 endpoints
-    // 1 << 1 is retired (formerly Autocomplete, now provided by Search). Don't reuse it: stored
-    // jobs and capabilities files may still have it set, and it is ignored.
+
+    /// <summary>
+    /// Retired: autocomplete is now provided by <see cref="Search"/>. Kept so the value isn't reused,
+    /// as stored jobs and capabilities files may still have it set. It is ignored.
+    /// </summary>
+    [Obsolete("Autocomplete is provided by Search. This value is ignored and must not be reused.", true)]
+    Autocomplete = 1 << 1,
+
     FullText = 1 << 2,  // Raw plain-text endpoint
     Annotations = 1 << 3,  // Per-canvas and manifest line-annotation endpoints
     Pdf = 1 << 4,  // Searchable PDF endpoint (on-demand generation)
