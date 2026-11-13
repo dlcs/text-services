@@ -33,7 +33,7 @@ public class CapabilityGatingTests
     [Fact]
     public async Task Search_WhenSearchFlagAbsent_ReturnsNull()
     {
-        var handler = new SearchHandler(new StubTextCache(JobServices.Autocomplete), new NullLogger<SearchHandler>());
+        var handler = new SearchHandler(new StubTextCache(JobServices.FullText), new NullLogger<SearchHandler>());
 
         var result = await handler.Handle(
             new SearchRequest(Id, "hello", SelfUrl, SelfUrl), CancellationToken.None);
@@ -64,19 +64,19 @@ public class CapabilityGatingTests
     [Fact]
     public async Task IsEnabled_WhenFlagAbsent_ReturnsFalse()
     {
-        var enabled = await new StubTextCache(JobServices.Autocomplete).IsEnabledAsync(Id, JobServices.Search);
+        var enabled = await new StubTextCache(JobServices.FullText).IsEnabledAsync(Id, JobServices.Search);
 
         enabled.ShouldBeFalse();
     }
 
     // -------------------------------------------------------------------------
-    // AutocompleteHandler — JobServices.Autocomplete
+    // AutocompleteHandler — JobServices.Search
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task Autocomplete_WhenAutocompleteFlagAbsent_ReturnsNull()
+    public async Task Autocomplete_WhenSearchFlagAbsent_ReturnsNull()
     {
-        var handler = new AutocompleteHandler(new StubTextCache(JobServices.Search));
+        var handler = new AutocompleteHandler(new StubTextCache(JobServices.FullText));
 
         var result = await handler.Handle(
             new AutocompleteRequest(Id, "hel", SelfUrl), CancellationToken.None);

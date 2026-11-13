@@ -56,12 +56,8 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
         var resolvedRequestUris = request.Resolved;
         ReplaceSelfUrl(manifest, resolvedRequestUris.SelfUrl);
 
-        // Autocomplete is described as a child of the search service, so it can't be added alone.
         if (text != null && IsEnabled(JobServices.Search))
-        {
-            InjectSearchServices(manifest, resolvedRequestUris,
-                includeAutocomplete: IsEnabled(JobServices.Autocomplete));
-        }
+            InjectSearchServices(manifest, resolvedRequestUris);
 
         // The builder only marks Pdf fulfilled when the job has a page it can render. Pdf used to
         // be fulfilled for temporal-only (VTT/audio/video) content too, which has no page images.
@@ -100,13 +96,18 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
             manifest["id"] = selfUrl;
     }
 
-    private void InjectSearchServices(JsonObject manifest, ResolvedRequest resolved, bool includeAutocomplete)
+    private void InjectSearchServices(JsonObject manifest, ResolvedRequest resolved)
     {
         logger.LogDebug("Adding search-services: {Id}", resolved.EffectiveId);
         var searchServiceV2 = new JsonObject
         {
             ["id"] = resolved.SearchV2Url(),
             ["type"] = "SearchService2",
+            ["service"] = new JsonArray(new JsonObject
+            {
+                ["id"] = resolved.AutocompleteV2Url(),
+                ["type"] = "AutoCompleteService2",
+            }),
         };
 
         var searchServiceV1 = new JsonObject
@@ -114,22 +115,13 @@ internal class TextAugmentedHandler(ITextStore textStore, ITextCache textCache, 
             ["id"] = resolved.SearchV1Url(),
             ["type"] = "SearchService1",
             ["profile"] = "http://iiif.io/api/search/1/search",
-        };
-
-        if (includeAutocomplete)
-        {
-            searchServiceV2["service"] = new JsonArray(new JsonObject
-            {
-                ["id"] = resolved.AutocompleteV2Url(),
-                ["type"] = "AutoCompleteService2",
-            });
-            searchServiceV1["service"] = new JsonArray(new JsonObject
+            ["service"] = new JsonArray(new JsonObject
             {
                 ["id"] = resolved.AutocompleteV1Url(),
                 ["type"] = "AutoCompleteService1",
                 ["profile"] = "http://iiif.io/api/search/1/autocomplete",
-            });
-        }
+            }),
+        };
 
         // Insert v2 then v1 at position 0 so v2 appears first.
         // Existing services (e.g. IIIF Image services) are pushed down, not displaced.

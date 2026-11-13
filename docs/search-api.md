@@ -536,8 +536,7 @@ present (a job that is still running or that failed) no endpoints are enabled.
 
 | Endpoint(s) | Required flag |
 |---|---|
-| `/search/v1/` and `/search/v2/` | `Search` (value `1`) |
-| `/autocomplete/v1/` and `/autocomplete/v2/` | `Autocomplete` (value `2`) |
+| `/search/v1/`, `/search/v2/`, `/autocomplete/v1/` and `/autocomplete/v2/` (and the search services, with their nested autocomplete services, in `/text-augmented/v3/`) | `Search` (value `1`) |
 | `/text/v1/` | `FullText` (value `4`) |
 | `/annotations/lines/v1/`, `/annotations/words/v1/`, `/annotations/manifest/v1/` | `Annotations` (value `8`) |
 | `/rendering/pdf/v1/` | `Pdf` (value `16`) |

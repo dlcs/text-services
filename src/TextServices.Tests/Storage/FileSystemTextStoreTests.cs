@@ -245,7 +245,7 @@ public sealed class FileSystemTextStoreTests : IDisposable
     [Fact]
     public async Task SaveAndLoad_Capabilities_RoundTrips()
     {
-        const int services = 0b00000011; // Search | Autocomplete
+        const int services = 0b00000101; // Search | FullText
 
         await _store.SaveCapabilities("caps/test", services);
         var loaded = await _store.LoadCapabilities("caps/test");

@@ -254,7 +254,7 @@ public class TextBuildJob(
                 textSaved = true;
             }
 
-            if (services.HasFlag(JobServices.Autocomplete)) await textStore.SaveAutoComplete(job.Id, result.AutoComplete);
+            if (services.HasFlag(JobServices.Search)) await textStore.SaveAutoComplete(job.Id, result.AutoComplete);
 
             if (services.HasFlag(JobServices.FullText) && !string.IsNullOrEmpty(result.Text.RawFullText))
             {
@@ -287,8 +287,6 @@ public class TextBuildJob(
         // A PDF doesn't need text: pages without it are rendered as image-only pages.
         if (services.HasFlag(JobServices.Pdf) && manifestSaved && pages.Any(IsPdfRenderable))
             fulfilled |= JobServices.Pdf;
-        if (!result.IsEmpty && services.HasFlag(JobServices.Autocomplete))
-            fulfilled |= JobServices.Autocomplete;
         if (!result.IsEmpty && services.HasFlag(JobServices.FullText) && !string.IsNullOrEmpty(result.Text.RawFullText))
             fulfilled |= JobServices.FullText;
         if (!result.IsEmpty && services.HasFlag(JobServices.Figures) && figuresJson != null)

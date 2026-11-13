@@ -58,9 +58,9 @@ public class JobResponseTests
     [Fact]
     public void From_FulfilledServicesSet_FulfilledServicesFieldReflectsValue()
     {
-        var job = CompletedJob(fulfilledServices: (int)(JobServices.Search | JobServices.Autocomplete));
+        var job = CompletedJob(fulfilledServices: (int)(JobServices.Search));
         var response = JobResponse.From(job, Options());
-        response.FulfilledServices.ShouldBe(JobServices.Search | JobServices.Autocomplete);
+        response.FulfilledServices.ShouldBe(JobServices.Search);
     }
 
     // -------------------------------------------------------------------------
@@ -70,7 +70,7 @@ public class JobResponseTests
     [Fact]
     public void From_CompletedJob_AllFulfilled_AllEndpointUrlsPopulated()
     {
-        var allFulfilled = JobServices.Search | JobServices.Autocomplete | JobServices.FullText |
+        var allFulfilled = JobServices.Search | JobServices.FullText |
                            JobServices.Annotations | JobServices.Pdf | JobServices.TextAugmented |
                            JobServices.Figures;
         var response = JobResponse.From(CompletedJob(fulfilledServices: (int)allFulfilled), Options());
@@ -106,10 +106,10 @@ public class JobResponseTests
     [Fact]
     public void From_CompletedJob_PartialFulfillment_OnlyFulfilledUrlsPopulated()
     {
-        // All services requested but only Search + Autocomplete were fulfilled.
+        // All services requested but only Search was fulfilled.
         var job = CompletedJob(
             services: JobServices.All,
-            fulfilledServices: (int)(JobServices.Search | JobServices.Autocomplete));
+            fulfilledServices: (int)(JobServices.Search));
 
         var response = JobResponse.From(job, Options());
 
@@ -133,7 +133,7 @@ public class JobResponseTests
     {
         // Pre-existing job with no FulfilledServices; URLs derived from Services.
         var job = CompletedJob(
-            services: JobServices.Search | JobServices.Autocomplete,
+            services: JobServices.Search,
             fulfilledServices: null);
 
         var response = JobResponse.From(job, Options());
@@ -189,7 +189,7 @@ public class JobResponseTests
     [Fact]
     public void From_NoSearchApiBaseUrl_NoEndpointUrls()
     {
-        var allFulfilled = (int)(JobServices.Search | JobServices.Autocomplete);
+        var allFulfilled = (int)(JobServices.Search);
         var response = JobResponse.From(CompletedJob(fulfilledServices: allFulfilled), new TextServicesOptions());
 
         response.SearchV1.ShouldBeNull();
