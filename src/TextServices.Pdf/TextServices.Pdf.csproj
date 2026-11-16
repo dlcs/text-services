@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TextServices.Core\TextServices.Core.csproj" />
+    <ProjectReference Include="..\TextServices.Infrastructure\TextServices.Infrastructure.csproj" />
     <ProjectReference Include="..\TextServices.Storage\TextServices.Storage.csproj" />
   </ItemGroup>
 

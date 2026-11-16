@@ -7,6 +7,7 @@ using iText.Kernel.Pdf;
 using iText.Kernel.Pdf.Canvas;
 using Microsoft.Extensions.Logging;
 using TextServices.Core.Models;
+using TextServices.Infrastructure.Http.IpBlocking;
 
 namespace TextServices.Pdf;
 
@@ -149,9 +150,19 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex,
-                "Failed to fetch image for canvas {CanvasId} from {Url} — emitting blank page",
-                pageInfo.CanvasId, imageUrl);
+            if (IpAddressBlockedException.FindInChain(ex) is { } blocked)
+            {
+                logger.LogWarning(
+                    "Refused to fetch image for canvas {CanvasId} from {Url}: host {Host} resolves to {Address}, which is in blocked range {BlockedRange} — emitting blank page",
+                    pageInfo.CanvasId, imageUrl, blocked.Host, blocked.Address, blocked.BlockedBy);
+            }
+            else
+            {
+                logger.LogWarning(ex,
+                    "Failed to fetch image for canvas {CanvasId} from {Url} — emitting blank page",
+                    pageInfo.CanvasId, imageUrl);
+            }
+
             var fallbackW = (float)(pageInfo.CanvasWidth * 72.0 / TargetDpi);
             var fallbackH = (float)(pageInfo.CanvasHeight * 72.0 / TargetDpi);
             pdfDoc.AddNewPage(new PageSize(fallbackW, fallbackH));
@@ -301,7 +312,16 @@ public class PdfBuilder(IHttpClientFactory httpClientFactory, ILogger<PdfBuilder
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to embed PDF from {Uri} — skipping", inputUri);
+            if (IpAddressBlockedException.FindInChain(ex) is { } blocked)
+            {
+                logger.LogWarning(
+                    "Refused to embed PDF from {Uri}: host {Host} resolves to {Address}, which is in blocked range {BlockedRange} — skipping",
+                    inputUri, blocked.Host, blocked.Address, blocked.BlockedBy);
+            }
+            else
+            {
+                logger.LogWarning(ex, "Failed to embed PDF from {Uri} — skipping", inputUri);
+            }
         }
         finally
         {

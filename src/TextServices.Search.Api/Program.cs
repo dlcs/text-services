@@ -93,7 +93,7 @@ builder.Services.AddSingleton<ITextStore>(sp =>
 
 // ---- PDF --------------------------------------------------------------------
 
-builder.Services.AddPdfServices();
+builder.Services.AddPdfServices(builder.Configuration);
 
 // ---- Cache ------------------------------------------------------------------
 
