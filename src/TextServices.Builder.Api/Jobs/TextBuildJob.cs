@@ -244,10 +244,11 @@ public class TextBuildJob(
 
         if (!result.IsEmpty)
         {
-            // Text artefact is needed by the Search endpoint, PDF generation and SVG rendering.
+            // Text artefact is needed by the Search endpoint, PDF generation, SVG rendering and Annotations.
             bool needsText = services.HasFlag(JobServices.Search) ||
                              services.HasFlag(JobServices.Pdf) ||
-                             services.HasFlag(JobServices.Svg);
+                             services.HasFlag(JobServices.Svg) ||
+                             services.HasFlag(JobServices.Annotations);
             if (needsText)
             {
                 await textStore.SaveText(job.Id, result.Text);

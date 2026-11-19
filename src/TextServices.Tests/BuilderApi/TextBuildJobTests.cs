@@ -615,6 +615,38 @@ public sealed class TextBuildJobTests : IDisposable
     }
 
     [Fact]
+    public async Task ExecuteAsync_AnnotationsOnly_SavesTextAndManifestAnnotations()
+    {
+        // Canvas-level line/word annotations are built from the Text artefact
+        var pages = new List<PageInstruction>
+        {
+            new() { Id = "https://example.org/c/1", Width = 1000, Height = 1500,
+                    TextUri = "https://example.org/alto/1.xml" },
+        };
+
+        var job = await CreateJob("test/annotations-only",
+            sourceDataJson: JsonSerializer.Serialize(pages),
+            services: JobServices.Annotations);
+
+        var altoFetcher = FakeAlto(new Dictionary<string, XElement>
+        {
+            ["https://example.org/alto/1.xml"] = SampleAlto("hello world"),
+        });
+
+        var sut = MakeJob(altoFetcher: altoFetcher);
+        await sut.ExecuteAsync(job.Id, FakeCancellationToken.Instance);
+
+        (await _textStore.LoadText(job.Id)).ShouldNotBeNull();
+        (await _textStore.LoadAnnotations(job.Id)).ShouldNotBeNull();
+        (await _textStore.LoadAutoComplete(job.Id)).ShouldBeNull();
+
+        var updated = await _db.Jobs.FindAsync(job.Id);
+        var fulfilled = (JobServices)updated!.FulfilledServices!.Value;
+        fulfilled.ShouldHaveFlag(JobServices.Annotations);
+        fulfilled.ShouldNotHaveFlag(JobServices.Search);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_RetiredAutocompleteBitOnly_SavesNeitherTextNorAutocomplete()
     {
         // Bit 1 << 1 (formerly Autocomplete) may still be set on stored jobs; it is ignored.
